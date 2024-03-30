@@ -43,7 +43,7 @@
             });
       in
       {
-        devShells = flakeboxLib.mkShells {};
+        devShells = flakeboxLib.mkShells { };
 
         legacyPackages = packages;
         packages.default = packages.fedimint-observer;

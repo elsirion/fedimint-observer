@@ -9,6 +9,7 @@ use fedimint_core::config::{
 };
 use fedimint_core::core::{ModuleInstanceId, ModuleKind};
 use fedimint_core::encoding::DynRawFallback;
+use fedimint_core::module::__reexports::serde_json::json;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
 use fedimint_core::module::CommonModuleInit;
 use fedimint_ln_common::bitcoin::hashes::hex::ToHex;
@@ -80,7 +81,7 @@ async fn fetch_config_inner(invite: &InviteCode) -> anyhow::Result<JsonClientCon
                         JsonWithKind::new(
                             kind.clone(),
                             match module_config {
-                                DynRawFallback::Raw { raw, .. } => raw.to_hex().into(),
+                                DynRawFallback::Raw { raw, .. } => json!({"raw": raw.to_hex()}),
                                 DynRawFallback::Decoded(decoded) => decoded.to_json().into(),
                             },
                         ),

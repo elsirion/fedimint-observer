@@ -26,6 +26,9 @@ pub mod id;
 /// parsing
 pub mod meta;
 
+/// Helper API that exposes the federation modules
+pub mod modules;
+
 pub async fn fetch_federation_config(
     Path(invite): Path<InviteCode>,
     State((cache, _)): State<(FederationConfigCache, MetaOverrideCache)>,

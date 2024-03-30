@@ -13,6 +13,11 @@
       let
         flakeboxLib = flakebox.lib.${system} { };
 
+        toolchainArgs = {
+          extraRustFlags = "--cfg tokio_unstable";
+        };
+        stdToolchains = flakeboxLib.mkStdToolchains toolchainArgs;
+
         rustSrc = flakeboxLib.filterSubPaths {
           root = builtins.path {
             name = "flakebox-tutorial";
@@ -27,7 +32,7 @@
         };
 
         packages =
-          (flakeboxLib.craneMultiBuild { }) (craneLib':
+          (flakeboxLib.craneMultiBuild { toolchains = stdToolchains; }) (craneLib':
             let
               craneLib = (craneLib'.overrideArgs {
                 pname = "fedimint-observer";

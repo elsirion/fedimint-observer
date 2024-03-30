@@ -43,11 +43,7 @@
             });
       in
       {
-        devShells = {
-          default = flakeboxLib.mkDevShell {
-            packages = [ ];
-          };
-        };
+        devShells = flakeboxLib.mkShells {};
 
         legacyPackages = packages;
         packages.default = packages.fedimint-observer;

@@ -3,17 +3,23 @@ use axum::routing::get;
 use axum::Router;
 
 use crate::config::{fetch_federation_config, FederationConfigCache};
+use crate::meta::{fetch_federation_meta, MetaOverrideCache};
 
 /// Fedimint config fetching service implementation
 mod config;
 /// `anyhow`-based error handling for axum
 mod error;
+mod meta;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/config/:invite", get(fetch_federation_config))
-        .with_state(FederationConfigCache::default());
+        .route("/config/:invite/meta", get(fetch_federation_meta))
+        .with_state((
+            FederationConfigCache::default(),
+            MetaOverrideCache::default(),
+        ));
 
     let listener = tokio::net::TcpListener::bind(
         std::env::var("FO_BIND").unwrap_or_else(|_| "127.0.0.1:3000".to_owned()),

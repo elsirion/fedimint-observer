@@ -18,10 +18,11 @@ use fedimint_mint_common::MintCommonInit;
 use fedimint_wallet_common::WalletCommonInit;
 
 use crate::error::Result;
+use crate::meta::MetaOverrideCache;
 
 pub async fn fetch_federation_config(
     Path(invite): Path<InviteCode>,
-    State(cache): State<FederationConfigCache>,
+    State((cache, _)): State<(FederationConfigCache, MetaOverrideCache)>,
 ) -> Result<Json<JsonClientConfig>> {
     Ok(cache.fetch_config_cached(&invite).await?.into())
 }

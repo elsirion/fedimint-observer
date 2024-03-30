@@ -16,7 +16,7 @@ mod error;
 async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(|| async { "Server is up and running!" }))
-        .route("/config/:invite", get(fetch_federation_config))
+        //.route("/config/:invite", get(fetch_federation_config))
         .route("/config/:invite/meta", get(fetch_federation_meta))
         .route("/config/:invite/id", get(fetch_federation_id))
         .route(

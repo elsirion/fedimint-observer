@@ -15,9 +15,11 @@ async fn main() -> anyhow::Result<()> {
         .route("/config/:invite", get(fetch_federation_config))
         .with_state(FederationConfigCache::default());
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .context("Binding to port")?;
+    let listener = tokio::net::TcpListener::bind(
+        std::env::var("FO_BIND").unwrap_or_else(|_| "127.0.0.1:3000".to_owned()),
+    )
+    .await
+    .context("Binding to port")?;
 
     axum::serve(listener, app)
         .await

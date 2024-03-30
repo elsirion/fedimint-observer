@@ -17,8 +17,14 @@ use fedimint_ln_common::LightningCommonInit;
 use fedimint_mint_common::MintCommonInit;
 use fedimint_wallet_common::WalletCommonInit;
 
+use crate::config::meta::MetaOverrideCache;
 use crate::error::Result;
-use crate::meta::MetaOverrideCache;
+
+/// Helper API that exposes the federation id
+pub mod id;
+/// Helper API that unifies config meta and override meta, applying lenient
+/// parsing
+pub mod meta;
 
 pub async fn fetch_federation_config(
     Path(invite): Path<InviteCode>,

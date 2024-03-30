@@ -2,20 +2,21 @@ use anyhow::Context;
 use axum::routing::get;
 use axum::Router;
 
+use crate::config::id::fetch_federation_id;
+use crate::config::meta::{fetch_federation_meta, MetaOverrideCache};
 use crate::config::{fetch_federation_config, FederationConfigCache};
-use crate::meta::{fetch_federation_meta, MetaOverrideCache};
 
 /// Fedimint config fetching service implementation
 mod config;
 /// `anyhow`-based error handling for axum
 mod error;
-mod meta;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/config/:invite", get(fetch_federation_config))
         .route("/config/:invite/meta", get(fetch_federation_meta))
+        .route("/config/:invite/id", get(fetch_federation_id))
         .with_state((
             FederationConfigCache::default(),
             MetaOverrideCache::default(),

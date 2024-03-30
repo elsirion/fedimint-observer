@@ -52,7 +52,7 @@ impl FederationConfigCache {
             return Ok(config);
         }
 
-        let config = fetch_config_inner(&invite).await?;
+        let config = fetch_config_inner(invite).await?;
         let mut cache = self.federations.write().await;
         if let Some(replaced) = cache.insert(federation_id, config.clone()) {
             if replaced != config {
@@ -66,7 +66,7 @@ impl FederationConfigCache {
 }
 
 async fn fetch_config_inner(invite: &InviteCode) -> anyhow::Result<JsonClientConfig> {
-    let raw_config = ClientConfig::download_from_invite_code(&invite).await?;
+    let raw_config = ClientConfig::download_from_invite_code(invite).await?;
     let decoders = get_decoders(raw_config.modules.iter().map(
         |(module_instance_id, module_config)| (*module_instance_id, module_config.kind.clone()),
     ));

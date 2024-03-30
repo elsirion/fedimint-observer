@@ -13,8 +13,8 @@ pub async fn fetch_federation_modules(
     let config = config_cache.fetch_config_cached(&invite).await?;
     let module_names = config
         .modules
-        .into_iter()
-        .map(|(module_instance_id, module_config)| module_config.kind().as_str().to_owned())
+        .into_values()
+        .map(|module_config| module_config.kind().as_str().to_owned())
         .collect::<Vec<_>>();
 
     Ok(json!({ "modules": module_names }).into())

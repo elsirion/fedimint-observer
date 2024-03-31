@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
@@ -10,7 +10,7 @@ use fedimint_core::config::{FederationId, META_OVERRIDE_URL_KEY};
 
 use crate::config::FederationConfigCache;
 
-pub type MetaFields = HashMap<String, serde_json::Value>;
+pub type MetaFields = BTreeMap<String, serde_json::Value>;
 
 const REFRESH_INTERVAL: Duration = Duration::from_secs(60 * 60);
 

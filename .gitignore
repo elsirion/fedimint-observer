@@ -1,2 +1,4 @@
 /target
 .env
+test_db.sqlite
+fedimint_observer.db

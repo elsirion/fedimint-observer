@@ -1,21 +1,24 @@
 use anyhow::Context;
-use axum::routing::get;
+use axum::routing::{get, put};
 use axum::Router;
 
 use crate::config::id::fetch_federation_id;
 use crate::config::meta::{fetch_federation_meta, MetaOverrideCache};
 use crate::config::modules::fetch_federation_module_kinds;
 use crate::config::{fetch_federation_config, FederationConfigCache};
+use crate::federation::{add_observed_federation, list_observed_federations, FederationObserver};
 
 /// Fedimint config fetching service implementation
 mod config;
 /// `anyhow`-based error handling for axum
 mod error;
+mod federation;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 struct AppState {
     federation_config_cache: FederationConfigCache,
     meta_override_cache: MetaOverrideCache,
+    federation_observer: FederationObserver,
 }
 
 #[tokio::main]
@@ -29,10 +32,21 @@ async fn main() -> anyhow::Result<()> {
             "/config/:invite/module_kinds",
             get(fetch_federation_module_kinds),
         )
-        .with_state(AppState::default());
+        .route("/federations", get(list_observed_federations))
+        .route("/federations", put(add_observed_federation))
+        .with_state(AppState {
+            federation_config_cache: Default::default(),
+            meta_override_cache: Default::default(),
+            federation_observer: FederationObserver::new(
+                &dotenv::var("FO_DATABASE")
+                    .unwrap_or_else(|_| "sqlite://fedimint_observer.db".to_owned()),
+                &dotenv::var("FO_ADMIN_AUTH").context("No FO_ADMIN_AUTH provided")?,
+            )
+            .await?,
+        });
 
     let listener = tokio::net::TcpListener::bind(
-        std::env::var("FO_BIND").unwrap_or_else(|_| "127.0.0.1:3000".to_owned()),
+        dotenv::var("FO_BIND").unwrap_or_else(|_| "127.0.0.1:3000".to_owned()),
     )
     .await
     .context("Binding to port")?;

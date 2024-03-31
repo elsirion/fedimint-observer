@@ -4,7 +4,7 @@ use axum::Router;
 
 use crate::config::id::fetch_federation_id;
 use crate::config::meta::{fetch_federation_meta, MetaOverrideCache};
-use crate::config::modules::fetch_federation_modules;
+use crate::config::modules::fetch_federation_module_kinds;
 use crate::config::{fetch_federation_config, FederationConfigCache};
 
 /// Fedimint config fetching service implementation
@@ -19,7 +19,10 @@ async fn main() -> anyhow::Result<()> {
         .route("/config/:invite", get(fetch_federation_config))
         .route("/config/:invite/meta", get(fetch_federation_meta))
         .route("/config/:invite/id", get(fetch_federation_id))
-        .route("/config/:invite/modules", get(fetch_federation_modules))
+        .route(
+            "/config/:invite/module_kinds",
+            get(fetch_federation_module_kinds),
+        )
         .with_state((
             FederationConfigCache::default(),
             MetaOverrideCache::default(),

@@ -107,7 +107,7 @@ async fn fetch_config_inner(invite: &InviteCode) -> anyhow::Result<JsonClientCon
     })
 }
 
-fn get_decoders(
+pub fn get_decoders(
     modules: impl IntoIterator<Item = (ModuleInstanceId, ModuleKind)>,
 ) -> ModuleDecoderRegistry {
     ModuleDecoderRegistry::new(modules.into_iter().filter_map(

@@ -1,26 +1,30 @@
 mod db;
 
+use std::io::Cursor;
 use std::time::Duration;
 
 use anyhow::{ensure, Context};
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::Json;
 use axum_auth::AuthBearer;
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
-use fedimint_core::encoding::Encodable;
+use fedimint_core::core::DynUnknown;
+use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::epoch::ConsensusItem;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
 use fedimint_core::util::retry;
 use futures::StreamExt;
+use serde_json::json;
 use sqlx::any::install_default_drivers;
 use sqlx::pool::PoolConnection;
 use sqlx::{query, query_as, Any, AnyPool, Connection, Transaction};
 use tracing::log::info;
 use tracing::{debug, error};
 
+use crate::config::get_decoders;
 use crate::federation::db::Federation;
 use crate::AppState;
 
@@ -55,6 +59,104 @@ pub async fn add_observed_federation(
         .add_federation(&invite)
         .await?
         .into())
+}
+
+pub async fn list_federation_transactions(
+    Path(federation_id): Path<FederationId>,
+    State(state): State<AppState>,
+) -> crate::error::Result<Json<Vec<serde_json::Value>>> {
+    let observer = state.federation_observer;
+
+    let federation = observer
+        .get_federation(federation_id)
+        .await?
+        .context("Federation not found")?;
+
+    let decoders = get_decoders(federation.config.modules.iter().map(
+        |(module_instance_id, module_config)| (*module_instance_id, module_config.kind.clone()),
+    ));
+
+    let transactions = observer.list_federation_transactions(federation_id).await?;
+
+    let transactions = transactions
+        .into_iter()
+        .map(|tx| {
+            let inputs = tx
+                .data
+                .inputs
+                .into_iter()
+                .map(|input| {
+                    let instance = input.module_instance_id();
+                    let kind = federation
+                        .config
+                        .modules
+                        .get(&instance)
+                        .map(|module_config| module_config.kind.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned());
+
+                    let input = if let Some(decoder) = decoders.get(instance) {
+                        let input = input.as_any().downcast_ref::<DynUnknown>().unwrap();
+                        let mut input_bytes = Cursor::new(&input.0);
+                        let _len = u64::consensus_decode(&mut input_bytes, &decoders).unwrap();
+
+                        decoder
+                            .decode(&mut input_bytes, instance, &decoders)
+                            .expect("Invalid input")
+                    } else {
+                        input
+                    };
+
+                    json!({
+                        "kind": kind.as_str(),
+                        "input": input.to_string(),
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            let outputs = tx
+                .data
+                .outputs
+                .into_iter()
+                .map(|output| {
+                    let instance = output.module_instance_id();
+                    let kind = federation
+                        .config
+                        .modules
+                        .get(&instance)
+                        .map(|module_config| module_config.kind.to_string())
+                        .unwrap_or_else(|| "unknown".to_owned());
+
+                    let output = if let Some(decoder) = decoders.get(instance) {
+                        let output = output.as_any().downcast_ref::<DynUnknown>().unwrap();
+                        let mut output_bytes = Cursor::new(&output.0);
+                        let _len = u64::consensus_decode(&mut output_bytes, &decoders).unwrap();
+
+                        decoder
+                            .decode(&mut output_bytes, instance, &decoders)
+                            .expect("Invalid input")
+                    } else {
+                        output
+                    };
+
+                    json!({
+                        "kind": kind.as_str(),
+                        "output": output.to_string(),
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            json!({
+                "session": tx.session_index,
+                "item": tx.item_index,
+                "transaction": {
+                    "inputs": inputs,
+                    "outputs": outputs,
+                }
+            })
+        })
+        .collect::<Vec<_>>();
+
+    Ok(transactions.into())
 }
 
 #[derive(Debug, Clone)]
@@ -125,7 +227,7 @@ impl FederationObserver {
     ) -> anyhow::Result<Option<Federation>> {
         Ok(
             query_as::<_, db::Federation>("SELECT * FROM federations WHERE federation_id = $1")
-                .bind(federation_id.to_string())
+                .bind(federation_id.consensus_encode_to_vec())
                 .fetch_optional(self.connection().await?.as_mut())
                 .await?,
         )
@@ -251,5 +353,15 @@ impl FederationObserver {
                 .fetch_one(self.connection().await?.as_mut())
                 .await?.0;
         Ok((last_session + 1) as u64)
+    }
+
+    pub async fn list_federation_transactions(
+        &self,
+        federation_id: FederationId,
+    ) -> anyhow::Result<Vec<db::Transaction>> {
+        Ok(query_as::<_, db::Transaction>("SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1")
+            .bind(federation_id.consensus_encode_to_vec())
+            .fetch_all(self.connection().await?.as_mut())
+            .await?)
     }
 }

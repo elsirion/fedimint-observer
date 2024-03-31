@@ -9,7 +9,10 @@ use crate::config::id::fetch_federation_id;
 use crate::config::meta::{fetch_federation_meta, MetaOverrideCache};
 use crate::config::modules::fetch_federation_module_kinds;
 use crate::config::{fetch_federation_config, FederationConfigCache};
-use crate::federation::{add_observed_federation, list_observed_federations, FederationObserver};
+use crate::federation::{
+    add_observed_federation, list_federation_transactions, list_observed_federations,
+    FederationObserver,
+};
 
 /// Fedimint config fetching service implementation
 mod config;
@@ -47,6 +50,10 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/federations", get(list_observed_federations))
         .route("/federations", put(add_observed_federation))
+        .route(
+            "/federations/:federation_id/transactions",
+            get(list_federation_transactions),
+        )
         .with_state(AppState {
             federation_config_cache: Default::default(),
             meta_override_cache: Default::default(),

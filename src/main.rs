@@ -1,6 +1,9 @@
 use anyhow::Context;
 use axum::routing::{get, put};
 use axum::Router;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
 use crate::config::id::fetch_federation_id;
 use crate::config::meta::{fetch_federation_meta, MetaOverrideCache};
@@ -23,6 +26,16 @@ struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(
+            EnvFilter::builder()
+                .with_default_directive("fedimint_observer=debug".parse().unwrap())
+                .from_env()
+                .unwrap(),
+        )
+        .init();
+
     let app = Router::new()
         .route("/health", get(|| async { "Server is up and running!" }))
         .route("/config/:invite", get(fetch_federation_config))

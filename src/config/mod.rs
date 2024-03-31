@@ -16,6 +16,7 @@ use fedimint_ln_common::bitcoin::hashes::hex::ToHex;
 use fedimint_ln_common::LightningCommonInit;
 use fedimint_mint_common::MintCommonInit;
 use fedimint_wallet_common::WalletCommonInit;
+use tracing::warn;
 
 use crate::error::Result;
 use crate::AppState;
@@ -61,7 +62,7 @@ impl FederationConfigCache {
         if let Some(replaced) = cache.insert(federation_id, config.clone()) {
             if replaced != config {
                 // TODO: use tracing
-                eprintln!("Warning, config for federation {federation_id} changed");
+                warn!("Config for federation {federation_id} changed");
             }
         }
 

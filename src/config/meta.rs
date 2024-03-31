@@ -7,6 +7,8 @@ use axum::extract::{Path, State};
 use axum::Json;
 use fedimint_core::api::InviteCode;
 use fedimint_core::config::{FederationId, META_OVERRIDE_URL_KEY};
+use tracing::debug;
+use tracing::log::warn;
 
 use crate::AppState;
 
@@ -36,7 +38,7 @@ pub async fn fetch_federation_meta(
         .or_else(|| meta_fields_config.get("meta_external_url")) // Fedi legacy field
         .and_then(|url| url.as_str().map(ToOwned::to_owned))
     {
-        eprintln!("fetching {override_url}");
+        debug!("fetching {override_url}");
         let meta_override = match state
             .meta_override_cache
             .fetch_meta_cached(&override_url, federation_id)
@@ -44,7 +46,7 @@ pub async fn fetch_federation_meta(
         {
             Ok(meta) => meta,
             Err(e) => {
-                eprintln!("Failed to fetch meta fields from {override_url}: {e:?}");
+                warn!("Failed to fetch meta fields from {override_url}: {e:?}");
                 return Ok(meta_fields_config.into());
             }
         };

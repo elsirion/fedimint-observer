@@ -897,6 +897,7 @@ name = "fedimint-observer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-stream",
  "axum",
  "axum-auth",
  "dotenv",
@@ -904,11 +905,14 @@ dependencies = [
  "fedimint-ln-common",
  "fedimint-mint-common",
  "fedimint-wallet-common",
+ "futures",
  "reqwest",
  "serde",
  "serde_json",
  "sqlx",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

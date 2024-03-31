@@ -12,6 +12,12 @@ mod config;
 /// `anyhow`-based error handling for axum
 mod error;
 
+#[derive(Debug, Clone, Default)]
+struct AppState {
+    federation_config_cache: FederationConfigCache,
+    meta_override_cache: MetaOverrideCache,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let app = Router::new()
@@ -23,10 +29,7 @@ async fn main() -> anyhow::Result<()> {
             "/config/:invite/module_kinds",
             get(fetch_federation_module_kinds),
         )
-        .with_state((
-            FederationConfigCache::default(),
-            MetaOverrideCache::default(),
-        ));
+        .with_state(AppState::default());
 
     let listener = tokio::net::TcpListener::bind(
         std::env::var("FO_BIND").unwrap_or_else(|_| "127.0.0.1:3000".to_owned()),

@@ -8,7 +8,7 @@ use axum::Json;
 use fedimint_core::api::InviteCode;
 use fedimint_core::config::{FederationId, META_OVERRIDE_URL_KEY};
 
-use crate::config::FederationConfigCache;
+use crate::AppState;
 
 pub type MetaFields = BTreeMap<String, serde_json::Value>;
 
@@ -16,10 +16,13 @@ const REFRESH_INTERVAL: Duration = Duration::from_secs(60 * 60);
 
 pub async fn fetch_federation_meta(
     Path(invite): Path<InviteCode>,
-    State((config_cache, meta_cache)): State<(FederationConfigCache, MetaOverrideCache)>,
+    State(state): State<AppState>,
 ) -> crate::error::Result<Json<MetaFields>> {
     let federation_id = invite.federation_id();
-    let config = config_cache.fetch_config_cached(&invite).await?;
+    let config = state
+        .federation_config_cache
+        .fetch_config_cached(&invite)
+        .await?;
     let meta_fields_config = parse_meta_lenient(
         config
             .global
@@ -34,7 +37,8 @@ pub async fn fetch_federation_meta(
         .and_then(|url| url.as_str().map(ToOwned::to_owned))
     {
         eprintln!("fetching {override_url}");
-        let meta_override = match meta_cache
+        let meta_override = match state
+            .meta_override_cache
             .fetch_meta_cached(&override_url, federation_id)
             .await
         {

@@ -5,14 +5,16 @@ use axum::Json;
 use fedimint_core::api::InviteCode;
 use fedimint_core::core::ModuleKind;
 
-use crate::config::meta::MetaOverrideCache;
-use crate::config::FederationConfigCache;
+use crate::AppState;
 
 pub async fn fetch_federation_module_kinds(
     Path(invite): Path<InviteCode>,
-    State((config_cache, _)): State<(FederationConfigCache, MetaOverrideCache)>,
+    State(state): State<AppState>,
 ) -> crate::error::Result<Json<BTreeSet<ModuleKind>>> {
-    let config = config_cache.fetch_config_cached(&invite).await?;
+    let config = state
+        .federation_config_cache
+        .fetch_config_cached(&invite)
+        .await?;
     let module_kinds = config
         .modules
         .into_values()

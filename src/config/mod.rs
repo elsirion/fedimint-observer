@@ -17,8 +17,8 @@ use fedimint_ln_common::LightningCommonInit;
 use fedimint_mint_common::MintCommonInit;
 use fedimint_wallet_common::WalletCommonInit;
 
-use crate::config::meta::MetaOverrideCache;
 use crate::error::Result;
+use crate::AppState;
 
 /// Helper API that exposes the federation id
 pub mod id;
@@ -31,9 +31,13 @@ pub mod modules;
 
 pub async fn fetch_federation_config(
     Path(invite): Path<InviteCode>,
-    State((cache, _)): State<(FederationConfigCache, MetaOverrideCache)>,
+    State(state): State<AppState>,
 ) -> Result<Json<JsonClientConfig>> {
-    Ok(cache.fetch_config_cached(&invite).await?.into())
+    Ok(state
+        .federation_config_cache
+        .fetch_config_cached(&invite)
+        .await?
+        .into())
 }
 
 #[derive(Default, Debug, Clone)]

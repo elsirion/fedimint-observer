@@ -1,6 +1,7 @@
 use anyhow::Context;
 use axum::routing::{get, put};
 use axum::Router;
+use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
@@ -33,11 +34,14 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .with(
             EnvFilter::builder()
-                .with_default_directive("fedimint_observer=debug".parse().unwrap())
+                .with_default_directive("info".parse().unwrap())
                 .from_env()
                 .unwrap(),
         )
         .init();
+
+    let bind_address = dotenv::var("FO_BIND").unwrap_or_else(|_| "127.0.0.1:3000".to_owned());
+    info!("Starting API server on {bind_address}");
 
     let app = Router::new()
         .route("/health", get(|| async { "Server is up and running!" }))
@@ -65,11 +69,9 @@ async fn main() -> anyhow::Result<()> {
             .await?,
         });
 
-    let listener = tokio::net::TcpListener::bind(
-        dotenv::var("FO_BIND").unwrap_or_else(|_| "127.0.0.1:3000".to_owned()),
-    )
-    .await
-    .context("Binding to port")?;
+    let listener = tokio::net::TcpListener::bind(bind_address)
+        .await
+        .context("Binding to port")?;
 
     axum::serve(listener, app)
         .await

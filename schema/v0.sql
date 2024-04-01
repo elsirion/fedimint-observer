@@ -22,3 +22,31 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 CREATE INDEX IF NOT EXISTS federation_transactions ON transactions(federation_id);
 CREATE INDEX IF NOT EXISTS federation_session_transactions ON transactions(federation_id, session_index);
+
+CREATE TABLE IF NOT EXISTS transaction_inputs (
+    federation_id BLOB NOT NULL REFERENCES federations(federation_id),
+    txid BLOB NOT NULL,
+    in_index INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    type TEXT, -- used if subtypes exist
+    amount_msat INTEGER,
+    PRIMARY KEY (federation_id, txid, in_index),
+    FOREIGN KEY (federation_id, txid) REFERENCES transactions(federation_id, txid) -- This might be a bit too heavy of a foreign key? Maybe use rowid instead?
+);
+CREATE INDEX IF NOT EXISTS federation_inputs ON transaction_inputs(federation_id);
+CREATE INDEX IF NOT EXISTS federation_transaction_inputs ON transaction_inputs(federation_id, txid);
+CREATE INDEX IF NOT EXISTS federation_input_kinds ON transaction_inputs(federation_id, kind);
+
+CREATE TABLE IF NOT EXISTS transaction_outputs (
+    federation_id BLOB NOT NULL REFERENCES federations(federation_id),
+    txid BLOB NOT NULL,
+    out_index INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    type TEXT, -- used if subtypes exist
+    amount_msat INTEGER,
+    PRIMARY KEY (federation_id, txid, out_index),
+    FOREIGN KEY (federation_id, txid) REFERENCES transactions(federation_id, txid) -- This might be a bit too heavy of a foreign key? Maybe use rowid instead?
+);
+CREATE INDEX IF NOT EXISTS federation_outputs ON transaction_outputs(federation_id);
+CREATE INDEX IF NOT EXISTS federation_transaction_outputs ON transaction_outputs(federation_id, txid);
+CREATE INDEX IF NOT EXISTS federation_output_kinds ON transaction_outputs(federation_id, kind);

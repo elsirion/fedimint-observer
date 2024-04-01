@@ -1,7 +1,7 @@
 mod db;
 
 use std::io::Cursor;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use anyhow::{ensure, Context};
 use axum::extract::{Path, State};
@@ -9,13 +9,17 @@ use axum::Json;
 use axum_auth::AuthBearer;
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
-use fedimint_core::core::DynUnknown;
+use fedimint_core::core::{DynUnknown, ModuleInstanceId};
 use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::epoch::ConsensusItem;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
 use fedimint_core::util::retry;
+use fedimint_ln_common::contracts::Contract;
+use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
+use fedimint_mint_common::{MintInput, MintOutput};
+use fedimint_wallet_common::{WalletInput, WalletOutput};
 use futures::StreamExt;
 use serde_json::json;
 use sqlx::any::install_default_drivers;
@@ -61,6 +65,26 @@ pub async fn add_observed_federation(
         .into())
 }
 
+fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {
+    get_decoders(
+        config
+            .modules
+            .iter()
+            .map(|(module_instance_id, module_config)| {
+                (*module_instance_id, module_config.kind.clone())
+            }),
+    )
+    .with_fallback()
+}
+
+fn instance_to_kind(config: &ClientConfig, module_instance_id: ModuleInstanceId) -> String {
+    config
+        .modules
+        .get(&module_instance_id)
+        .map(|module_config| module_config.kind.to_string())
+        .unwrap_or_else(|| "not-in-config".to_owned())
+}
+
 pub async fn list_federation_transactions(
     Path(federation_id): Path<FederationId>,
     State(state): State<AppState>,
@@ -72,9 +96,7 @@ pub async fn list_federation_transactions(
         .await?
         .context("Federation not found")?;
 
-    let decoders = get_decoders(federation.config.modules.iter().map(
-        |(module_instance_id, module_config)| (*module_instance_id, module_config.kind.clone()),
-    ));
+    let decoders = decoders_from_config(&federation.config);
 
     let transactions = observer.list_federation_transactions(federation_id).await?;
 
@@ -87,12 +109,7 @@ pub async fn list_federation_transactions(
                 .into_iter()
                 .map(|input| {
                     let instance = input.module_instance_id();
-                    let kind = federation
-                        .config
-                        .modules
-                        .get(&instance)
-                        .map(|module_config| module_config.kind.to_string())
-                        .unwrap_or_else(|| "unknown".to_owned());
+                    let kind = instance_to_kind(&federation.config, instance);
 
                     let input = if let Some(decoder) = decoders.get(instance) {
                         let input = input.as_any().downcast_ref::<DynUnknown>().unwrap();
@@ -269,6 +286,7 @@ impl FederationObserver {
         config: ClientConfig,
     ) -> anyhow::Result<()> {
         let api = DynGlobalApi::from_config(&config);
+        let decoders = decoders_from_config(&config);
 
         info!("Starting background job for {federation_id}");
         let next_session = self.federation_session_count(federation_id).await?;
@@ -278,11 +296,15 @@ impl FederationObserver {
             .map(move |session_index| {
                 debug!("Starting fetch job for session {session_index}");
                 let api_fetch_single = api_fetch.clone();
+                let decoders_single = decoders.clone();
                 async move {
-                    let decoders = ModuleDecoderRegistry::default().with_fallback();
                     let signed_session_outcome = retry(
                         format!("Waiting for session {session_index}"),
-                        || async { api_fetch_single.await_block(session_index, &decoders).await },
+                        || async {
+                            api_fetch_single
+                                .await_block(session_index, &decoders_single)
+                                .await
+                        },
                         Duration::from_secs(1),
                         u32::MAX,
                     )
@@ -294,9 +316,25 @@ impl FederationObserver {
             })
             .buffered(32);
 
+        let mut timer = SystemTime::now();
+        let mut last_session = next_session;
         while let Some((session_index, signed_session_outcome)) = session_stream.next().await {
-            self.process_session(federation_id, session_index, signed_session_outcome)
-                .await?;
+            self.process_session(
+                federation_id,
+                config.clone(),
+                session_index,
+                signed_session_outcome,
+            )
+            .await?;
+
+            let elapsed = timer.elapsed().unwrap_or_default();
+            if elapsed >= Duration::from_secs(5) {
+                let sessions_synced = session_index - last_session;
+                let rate = (sessions_synced as f64) / elapsed.as_secs_f64();
+                info!("Synced up to session {session_index}, processed {sessions_synced} sessions at a rate of {rate:.2} sessions/s");
+                timer = SystemTime::now();
+                last_session = session_index;
+            }
         }
 
         unreachable!("Session stream should never end")
@@ -305,6 +343,7 @@ impl FederationObserver {
     async fn process_session(
         &self,
         federation_id: FederationId,
+        config: ClientConfig,
         session_index: u64,
         signed_session_outcome: SessionOutcome,
     ) -> anyhow::Result<()> {
@@ -322,14 +361,15 @@ impl FederationObserver {
                     for (item_idx, item) in signed_session_outcome.items.into_iter().enumerate() {
                         match item.item {
                             ConsensusItem::Transaction(transaction) => {
-                                query("INSERT INTO transactions VALUES ($1, $2, $3, $4, $5)")
-                                    .bind(transaction.tx_hash().consensus_encode_to_vec())
-                                    .bind(federation_id.consensus_encode_to_vec())
-                                    .bind(session_index as i64)
-                                    .bind(item_idx as i64)
-                                    .bind(transaction.consensus_encode_to_vec())
-                                    .execute(dbtx.as_mut())
-                                    .await?;
+                                Self::process_transaction(
+                                    dbtx,
+                                    federation_id,
+                                    &config,
+                                    session_index,
+                                    item_idx as u64,
+                                    transaction,
+                                )
+                                .await?;
                             }
                             _ => {
                                 // FIXME: process module CIs
@@ -343,6 +383,143 @@ impl FederationObserver {
             .await?;
 
         debug!("Processed session {session_index} of federation {federation_id}");
+        Ok(())
+    }
+
+    async fn process_transaction(
+        dbtx: &mut Transaction<'_, Any>,
+        federation_id: FederationId,
+        config: &ClientConfig,
+        session_index: u64,
+        item_index: u64,
+        transaction: fedimint_core::transaction::Transaction,
+    ) -> sqlx::Result<()> {
+        let txid = transaction.tx_hash();
+
+        query("INSERT INTO transactions VALUES ($1, $2, $3, $4, $5)")
+            .bind(txid.consensus_encode_to_vec())
+            .bind(federation_id.consensus_encode_to_vec())
+            .bind(session_index as i64)
+            .bind(item_index as i64)
+            .bind(transaction.consensus_encode_to_vec())
+            .execute(dbtx.as_mut())
+            .await?;
+
+        for (in_idx, input) in transaction.inputs.into_iter().enumerate() {
+            let kind = instance_to_kind(config, input.module_instance_id());
+            let maybe_amount_msat = match kind.as_str() {
+                "ln" => Some(
+                    input
+                        .as_any()
+                        .downcast_ref::<LightningInput>()
+                        .expect("Not LN input")
+                        .maybe_v0_ref()
+                        .expect("Not v0")
+                        .amount
+                        .msats,
+                ),
+                "mint" => Some(
+                    input
+                        .as_any()
+                        .downcast_ref::<MintInput>()
+                        .expect("Not Mint input")
+                        .maybe_v0_ref()
+                        .expect("Not v0")
+                        .amount
+                        .msats,
+                ),
+                "wallet" => Some(
+                    input
+                        .as_any()
+                        .downcast_ref::<WalletInput>()
+                        .expect("Not Wallet input")
+                        .maybe_v0_ref()
+                        .expect("Not v0")
+                        .0
+                        .tx_output()
+                        .value
+                        * 1000,
+                ),
+                _ => None,
+            };
+
+            // TODO: use for LN input, but needs ability to query previously created
+            // contracts
+            let subtype = Option::<String>::None;
+
+            query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6)")
+                .bind(federation_id.consensus_encode_to_vec())
+                .bind(txid.consensus_encode_to_vec())
+                .bind(in_idx as i64)
+                .bind(kind.as_str())
+                .bind(subtype)
+                .bind(maybe_amount_msat.map(|amt| amt as i64))
+                .execute(dbtx.as_mut())
+                .await?;
+        }
+
+        for (out_idx, output) in transaction.outputs.into_iter().enumerate() {
+            let kind = instance_to_kind(config, output.module_instance_id());
+            let (maybe_amount_msat, maybe_subtype) = match kind.as_str() {
+                "ln" => {
+                    let ln_output = output
+                        .as_any()
+                        .downcast_ref::<LightningOutput>()
+                        .expect("Not LN input")
+                        .maybe_v0_ref()
+                        .expect("Not v0");
+                    let (amount_msat, maybe_subtype) = match ln_output {
+                        LightningOutputV0::Contract(contract) => {
+                            let subtype = match contract.contract {
+                                Contract::Incoming(_) => "incoming",
+                                Contract::Outgoing(_) => "outgoing",
+                            };
+                            (contract.amount.msats, Some(subtype))
+                        }
+                        // TODO: handle separately
+                        LightningOutputV0::Offer(_) => (0, None),
+                        LightningOutputV0::CancelOutgoing { .. } => (0, None),
+                    };
+
+                    (Some(amount_msat), maybe_subtype)
+                }
+                "mint" => {
+                    let amount_msat = output
+                        .as_any()
+                        .downcast_ref::<MintOutput>()
+                        .expect("Not Mint input")
+                        .maybe_v0_ref()
+                        .expect("Not v0")
+                        .amount
+                        .msats;
+                    (Some(amount_msat), None)
+                }
+                "wallet" => {
+                    let amount_msat = output
+                        .as_any()
+                        .downcast_ref::<WalletOutput>()
+                        .expect("Not Wallet input")
+                        .maybe_v0_ref()
+                        .expect("Not v0")
+                        .amount()
+                        .to_sat()
+                        * 1000;
+                    (Some(amount_msat), None)
+                }
+                _ => (None, None),
+            };
+
+            query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6)")
+                .bind(federation_id.consensus_encode_to_vec())
+                .bind(txid.consensus_encode_to_vec())
+                .bind(out_idx as i64)
+                .bind(kind.as_str())
+                .bind(maybe_subtype)
+                .bind(maybe_amount_msat.map(|amt| amt as i64))
+                .execute(dbtx.as_mut())
+                .await?;
+        }
+
         Ok(())
     }
 

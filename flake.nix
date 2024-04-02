@@ -11,7 +11,12 @@
   outputs = { self, nixpkgs, flake-utils, flakebox }:
     flake-utils.lib.eachDefaultSystem (system:
       let
+        pkgs = import nixpkgs {
+          inherit system;
+        };
         flakeboxLib = flakebox.lib.${system} { };
+        lib = pkgs.lib;
+        stdenv = pkgs.stdenv;
 
         toolchainArgs = {
           extraRustFlags = "--cfg tokio_unstable";
@@ -48,7 +53,11 @@
             });
       in
       {
-        devShells = flakeboxLib.mkShells { };
+        devShells = flakeboxLib.mkShells {
+          nativeBuildInputs = [] ++ lib.optionals stdenv.isDarwin [
+            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+          ];
+        };
 
         legacyPackages = packages;
         packages.default = packages.fedimint-observer;

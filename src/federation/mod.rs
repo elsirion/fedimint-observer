@@ -17,6 +17,7 @@ use fedimint_core::module::registry::ModuleDecoderRegistry;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
 use fedimint_core::util::retry;
+use fedimint_core::Amount;
 use fedimint_ln_common::contracts::Contract;
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
@@ -27,7 +28,7 @@ use sqlx::any::install_default_drivers;
 use sqlx::pool::PoolConnection;
 use sqlx::{query, query_as, Any, AnyPool, Connection, Transaction};
 use tracing::log::info;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use crate::config::get_decoders;
 use crate::federation::db::Federation;
@@ -37,6 +38,7 @@ pub fn get_federations_routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_observed_federations))
         .route("/", put(add_observed_federation))
+        .route("/:federation_id", get(get_federation_overview))
         .route(
             "/:federation_id/transactions",
             get(list_federation_transactions),
@@ -91,6 +93,26 @@ pub(crate) async fn get_federation_config(
         .context("Federation not observed, you might want to try /config/:federation_invite")?
         .config
         .into())
+}
+
+async fn get_federation_overview(
+    Path(federation_id): Path<FederationId>,
+    State(state): State<AppState>,
+) -> crate::error::Result<Json<serde_json::Value>> {
+    let session_count = state
+        .federation_observer
+        .federation_session_count(federation_id)
+        .await?;
+    let total_assets_msat = state
+        .federation_observer
+        .get_federation_assets(federation_id)
+        .await?;
+
+    Ok(json!({
+        "session_count": session_count,
+        "total_assets_msat": total_assets_msat
+    })
+    .into())
 }
 
 fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {
@@ -568,5 +590,37 @@ impl FederationObserver {
             .bind(federation_id.consensus_encode_to_vec())
             .fetch_all(self.connection().await?.as_mut())
             .await?)
+    }
+
+    pub async fn get_federation_assets(
+        &self,
+        federation_id: FederationId,
+    ) -> anyhow::Result<Amount> {
+        // Unfortunately SQLx has a bug where the integer parsing logic of the Any DB
+        // type always uses signed 32bit integer decoding when receiving integer values
+        // from SQLite. This is probably due to SQLite lacking the distinction between
+        // integer types and just calling everything INTEGER and always using 64bit
+        // representations while any other DBMS will call 64bit integers BIGINT or
+        // something similar. That's why we serialize the number to a string and the
+        // deserialize again in rust.
+        let total_assets_msat = query_as::<_, (String,)>(
+            "
+        SELECT
+            CAST((SELECT COALESCE(SUM(amount_msat), 0)
+             FROM transaction_inputs
+             WHERE kind = 'wallet' AND federation_id = $1) -
+            (SELECT COALESCE(SUM(amount_msat), 0)
+             FROM transaction_outputs
+             WHERE kind = 'wallet' AND federation_id = $1) AS TEXT) AS net_amount_msat
+        ",
+        )
+        .bind(federation_id.consensus_encode_to_vec())
+        .fetch_one(self.connection().await?.as_mut())
+        .await?
+        .0;
+
+        Ok(Amount::from_msats(
+            total_assets_msat.parse().expect("DB returns valid number"),
+        ))
     }
 }

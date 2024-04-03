@@ -58,6 +58,10 @@ async fn main() -> anyhow::Result<()> {
             "/federations/:federation_id/transactions",
             get(list_federation_transactions),
         )
+        .route(
+            "/federations/:federation_id/config",
+            get(federation::get_federation_config),
+        )
         .with_state(AppState {
             federation_config_cache: Default::default(),
             meta_override_cache: Default::default(),

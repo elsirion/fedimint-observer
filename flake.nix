@@ -54,7 +54,7 @@
       in
       {
         devShells = flakeboxLib.mkShells {
-          nativeBuildInputs = [] ++ lib.optionals stdenv.isDarwin [
+          nativeBuildInputs = [ ] ++ lib.optionals stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
         };

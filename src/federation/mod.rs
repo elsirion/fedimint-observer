@@ -65,6 +65,19 @@ pub async fn add_observed_federation(
         .into())
 }
 
+pub(crate) async fn get_federation_config(
+    Path(federation_id): Path<FederationId>,
+    State(state): State<AppState>,
+) -> crate::error::Result<Json<ClientConfig>> {
+    Ok(state
+        .federation_observer
+        .get_federation(federation_id)
+        .await?
+        .context("Federation not observed, you might want to try /config/:federation_invite")?
+        .config
+        .into())
+}
+
 fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {
     get_decoders(
         config

@@ -5,7 +5,8 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::{ensure, Context};
 use axum::extract::{Path, State};
-use axum::routing::{get, put};
+use axum::response::Html;
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use axum_auth::AuthBearer;
 use fedimint_core::api::{DynGlobalApi, InviteCode};
@@ -23,10 +24,13 @@ use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
 use fedimint_wallet_common::{WalletInput, WalletOutput};
 use futures::StreamExt;
+use hex::ToHex;
+use serde::Serialize;
 use serde_json::json;
 use sqlx::any::install_default_drivers;
 use sqlx::pool::PoolConnection;
-use sqlx::{query, query_as, Any, AnyPool, Connection, Transaction};
+use sqlx::postgres::any::AnyTypeInfoKind;
+use sqlx::{query, query_as, Any, AnyPool, Column, Connection, Database, Row, Transaction};
 use tracing::log::info;
 use tracing::{debug, error};
 
@@ -36,6 +40,8 @@ use crate::{federation, AppState};
 
 pub fn get_federations_routes() -> Router<AppState> {
     Router::new()
+        .route("/query", post(run_query))
+        .route("/query", get(|| async { Html(include_str!("query.html")) }))
         .route("/", get(list_observed_federations))
         .route("/", put(add_observed_federation))
         .route("/:federation_id", get(get_federation_overview))
@@ -224,6 +230,27 @@ pub async fn list_federation_transactions(
         .collect::<Vec<_>>();
 
     Ok(transactions.into())
+}
+
+async fn run_query(
+    AuthBearer(auth): AuthBearer,
+    State(state): State<AppState>,
+    Json(body): Json<serde_json::Value>,
+) -> crate::error::Result<Json<QueryResult>> {
+    let observer = state.federation_observer;
+
+    observer.check_auth(&auth)?;
+
+    let query = body
+        .get("query")
+        .context("No query provided")?
+        .as_str()
+        .context("Query parameter wasn't a string")?;
+    info!("Running query: {query}");
+    let result = observer.run_qery(query).await?;
+    info!("Query result: {result:?}");
+
+    Ok(result.into())
 }
 
 #[derive(Debug, Clone)]
@@ -623,4 +650,83 @@ impl FederationObserver {
             total_assets_msat.parse().expect("DB returns valid number"),
         ))
     }
+
+    async fn run_qery(&self, sql: &str) -> anyhow::Result<QueryResult> {
+        let result: Vec<<Any as Database>::Row> = query(sql)
+            .fetch_all(self.connection().await?.as_mut())
+            .await?;
+
+        let Some(first_row) = result.first() else {
+            return Ok(QueryResult {
+                cols: vec![],
+                rows: vec![],
+            });
+        };
+
+        let cols = first_row
+            .columns()
+            .iter()
+            .map(|col| col.name().to_owned())
+            .collect();
+
+        info!("cols: {cols:?}");
+
+        let rows = result
+            .into_iter()
+            .map(|row| {
+                row.columns()
+                    .iter()
+                    .map(|col| {
+                        let col_type = col.type_info();
+
+                        match col_type.kind() {
+                            AnyTypeInfoKind::Null => row
+                                .try_get::<bool, _>(col.ordinal())
+                                .ok()
+                                .map(Into::<serde_json::Value>::into)
+                                .or_else(|| {
+                                    row.try_get::<String, _>(col.ordinal()).ok().map(Into::into)
+                                })
+                                .or_else(|| {
+                                    row.try_get::<i64, _>(col.ordinal()).ok().map(Into::into)
+                                })
+                                .or_else(|| {
+                                    row.try_get::<Vec<u8>, _>(col.ordinal())
+                                        .ok()
+                                        .map(|bytes| bytes.encode_hex::<String>().into())
+                                })
+                                .into(),
+                            AnyTypeInfoKind::Bool => {
+                                row.try_get::<bool, _>(col.ordinal()).ok().into()
+                            }
+                            AnyTypeInfoKind::SmallInt
+                            | AnyTypeInfoKind::Integer
+                            | AnyTypeInfoKind::BigInt => {
+                                row.try_get::<i64, _>(col.ordinal()).ok().into()
+                            }
+                            AnyTypeInfoKind::Real | AnyTypeInfoKind::Double => {
+                                row.try_get::<f64, _>(col.ordinal()).ok().into()
+                            }
+                            AnyTypeInfoKind::Text => {
+                                row.try_get::<String, _>(col.ordinal()).ok().into()
+                            }
+                            AnyTypeInfoKind::Blob => row
+                                .try_get::<Vec<u8>, _>(col.ordinal())
+                                .ok()
+                                .map(|bytes| bytes.encode_hex::<String>())
+                                .into(),
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+
+        Ok(QueryResult { cols, rows })
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct QueryResult {
+    cols: Vec<String>,
+    rows: Vec<Vec<serde_json::Value>>,
 }

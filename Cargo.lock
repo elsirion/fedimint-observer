@@ -906,6 +906,7 @@ dependencies = [
  "fedimint-mint-common",
  "fedimint-wallet-common",
  "futures",
+ "hex",
  "reqwest",
  "serde",
  "serde_json",

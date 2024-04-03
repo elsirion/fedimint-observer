@@ -1,0 +1,104 @@
+<!-- Here be dragons: this is GPT code -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SQL Query Interface</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/sql/sql.min.js"></script>
+    <style>
+        /* Custom styling for CodeMirror */
+        .CodeMirror {
+            border: 1px solid #eee;
+            height: 200px;
+            width: 100%;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body class="m-4">
+<h2 class="text-lg font-semibold mb-2">Enter SQL Query</h2>
+<textarea id="sqlQuery" class="w-full px-3 py-2 border rounded-md"></textarea>
+<input type="text" id="authToken" class="mt-4 w-full px-3 py-2 border rounded-md" placeholder="Bearer Token" />
+<button onclick="fetchData()" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+    Submit Query
+</button>
+<h3 class="mt-6 mb-2 text-lg font-semibold">Results</h3>
+<div id="resultTable"></div>
+
+<script>
+    // Initialize CodeMirror for SQL syntax highlighting
+    var editor = CodeMirror.fromTextArea(document.getElementById("sqlQuery"), {
+        mode: 'text/x-sql',
+        lineNumbers: true
+    });
+
+    function fetchData() {
+        // Retrieve the query from the CodeMirror instance instead of the textarea
+        const sqlQuery = editor.getValue();
+        const authToken = document.getElementById('authToken').value;
+
+        // Configure your API endpoint
+        const apiEndpoint = '/federations/query';
+
+        // Setup the request payload
+        const payload = {
+            query: sqlQuery
+        };
+
+        fetch(apiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}` // Authorization header
+            },
+            body: JSON.stringify(payload)
+        })
+            .then(response => response.json())
+            .then(data => displayResults(data))
+            .catch(error => console.error('Error fetching data:', error));
+    }
+    ``
+    function displayResults(data) {
+        const resultArea = document.getElementById('resultTable');
+        if (!data.cols || !data.rows) {
+            resultArea.innerHTML = '<p>Error: The response from the API is not in the expected format.</p>';
+            return;
+        }
+
+        let tableHtml = `<table class="min-w-full leading-normal">
+                        <thead>
+                        <tr class="bg-gray-800 text-white">`;
+
+        // Add column headers
+        data.cols.forEach(col => {
+            tableHtml += `<th class="px-5 py-3 border-b-2 border-gray-200">${col}</th>`;
+        });
+        tableHtml += `</tr></thead><tbody>`;
+
+        // Add row data with alternating background colors
+        data.rows.forEach((row, index) => {
+            // Apply alternating background colors
+            let rowBgColor = index % 2 === 0 ? 'bg-gray-100' : 'bg-white';
+            tableHtml += `<tr class="${rowBgColor}">`;
+
+            row.forEach(cell => {
+                tableHtml += `<td class="px-5 py-2 border-b border-gray-200">${cell}</td>`;
+            });
+
+            tableHtml += '</tr>';
+        });
+
+        tableHtml += `</tbody></table>`;
+
+        // Display the table
+        resultArea.innerHTML = tableHtml;
+    }
+</script>
+</body>
+</html>

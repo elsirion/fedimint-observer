@@ -33,6 +33,7 @@
             "Cargo.lock"
             ".cargo"
             "src"
+            "schema"
           ];
         };
 

@@ -28,7 +28,7 @@ use sqlx::any::install_default_drivers;
 use sqlx::pool::PoolConnection;
 use sqlx::{query, query_as, Any, AnyPool, Connection, Transaction};
 use tracing::log::info;
-use tracing::{debug, error, warn};
+use tracing::{debug, error};
 
 use crate::config::get_decoders;
 use crate::federation::db::Federation;

@@ -1,19 +1,14 @@
 use anyhow::Context;
-use axum::routing::{get, put};
+use axum::routing::get;
 use axum::Router;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use crate::config::id::fetch_federation_id;
-use crate::config::meta::{fetch_federation_meta, MetaOverrideCache};
-use crate::config::modules::fetch_federation_module_kinds;
-use crate::config::{fetch_federation_config, FederationConfigCache};
-use crate::federation::{
-    add_observed_federation, list_federation_transactions, list_observed_federations,
-    FederationObserver,
-};
+use crate::config::meta::MetaOverrideCache;
+use crate::config::{get_config_routes, FederationConfigCache};
+use crate::federation::{get_federations_routes, FederationObserver};
 
 /// Fedimint config fetching service implementation
 mod config;
@@ -45,23 +40,8 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/health", get(|| async { "Server is up and running!" }))
-        .route("/config/:invite", get(fetch_federation_config))
-        .route("/config/:invite/meta", get(fetch_federation_meta))
-        .route("/config/:invite/id", get(fetch_federation_id))
-        .route(
-            "/config/:invite/module_kinds",
-            get(fetch_federation_module_kinds),
-        )
-        .route("/federations", get(list_observed_federations))
-        .route("/federations", put(add_observed_federation))
-        .route(
-            "/federations/:federation_id/transactions",
-            get(list_federation_transactions),
-        )
-        .route(
-            "/federations/:federation_id/config",
-            get(federation::get_federation_config),
-        )
+        .nest("/config", get_config_routes())
+        .nest("/federations", get_federations_routes())
         .with_state(AppState {
             federation_config_cache: Default::default(),
             meta_override_cache: Default::default(),

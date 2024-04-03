@@ -5,7 +5,8 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::{ensure, Context};
 use axum::extract::{Path, State};
-use axum::Json;
+use axum::routing::{get, put};
+use axum::{Json, Router};
 use axum_auth::AuthBearer;
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
@@ -30,7 +31,21 @@ use tracing::{debug, error};
 
 use crate::config::get_decoders;
 use crate::federation::db::Federation;
-use crate::AppState;
+use crate::{federation, AppState};
+
+pub fn get_federations_routes() -> Router<AppState> {
+    Router::new()
+        .route("/", get(list_observed_federations))
+        .route("/", put(add_observed_federation))
+        .route(
+            "/:federation_id/transactions",
+            get(list_federation_transactions),
+        )
+        .route(
+            "/:federation_id/config",
+            get(federation::get_federation_config),
+        )
+}
 
 pub async fn list_observed_federations(
     State(state): State<AppState>,

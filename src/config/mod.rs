@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
-use axum::Json;
+use axum::routing::get;
+use axum::{Json, Router};
 use fedimint_core::api::InviteCode;
 use fedimint_core::config::{
     ClientConfig, ClientModuleConfig, FederationId, JsonClientConfig, JsonWithKind,
@@ -18,6 +19,9 @@ use fedimint_mint_common::MintCommonInit;
 use fedimint_wallet_common::WalletCommonInit;
 use tracing::warn;
 
+use crate::config::id::fetch_federation_id;
+use crate::config::meta::fetch_federation_meta;
+use crate::config::modules::fetch_federation_module_kinds;
 use crate::error::Result;
 use crate::AppState;
 
@@ -29,6 +33,13 @@ pub mod meta;
 
 /// Helper API that exposes the federation modules
 pub mod modules;
+pub fn get_config_routes() -> Router<AppState> {
+    Router::new()
+        .route("/:invite", get(fetch_federation_config))
+        .route("/:invite/meta", get(fetch_federation_meta))
+        .route("/:invite/id", get(fetch_federation_id))
+        .route("/:invite/module_kinds", get(fetch_federation_module_kinds))
+}
 
 pub async fn fetch_federation_config(
     Path(invite): Path<InviteCode>,

@@ -246,9 +246,9 @@ async fn run_query(
         .context("No query provided")?
         .as_str()
         .context("Query parameter wasn't a string")?;
-    info!("Running query: {query}");
+    debug!("Running query: {query}");
     let result = observer.run_qery(query).await?;
-    info!("Query result: {result:?}");
+    debug!("Query result: {result:?}");
 
     Ok(result.into())
 }

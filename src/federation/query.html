@@ -59,11 +59,17 @@
             },
             body: JSON.stringify(payload)
         })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    // If the server response was not ok, throw an error
+                    return response.text().then(text => { throw new Error(text); });
+                }
+                return response.json();
+            })
             .then(data => displayResults(data))
-            .catch(error => console.error('Error fetching data:', error));
+            .catch(error => displayError(error));
     }
-    ``
+
     function displayResults(data) {
         const resultArea = document.getElementById('resultTable');
         if (!data.cols || !data.rows) {
@@ -98,6 +104,16 @@
 
         // Display the table
         resultArea.innerHTML = tableHtml;
+    }
+
+    function displayError(error) {
+        const resultArea = document.getElementById('resultTable');
+        // Error is expected to be a plain text
+        let errorMessage = 'An error occurred';
+        if (error && error.message) {
+            errorMessage = error.message;
+        }
+        resultArea.innerHTML = `<p class="text-red-500">${errorMessage}</p>`;
     }
 </script>
 </body>

@@ -82,7 +82,7 @@ impl FederationObserver {
         Ok(())
     }
 
-    async fn connection(&self) -> anyhow::Result<PoolConnection<Any>> {
+    pub(super) async fn connection(&self) -> anyhow::Result<PoolConnection<Any>> {
         Ok(self.connection_pool.acquire().await?)
     }
 
@@ -457,17 +457,6 @@ impl FederationObserver {
                 .fetch_one(self.connection().await?.as_mut())
                 .await?.0;
         Ok((last_session + 1) as u64)
-    }
-
-    #[allow(dead_code)]
-    pub async fn list_federation_transactions(
-        &self,
-        federation_id: FederationId,
-    ) -> anyhow::Result<Vec<db::Transaction>> {
-        Ok(query_as::<_, db::Transaction>("SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1")
-            .bind(federation_id.consensus_encode_to_vec())
-            .fetch_all(self.connection().await?.as_mut())
-            .await?)
     }
 
     pub async fn get_federation_assets(

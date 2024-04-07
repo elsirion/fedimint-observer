@@ -50,3 +50,9 @@ CREATE TABLE IF NOT EXISTS transaction_outputs (
 CREATE INDEX IF NOT EXISTS federation_outputs ON transaction_outputs(federation_id);
 CREATE INDEX IF NOT EXISTS federation_transaction_outputs ON transaction_outputs(federation_id, txid);
 CREATE INDEX IF NOT EXISTS federation_output_kinds ON transaction_outputs(federation_id, kind);
+
+CREATE TABLE IF NOT EXISTS block_times (
+    block_height INTEGER PRIMARY KEY,
+    timestamp INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS block_times_time ON block_times(timestamp);

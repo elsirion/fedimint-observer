@@ -16,6 +16,7 @@ async-stream = "0.3.5"
 axum = { version = "0.7.5", features = ["json"] }
 axum-auth = "0.7.0"
 dotenv = "0.15.0"
+esplora-client = { version = "0.7.0", features = ["async-https-rustls"] }
 futures = "0.3.30"
 hex = "0.4.3"
 reqwest = { version = "0.12.2", default-features = false, features = ["json", "rustls-tls"] }

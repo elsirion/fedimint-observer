@@ -31,8 +31,9 @@ use sqlx::any::install_default_drivers;
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::any::AnyTypeInfoKind;
 use sqlx::{query, query_as, Any, AnyPool, Column, Connection, Database, Row, Transaction};
+use tokio::time::sleep;
 use tracing::log::info;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use crate::config::get_decoders;
 use crate::federation::db::Federation;
@@ -277,6 +278,9 @@ impl FederationObserver {
             slf.spawn_observer(federation).await;
         }
 
+        slf.task_group
+            .spawn_cancellable("fetch block times", Self::fetch_block_times(slf.clone()));
+
         Ok(slf)
     }
 
@@ -355,6 +359,76 @@ impl FederationObserver {
     pub fn check_auth(&self, bearer_token: &str) -> anyhow::Result<()> {
         ensure!(self.admin_auth == bearer_token, "Invalid bearer token");
         Ok(())
+    }
+
+    async fn fetch_block_times(self) {
+        const SLEEP_SECS: u64 = 10;
+        loop {
+            if let Err(e) = self.fetch_block_times_inner().await {
+                warn!("Error while fetching block times: {e:?}");
+            }
+            info!("Block sync finished, waiting {SLEEP_SECS} seconds");
+            sleep(Duration::from_secs(SLEEP_SECS)).await;
+        }
+    }
+
+    async fn fetch_block_times_inner(&self) -> anyhow::Result<()> {
+        let builder = esplora_client::Builder::new("https://blockstream.info/api");
+        let esplora_client = builder.build_async()?;
+
+        // TODO: find a better way to pre-seed the DB so we don't have to bother
+        // blockstream.info Block 820k was mined Dec 2023, afaik there are no
+        // compatible federations older than that
+        let next_block_height =
+            (self.last_fetched_block_height().await?.unwrap_or(820_000) + 1) as u32;
+        let current_block_height = esplora_client.get_height().await?;
+
+        info!("Fetching block times for block {next_block_height} to {current_block_height}");
+
+        let mut block_stream = futures::stream::iter(next_block_height..=current_block_height)
+            .map(move |block_height| {
+                let esplora_client_inner = esplora_client.clone();
+                async move {
+                    let block_hash = esplora_client_inner.get_block_hash(block_height).await?;
+                    let block = esplora_client_inner.get_header_by_hash(&block_hash).await?;
+
+                    Result::<_, anyhow::Error>::Ok((block_height, block))
+                }
+            })
+            .buffered(4);
+
+        let mut timer = SystemTime::now();
+        let mut last_log_height = next_block_height;
+        while let Some((block_height, block)) = block_stream.next().await.transpose()? {
+            query("INSERT INTO block_times VALUES ($1, $2)")
+                .bind(block_height as i64)
+                .bind(block.time as i64)
+                .execute(self.connection().await?.as_mut())
+                .await?;
+
+            // TODO: write abstraction
+            let elapsed = timer.elapsed().unwrap_or_default();
+            if elapsed >= Duration::from_secs(5) {
+                let blocks_synced = block_height - last_log_height;
+                let rate = (blocks_synced as f64) / elapsed.as_secs_f64();
+                info!("Synced up to block {block_height}, processed {blocks_synced} blocks at a rate of {rate:.2} blocks/s");
+                timer = SystemTime::now();
+                last_log_height = block_height;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn last_fetched_block_height(&self) -> anyhow::Result<Option<u64>> {
+        let row = query("SELECT MAX(block_height) AS max_height FROM block_times")
+            .fetch_one(self.connection().await?.as_mut())
+            .await?;
+
+        Ok(row
+            .try_get::<i64, _>("max_height")
+            .ok()
+            .map(|max_height| max_height as u64))
     }
 
     async fn observe_federation(

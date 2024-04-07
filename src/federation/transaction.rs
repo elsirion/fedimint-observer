@@ -16,7 +16,7 @@ pub(super) async fn list_transactions(
 ) -> crate::error::Result<Json<Vec<TransactionId>>> {
     Ok(state
         .federation_observer
-        .list_federation_transactions(federation_id)
+        .federation_transaction_list(federation_id)
         .await?
         .into_iter()
         .map(|tx| tx.txid)
@@ -30,13 +30,13 @@ pub(super) async fn count_transactions(
 ) -> crate::error::Result<Json<u64>> {
     Ok(state
         .federation_observer
-        .count_federation_transactions(federation_id)
+        .federation_transaction_count(federation_id)
         .await?
         .into())
 }
 
 impl FederationObserver {
-    pub async fn list_federation_transactions(
+    pub async fn federation_transaction_list(
         &self,
         federation_id: FederationId,
     ) -> anyhow::Result<Vec<db::Transaction>> {
@@ -50,7 +50,7 @@ impl FederationObserver {
             .await?)
     }
 
-    pub async fn count_federation_transactions(
+    pub async fn federation_transaction_count(
         &self,
         federation_id: FederationId,
     ) -> anyhow::Result<u64> {

@@ -1,5 +1,6 @@
 pub mod db;
 pub mod observer;
+mod session;
 mod transaction;
 
 use anyhow::Context;
@@ -17,6 +18,7 @@ use tracing::debug;
 
 use crate::config::get_decoders;
 use crate::federation::observer::QueryResult;
+use crate::federation::session::{count_sessions, list_sessions};
 use crate::federation::transaction::{count_transactions, list_transactions};
 use crate::{federation, AppState};
 
@@ -36,6 +38,8 @@ pub fn get_federations_routes() -> Router<AppState> {
             "/:federation_id/transactions/count",
             get(count_transactions),
         )
+        .route("/:federation_id/sessions", get(list_sessions))
+        .route("/:federation_id/sessions/count", get(count_sessions))
 }
 
 pub async fn list_observed_federations(

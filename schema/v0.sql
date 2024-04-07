@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS federations (
 CREATE TABLE IF NOT EXISTS sessions (
     federation_id BLOB NOT NULL REFERENCES federations(federation_id),
     session_index INTEGER NOT NULL,
+    -- TODO: add transaction and item count
     session BLOB NOT NULL,
     PRIMARY KEY (federation_id, session_index)
 );

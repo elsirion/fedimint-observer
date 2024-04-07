@@ -447,18 +447,6 @@ impl FederationObserver {
         Ok(())
     }
 
-    pub(crate) async fn federation_session_count(
-        &self,
-        federation_id: FederationId,
-    ) -> anyhow::Result<u64> {
-        let last_session =
-            query_as::<_, (i64,)>("SELECT COALESCE(MAX(session_index), -1) as max_session_index FROM sessions WHERE federation_id = $1")
-                .bind(federation_id.consensus_encode_to_vec())
-                .fetch_one(self.connection().await?.as_mut())
-                .await?.0;
-        Ok((last_session + 1) as u64)
-    }
-
     pub async fn get_federation_assets(
         &self,
         federation_id: FederationId,

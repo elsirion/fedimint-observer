@@ -8,7 +8,8 @@ use tracing_subscriber::EnvFilter;
 
 use crate::config::meta::MetaOverrideCache;
 use crate::config::{get_config_routes, FederationConfigCache};
-use crate::federation::{get_federations_routes, FederationObserver};
+use crate::federation::get_federations_routes;
+use crate::federation::observer::FederationObserver;
 
 /// Fedimint config fetching service implementation
 mod config;

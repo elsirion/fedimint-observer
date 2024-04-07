@@ -1,5 +1,6 @@
 pub mod db;
 pub mod observer;
+mod transaction;
 
 use anyhow::Context;
 use axum::extract::{Path, State};
@@ -16,6 +17,7 @@ use tracing::debug;
 
 use crate::config::get_decoders;
 use crate::federation::observer::QueryResult;
+use crate::federation::transaction::list_transactions;
 use crate::{federation, AppState};
 
 pub fn get_federations_routes() -> Router<AppState> {
@@ -29,6 +31,7 @@ pub fn get_federations_routes() -> Router<AppState> {
             "/:federation_id/config",
             get(federation::get_federation_config),
         )
+        .route("/:federation_id/transactions", get(list_transactions))
 }
 
 pub async fn list_observed_federations(

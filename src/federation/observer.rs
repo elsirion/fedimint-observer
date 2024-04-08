@@ -3,16 +3,17 @@ use std::time::{Duration, SystemTime};
 use anyhow::ensure;
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
+use fedimint_core::core::DynModuleConsensusItem;
 use fedimint_core::encoding::Encodable;
 use fedimint_core::epoch::ConsensusItem;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
 use fedimint_core::util::retry;
-use fedimint_core::Amount;
+use fedimint_core::{Amount, PeerId};
 use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
-use fedimint_wallet_common::{WalletInput, WalletOutput};
+use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput};
 use futures::StreamExt;
 use hex::ToHex;
 use serde::Serialize;
@@ -135,7 +136,7 @@ impl FederationObserver {
     }
 
     async fn fetch_block_times(self) {
-        const SLEEP_SECS: u64 = 10;
+        const SLEEP_SECS: u64 = 60;
         loop {
             if let Err(e) = self.fetch_block_times_inner().await {
                 warn!("Error while fetching block times: {e:?}");
@@ -295,8 +296,20 @@ impl FederationObserver {
                                 )
                                 .await?;
                             }
+                            ConsensusItem::Module(module_ci) => {
+                                Self::process_ci(
+                                    dbtx,
+                                    federation_id,
+                                    &config,
+                                    session_index,
+                                    item_idx as u64,
+                                    item.peer,
+                                    module_ci,
+                                )
+                                .await?;
+                            }
                             _ => {
-                                // FIXME: process module CIs
+                                // Ignore unknown CIs
                             }
                         }
                     }
@@ -458,6 +471,39 @@ impl FederationObserver {
                 .bind(maybe_ln_contract.map(|cd| cd.0))
                 .bind(maybe_ln_contract.map(|cd| cd.1.consensus_encode_to_vec()))
                 .bind(maybe_amount_msat.map(|amt| amt as i64))
+                .execute(dbtx.as_mut())
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn process_ci(
+        dbtx: &mut Transaction<'_, Any>,
+        federation_id: FederationId,
+        config: &ClientConfig,
+        session_index: u64,
+        item_index: u64,
+        peer_id: PeerId,
+        ci: DynModuleConsensusItem,
+    ) -> sqlx::Result<()> {
+        let kind = instance_to_kind(config, ci.module_instance_id());
+
+        if kind != "wallet" {
+            return Ok(());
+        }
+
+        let wallet_ci = ci
+            .as_any()
+            .downcast_ref::<WalletConsensusItem>()
+            .expect("config says this should be a wallet CI");
+        if let WalletConsensusItem::BlockCount(height_vote) = wallet_ci {
+            query("INSERT INTO block_height_votes VALUES ($1, $2, $3, $4, $5)")
+                .bind(federation_id.consensus_encode_to_vec())
+                .bind(session_index as i64)
+                .bind(item_index as i64)
+                .bind(peer_id.to_usize() as i64)
+                .bind(*height_vote as i64)
                 .execute(dbtx.as_mut())
                 .await?;
         }

@@ -68,10 +68,87 @@ CREATE TABLE IF NOT EXISTS ln_contracts (
 CREATE INDEX IF NOT EXISTS ln_contract_federation_contract ON ln_contracts(federation_id, contract_id);
 CREATE INDEX IF NOT EXISTS ln_contract_federation ON ln_contracts (federation_id);
 CREATE INDEX IF NOT EXISTS ln_contract_hashes ON ln_contracts (payment_hash);
-CREATE INDEX IF NOT EXISTS ln_contract_gateways ON ln_contracts(gateway_id);
 
 CREATE TABLE IF NOT EXISTS block_times (
     block_height INTEGER PRIMARY KEY,
     timestamp INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS block_times_time ON block_times(timestamp);
+
+CREATE TABLE IF NOT EXISTS block_height_votes (
+    federation_id BLOB NOT NULL REFERENCES federations(federation_id),
+    session_index INTEGER NOT NULL,
+    item_index INTEGER NOT NULL,
+    proposer INTEGER NOT NULL,
+    height_vote INTEGER NOT NULL REFERENCES block_times(block_height),
+    PRIMARY KEY (federation_id, session_index, item_index),
+    FOREIGN KEY (federation_id, session_index) REFERENCES sessions(federation_id, session_index)
+);
+CREATE INDEX IF NOT EXISTS block_height_vote_federation_sessions ON block_height_votes(federation_id, session_index);
+CREATE INDEX IF NOT EXISTS block_height_vote_heights ON block_height_votes(height_vote);
+
+CREATE VIEW IF NOT EXISTS session_times AS WITH session_votes AS (
+    SELECT
+        s.session_index,
+        federation_id
+    FROM
+        sessions s
+    WHERE
+        federation_id = x'120879c1233789679a4ed9b47ba557f8da3d4577b4e0b3f61fa5afd3137b824a'
+), SortedVotes AS (
+    SELECT
+        sv.session_index,
+        height_vote,
+        ROW_NUMBER() OVER (PARTITION BY sv.session_index ORDER BY height_vote) AS rn,
+        COUNT(bhv.height_vote) OVER (PARTITION BY sv.session_index) AS total_votes
+    FROM
+        session_votes sv
+            LEFT JOIN
+        block_height_votes bhv ON sv.session_index = bhv.session_index
+            AND sv.federation_id = bhv.federation_id
+), session_max_height AS (
+    SELECT
+        session_index,
+        MAX(height_vote) AS max_height_vote -- Include max to handle NULLs in averaging
+    FROM
+        SortedVotes
+    WHERE
+        total_votes > 0
+    GROUP BY
+        session_index
+), session_time AS (
+    SELECT
+        sv.session_index,
+        (
+            SELECT
+                bt.timestamp
+            FROM
+                block_times bt
+            WHERE
+                mh.max_height_vote IS NOT NULL
+              AND bt.block_height = mh.max_height_vote
+        ) AS timestamp
+    FROM
+        session_votes sv
+            LEFT JOIN
+        session_max_height mh ON sv.session_index = mh.session_index
+), grouped_sessions AS (
+    SELECT
+        *,
+        SUM(CASE WHEN timestamp IS NOT NULL THEN 1 ELSE 0 END) OVER (ORDER BY session_index) AS time_group
+    FROM
+        session_time
+), propagated_times AS (
+    SELECT
+        session_index,
+        FIRST_VALUE(timestamp) OVER (PARTITION BY time_group ORDER BY session_index) AS estimated_session_timestamp
+    FROM
+        grouped_sessions
+)
+SELECT
+   session_index,
+   estimated_session_timestamp
+FROM
+   propagated_times
+ORDER BY
+   session_index;

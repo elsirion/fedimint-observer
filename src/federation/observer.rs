@@ -9,7 +9,7 @@ use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
 use fedimint_core::util::retry;
 use fedimint_core::Amount;
-use fedimint_ln_common::contracts::Contract;
+use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
 use fedimint_wallet_common::{WalletInput, WalletOutput};
@@ -331,29 +331,31 @@ impl FederationObserver {
 
         for (in_idx, input) in transaction.inputs.into_iter().enumerate() {
             let kind = instance_to_kind(config, input.module_instance_id());
-            let maybe_amount_msat = match kind.as_str() {
-                "ln" => Some(
-                    input
+            let (maybe_amount_msat, maybe_ln_contract_id) = match kind.as_str() {
+                "ln" => {
+                    let input = input
                         .as_any()
                         .downcast_ref::<LightningInput>()
                         .expect("Not LN input")
                         .maybe_v0_ref()
-                        .expect("Not v0")
-                        .amount
-                        .msats,
-                ),
-                "mint" => Some(
-                    input
+                        .expect("Not v0");
+
+                    (Some(input.amount.msats), Some(input.contract_id))
+                }
+                "mint" => {
+                    let amount_msat = input
                         .as_any()
                         .downcast_ref::<MintInput>()
                         .expect("Not Mint input")
                         .maybe_v0_ref()
                         .expect("Not v0")
                         .amount
-                        .msats,
-                ),
-                "wallet" => Some(
-                    input
+                        .msats;
+
+                    (Some(amount_msat), None)
+                }
+                "wallet" => {
+                    let amount_msat = input
                         .as_any()
                         .downcast_ref::<WalletInput>()
                         .expect("Not Wallet input")
@@ -362,21 +364,18 @@ impl FederationObserver {
                         .0
                         .tx_output()
                         .value
-                        * 1000,
-                ),
-                _ => None,
+                        * 1000;
+                    (Some(amount_msat), None)
+                }
+                _ => (None, None),
             };
-
-            // TODO: use for LN input, but needs ability to query previously created
-            // contracts
-            let subtype = Option::<String>::None;
 
             query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6)")
                 .bind(federation_id.consensus_encode_to_vec())
                 .bind(txid.consensus_encode_to_vec())
                 .bind(in_idx as i64)
                 .bind(kind.as_str())
-                .bind(subtype)
+                .bind(maybe_ln_contract_id.map(|cid| cid.consensus_encode_to_vec()))
                 .bind(maybe_amount_msat.map(|amt| amt as i64))
                 .execute(dbtx.as_mut())
                 .await?;
@@ -384,7 +383,7 @@ impl FederationObserver {
 
         for (out_idx, output) in transaction.outputs.into_iter().enumerate() {
             let kind = instance_to_kind(config, output.module_instance_id());
-            let (maybe_amount_msat, maybe_subtype) = match kind.as_str() {
+            let (maybe_amount_msat, maybe_ln_contract) = match kind.as_str() {
                 "ln" => {
                     let ln_output = output
                         .as_any()
@@ -392,20 +391,38 @@ impl FederationObserver {
                         .expect("Not LN input")
                         .maybe_v0_ref()
                         .expect("Not v0");
-                    let (amount_msat, maybe_subtype) = match ln_output {
-                        LightningOutputV0::Contract(contract) => {
-                            let subtype = match contract.contract {
-                                Contract::Incoming(_) => "incoming",
-                                Contract::Outgoing(_) => "outgoing",
-                            };
-                            (contract.amount.msats, Some(subtype))
-                        }
-                        // TODO: handle separately
-                        LightningOutputV0::Offer(_) => (0, None),
-                        LightningOutputV0::CancelOutgoing { .. } => (0, None),
-                    };
+                    let (maybe_amount_msat, ln_contract_interaction_kind, contract_id) =
+                        match ln_output {
+                            LightningOutputV0::Contract(contract) => {
+                                let contract_id = contract.contract.contract_id();
+                                let (contract_type, payment_hash) = match &contract.contract {
+                                    Contract::Incoming(c) => ("incoming", c.hash),
+                                    Contract::Outgoing(c) => ("outgoing", c.hash),
+                                };
 
-                    (Some(amount_msat), maybe_subtype)
+                                query("INSERT INTO ln_contracts VALUES ($1, $2, $3, $4)")
+                                    .bind(federation_id.consensus_encode_to_vec())
+                                    .bind(contract_id.consensus_encode_to_vec())
+                                    .bind(contract_type)
+                                    .bind(payment_hash.consensus_encode_to_vec())
+                                    .execute(dbtx.as_mut())
+                                    .await?;
+
+                                (Some(contract.amount.msats), "fund", contract_id)
+                            }
+                            LightningOutputV0::Offer(offer) => {
+                                // For incoming contracts payment has == cotnract id
+                                (Some(0), "offer", offer.hash.into())
+                            }
+                            LightningOutputV0::CancelOutgoing { contract, .. } => {
+                                (Some(0), "cancel", *contract)
+                            }
+                        };
+
+                    (
+                        maybe_amount_msat,
+                        Some((ln_contract_interaction_kind, contract_id)),
+                    )
                 }
                 "mint" => {
                     let amount_msat = output
@@ -433,12 +450,13 @@ impl FederationObserver {
                 _ => (None, None),
             };
 
-            query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6)")
+            query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, $7)")
                 .bind(federation_id.consensus_encode_to_vec())
                 .bind(txid.consensus_encode_to_vec())
                 .bind(out_idx as i64)
                 .bind(kind.as_str())
-                .bind(maybe_subtype)
+                .bind(maybe_ln_contract.map(|cd| cd.0))
+                .bind(maybe_ln_contract.map(|cd| cd.1.consensus_encode_to_vec()))
                 .bind(maybe_amount_msat.map(|amt| amt as i64))
                 .execute(dbtx.as_mut())
                 .await?;

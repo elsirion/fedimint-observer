@@ -1,5 +1,6 @@
 pub mod db;
 pub mod observer;
+mod query;
 mod session;
 mod transaction;
 
@@ -14,10 +15,9 @@ use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
 use serde_json::json;
-use tracing::debug;
 
 use crate::config::get_decoders;
-use crate::federation::observer::QueryResult;
+use crate::federation::query::run_query;
 use crate::federation::session::{count_sessions, list_sessions};
 use crate::federation::transaction::{count_transactions, list_transactions};
 use crate::{federation, AppState};
@@ -126,25 +126,4 @@ fn instance_to_kind(config: &ClientConfig, module_instance_id: ModuleInstanceId)
         .get(&module_instance_id)
         .map(|module_config| module_config.kind.to_string())
         .unwrap_or_else(|| "not-in-config".to_owned())
-}
-
-async fn run_query(
-    AuthBearer(auth): AuthBearer,
-    State(state): State<AppState>,
-    Json(body): Json<serde_json::Value>,
-) -> crate::error::Result<Json<QueryResult>> {
-    let observer = state.federation_observer;
-
-    observer.check_auth(&auth)?;
-
-    let query = body
-        .get("query")
-        .context("No query provided")?
-        .as_str()
-        .context("Query parameter wasn't a string")?;
-    debug!("Running query: {query}");
-    let result = observer.run_qery(query).await?;
-    debug!("Query result: {result:?}");
-
-    Ok(result.into())
 }

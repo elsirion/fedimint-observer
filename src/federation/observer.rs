@@ -15,12 +15,9 @@ use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
 use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput};
 use futures::StreamExt;
-use hex::ToHex;
-use serde::Serialize;
 use sqlx::any::install_default_drivers;
 use sqlx::pool::PoolConnection;
-use sqlx::postgres::any::AnyTypeInfoKind;
-use sqlx::{query, query_as, Any, AnyPool, Column, Connection, Database, Row, Transaction};
+use sqlx::{query, query_as, Any, AnyPool, Connection, Row, Transaction};
 use tokio::time::sleep;
 use tracing::log::info;
 use tracing::{debug, error, warn};
@@ -542,85 +539,4 @@ impl FederationObserver {
             total_assets_msat.parse().expect("DB returns valid number"),
         ))
     }
-
-    /// Runs a SQL query against the database and outputs thew result as a JSON
-    /// encodable `QueryResult`.
-    pub async fn run_qery(&self, sql: &str) -> anyhow::Result<QueryResult> {
-        let result: Vec<<Any as Database>::Row> = query(sql)
-            .fetch_all(self.connection().await?.as_mut())
-            .await?;
-
-        let Some(first_row) = result.first() else {
-            return Ok(QueryResult {
-                cols: vec![],
-                rows: vec![],
-            });
-        };
-
-        let cols = first_row
-            .columns()
-            .iter()
-            .map(|col| col.name().to_owned())
-            .collect();
-
-        info!("cols: {cols:?}");
-
-        let rows = result
-            .into_iter()
-            .map(|row| {
-                row.columns()
-                    .iter()
-                    .map(|col| {
-                        let col_type = col.type_info();
-
-                        match col_type.kind() {
-                            AnyTypeInfoKind::Null => row
-                                .try_get::<bool, _>(col.ordinal())
-                                .ok()
-                                .map(Into::<serde_json::Value>::into)
-                                .or_else(|| {
-                                    row.try_get::<String, _>(col.ordinal()).ok().map(Into::into)
-                                })
-                                .or_else(|| {
-                                    row.try_get::<i64, _>(col.ordinal()).ok().map(Into::into)
-                                })
-                                .or_else(|| {
-                                    row.try_get::<Vec<u8>, _>(col.ordinal())
-                                        .ok()
-                                        .map(|bytes| bytes.encode_hex::<String>().into())
-                                })
-                                .into(),
-                            AnyTypeInfoKind::Bool => {
-                                row.try_get::<bool, _>(col.ordinal()).ok().into()
-                            }
-                            AnyTypeInfoKind::SmallInt
-                            | AnyTypeInfoKind::Integer
-                            | AnyTypeInfoKind::BigInt => {
-                                row.try_get::<i64, _>(col.ordinal()).ok().into()
-                            }
-                            AnyTypeInfoKind::Real | AnyTypeInfoKind::Double => {
-                                row.try_get::<f64, _>(col.ordinal()).ok().into()
-                            }
-                            AnyTypeInfoKind::Text => {
-                                row.try_get::<String, _>(col.ordinal()).ok().into()
-                            }
-                            AnyTypeInfoKind::Blob => row
-                                .try_get::<Vec<u8>, _>(col.ordinal())
-                                .ok()
-                                .map(|bytes| bytes.encode_hex::<String>())
-                                .into(),
-                        }
-                    })
-                    .collect()
-            })
-            .collect();
-
-        Ok(QueryResult { cols, rows })
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct QueryResult {
-    cols: Vec<String>,
-    rows: Vec<Vec<serde_json::Value>>,
 }

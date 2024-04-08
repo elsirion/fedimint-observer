@@ -1,5 +1,8 @@
 use anyhow::Context;
+use axum::body::Body;
 use axum::extract::State;
+use axum::http::HeaderMap;
+use axum::response::{IntoResponse, Response};
 use axum::Json;
 use axum_auth::AuthBearer;
 use hex::ToHex;
@@ -15,8 +18,9 @@ use crate::AppState;
 pub async fn run_query(
     AuthBearer(auth): AuthBearer,
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
-) -> crate::error::Result<Json<QueryResult>> {
+) -> crate::error::Result<Response> {
     let observer = state.federation_observer;
 
     observer.check_auth(&auth)?;
@@ -30,7 +34,30 @@ pub async fn run_query(
     let result = observer.run_qery(query).await?;
     debug!("Query result: {result:?}");
 
-    Ok(result.into())
+    const CSV_CONTENT_TYPE: &[u8] = b"text/csv";
+    let content_type = headers
+        .get(axum::http::header::ACCEPT)
+        .map(|accept| accept.as_bytes());
+    let response = if content_type == Some(CSV_CONTENT_TYPE) {
+        let mut csv_writer = csv::Writer::from_writer(Vec::<u8>::new());
+
+        csv_writer
+            .write_record(result.cols)
+            .context("Writing headers failed")?;
+        for row in result.rows {
+            csv_writer.serialize(row).context("Writing row failed")?;
+        }
+
+        let csv_bytes = csv_writer.into_inner().context("Writing CSV failed")?;
+        Response::builder()
+            .header(axum::http::header::CONTENT_TYPE, CSV_CONTENT_TYPE)
+            .body(Body::from(csv_bytes))
+            .context("error creating response")?
+    } else {
+        Json::from(result).into_response()
+    };
+
+    Ok(response)
 }
 
 #[derive(Debug, Clone, Serialize)]

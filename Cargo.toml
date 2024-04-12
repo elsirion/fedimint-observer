@@ -17,13 +17,27 @@ axum = { version = "0.7.5", features = ["json"] }
 axum-auth = "0.7.0"
 csv = "1.3.0"
 dotenv = "0.15.0"
-esplora-client = { version = "0.7.0", default-features = false, features = ["async-https-rustls"] }
+esplora-client = { version = "0.7.0", default-features = false, features = [
+  "async-https-rustls",
+] }
 futures = "0.3.30"
 hex = "0.4.3"
-reqwest = { version = "0.12.2", default-features = false, features = ["json", "rustls-tls"] }
+reqwest = { version = "0.12.2", default-features = false, features = [
+  "json",
+  "rustls-tls",
+] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.115"
-sqlx = {version = "0.7.4", default-features = false, features = ["json", "runtime-tokio", "tls-rustls", "any", "sqlite", "postgres", "macros"]}
-tokio = { version = "1.37.0", features = ["full"]}
+sqlx = { version = "0.7.4", default-features = false, features = [
+  "json",
+  "runtime-tokio",
+  "tls-rustls",
+  "any",
+  "sqlite",
+  "postgres",
+  "macros",
+] }
+tokio = { version = "1.37.0", features = ["full"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tower-http = { version = "0.5.2", features = ["cors"] }

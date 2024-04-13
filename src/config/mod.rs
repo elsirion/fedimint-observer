@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env;
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
@@ -17,6 +18,8 @@ use fedimint_ln_common::bitcoin::hashes::hex::ToHex;
 use fedimint_ln_common::LightningCommonInit;
 use fedimint_mint_common::MintCommonInit;
 use fedimint_wallet_common::WalletCommonInit;
+use reqwest::Method;
+use tower_http::cors::{Any, CorsLayer};
 use tracing::warn;
 
 use crate::config::id::fetch_federation_id;
@@ -34,11 +37,24 @@ pub mod meta;
 /// Helper API that exposes the federation modules
 pub mod modules;
 pub fn get_config_routes() -> Router<AppState> {
-    Router::new()
+    let router = Router::new()
         .route("/:invite", get(fetch_federation_config))
         .route("/:invite/meta", get(fetch_federation_meta))
         .route("/:invite/id", get(fetch_federation_id))
-        .route("/:invite/module_kinds", get(fetch_federation_module_kinds))
+        .route("/:invite/module_kinds", get(fetch_federation_module_kinds));
+
+    let cors_enabled = dotenv::var("ALLOW_CONFIG_CORS").map_or(false, |v| v == "true");
+
+    if cors_enabled {
+        router.layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods([Method::GET])
+                .allow_credentials(true),
+        )
+    } else {
+        router
+    }
 }
 
 pub async fn fetch_federation_config(

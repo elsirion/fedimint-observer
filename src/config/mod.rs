@@ -49,8 +49,7 @@ pub fn get_config_routes() -> Router<AppState> {
         router.layer(
             CorsLayer::new()
                 .allow_origin(Any)
-                .allow_methods([Method::GET])
-                .allow_credentials(true),
+                .allow_methods([Method::GET]),
         )
     } else {
         router

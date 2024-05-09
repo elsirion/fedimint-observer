@@ -18,10 +18,7 @@
         lib = pkgs.lib;
         stdenv = pkgs.stdenv;
 
-        toolchainArgs = {
-          extraRustFlags = "--cfg tokio_unstable";
-        };
-        stdToolchains = flakeboxLib.mkStdToolchains toolchainArgs;
+        stdToolchains = flakeboxLib.mkStdToolchains { };
 
         rustSrc = flakeboxLib.filterSubPaths {
           root = builtins.path {

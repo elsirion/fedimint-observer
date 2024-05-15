@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fedimint-core = "0.3.0-rc.3"
-fedimint-ln-common = "0.3.0-rc.3"
-fedimint-mint-common = "0.3.0-rc.3"
-fedimint-wallet-common = "0.3.0-rc.3"
+fedimint-core = { git = "https://github.com/fedimint/fedimint", rev = "38f593728a38284cc3365b7288294df7bc696273" }
+fedimint-ln-common = { git = "https://github.com/fedimint/fedimint", rev = "38f593728a38284cc3365b7288294df7bc696273" }
+fedimint-mint-common = { git = "https://github.com/fedimint/fedimint", rev = "38f593728a38284cc3365b7288294df7bc696273" }
+fedimint-wallet-common = { git = "https://github.com/fedimint/fedimint", rev = "38f593728a38284cc3365b7288294df7bc696273" }
 
 anyhow = "1.0.81"
 async-stream = "0.3.5"

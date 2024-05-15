@@ -8,7 +8,7 @@ use fedimint_core::encoding::Encodable;
 use fedimint_core::epoch::ConsensusItem;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
-use fedimint_core::util::retry;
+use fedimint_core::util::{retry, ConstantBackoff};
 use fedimint_core::{Amount, PeerId};
 use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
@@ -222,13 +222,14 @@ impl FederationObserver {
                 async move {
                     let signed_session_outcome = retry(
                         format!("Waiting for session {session_index}"),
+                        ConstantBackoff::default()
+                            .with_delay(Duration::from_secs(1))
+                            .with_max_times(usize::MAX),
                         || async {
                             api_fetch_single
                                 .await_block(session_index, &decoders_single)
                                 .await
                         },
-                        Duration::from_secs(1),
-                        u32::MAX,
                     )
                     .await
                     .expect("Will fail after 136 years");

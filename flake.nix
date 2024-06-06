@@ -48,6 +48,16 @@
                 cargoArtifacts = workspaceDeps;
               };
               fedimint-observer = craneLib.buildPackage { };
+              fedimint-observer-image = pkgs.dockerTools.buildLayeredImage {
+                name = "fedimint-observer";
+                contents = [ fedimint-observer pkgs.bash pkgs.coreutils ];
+                config = {
+                  Cmd = [
+                    "${fedimint-observer}/bin/fedimint-observer"
+                  ];
+                };
+              };
+
             });
       in
       {

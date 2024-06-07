@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime};
 
-use anyhow::ensure;
+use anyhow::{bail, ensure};
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::core::DynModuleConsensusItem;
@@ -43,7 +43,7 @@ impl FederationObserver {
             task_group: Default::default(),
         };
 
-        slf.setup_schema().await?;
+        slf.setup_schema(database).await?;
 
         for federation in slf.list_federations().await? {
             slf.spawn_observer(federation).await;
@@ -70,13 +70,20 @@ impl FederationObserver {
         );
     }
 
-    async fn setup_schema(&self) -> anyhow::Result<()> {
-        query(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/schema/v0.sql"
-        )))
-        .execute(self.connection().await?.as_mut())
-        .await?;
+    async fn setup_schema(&self, database: &str) -> anyhow::Result<()> {
+        let create_schema = if database.starts_with("sqlite") {
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v0.sqlite.sql"))
+        } else if database.starts_with("postgres") {
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/schema/v0.postgres.sql"
+            ))
+        } else {
+            bail!("Unsupported database, use sqlite or postgres")
+        };
+        sqlx::raw_sql(create_schema)
+            .execute(self.connection().await?.as_mut())
+            .await?;
         Ok(())
     }
 

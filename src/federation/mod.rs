@@ -12,7 +12,7 @@ use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use axum_auth::AuthBearer;
 use fedimint_core::api::InviteCode;
-use fedimint_core::config::{ClientConfig, FederationId};
+use fedimint_core::config::{ClientConfig, FederationId, JsonClientConfig};
 use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
 use serde_json::json;
@@ -21,7 +21,7 @@ use crate::federation::meta::get_federation_meta;
 use crate::federation::query::run_query;
 use crate::federation::session::{count_sessions, list_sessions};
 use crate::federation::transaction::{count_transactions, list_transactions};
-use crate::util::get_decoders;
+use crate::util::{config_to_json, get_decoders};
 use crate::{federation, AppState};
 
 pub fn get_federations_routes() -> Router<AppState> {
@@ -81,14 +81,16 @@ pub async fn add_observed_federation(
 pub(crate) async fn get_federation_config(
     Path(federation_id): Path<FederationId>,
     State(state): State<AppState>,
-) -> crate::error::Result<Json<ClientConfig>> {
-    Ok(state
-        .federation_observer
-        .get_federation(federation_id)
-        .await?
-        .context("Federation not observed, you might want to try /config/:federation_invite")?
-        .config
-        .into())
+) -> crate::error::Result<Json<JsonClientConfig>> {
+    Ok(config_to_json(
+        state
+            .federation_observer
+            .get_federation(federation_id)
+            .await?
+            .context("Federation not observed, you might want to try /config/:federation_invite")?
+            .config,
+    )?
+    .into())
 }
 
 async fn get_federation_overview(

@@ -6,10 +6,9 @@ use anyhow::anyhow;
 use axum::extract::{Path, State};
 use axum::Json;
 use fedimint_core::api::InviteCode;
-use fedimint_core::config::{FederationId, META_OVERRIDE_URL_KEY};
-use tracing::debug;
-use tracing::log::warn;
+use fedimint_core::config::FederationId;
 
+use crate::meta::federation_meta;
 use crate::AppState;
 
 pub type MetaFields = BTreeMap<String, serde_json::Value>;
@@ -20,46 +19,12 @@ pub async fn fetch_federation_meta(
     Path(invite): Path<InviteCode>,
     State(state): State<AppState>,
 ) -> crate::error::Result<Json<MetaFields>> {
-    let federation_id = invite.federation_id();
     let config = state
         .federation_config_cache
         .fetch_config_cached(&invite)
         .await?;
-    let meta_fields_config = parse_meta_lenient(
-        config
-            .global
-            .meta
-            .iter()
-            .map(|(key, value)| (key.to_owned(), value.to_owned().into())),
-    );
 
-    let meta_fields = if let Some(override_url) = meta_fields_config
-        .get(META_OVERRIDE_URL_KEY)
-        .or_else(|| meta_fields_config.get("meta_external_url")) // Fedi legacy field
-        .and_then(|url| url.as_str().map(ToOwned::to_owned))
-    {
-        debug!("fetching {override_url}");
-        let meta_override = match state
-            .meta_override_cache
-            .fetch_meta_cached(&override_url, federation_id)
-            .await
-        {
-            Ok(meta) => meta,
-            Err(e) => {
-                warn!("Failed to fetch meta fields from {override_url}: {e:?}");
-                return Ok(meta_fields_config.into());
-            }
-        };
-
-        meta_fields_config
-            .into_iter()
-            .chain(meta_override)
-            .collect::<MetaFields>()
-    } else {
-        meta_fields_config
-    };
-
-    Ok(meta_fields.into())
+    federation_meta(&config, &state).await
 }
 
 #[derive(Default, Debug, Clone)]

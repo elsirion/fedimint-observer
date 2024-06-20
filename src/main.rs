@@ -16,6 +16,8 @@ mod config;
 /// `anyhow`-based error handling for axum
 mod error;
 mod federation;
+mod meta;
+mod util;
 
 #[derive(Debug, Clone)]
 struct AppState {

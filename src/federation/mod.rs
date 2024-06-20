@@ -1,4 +1,5 @@
 pub mod db;
+mod meta;
 pub mod observer;
 mod query;
 mod session;
@@ -16,10 +17,11 @@ use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
 use serde_json::json;
 
-use crate::config::get_decoders;
+use crate::federation::meta::get_federation_meta;
 use crate::federation::query::run_query;
 use crate::federation::session::{count_sessions, list_sessions};
 use crate::federation::transaction::{count_transactions, list_transactions};
+use crate::util::get_decoders;
 use crate::{federation, AppState};
 
 pub fn get_federations_routes() -> Router<AppState> {
@@ -33,6 +35,7 @@ pub fn get_federations_routes() -> Router<AppState> {
             "/:federation_id/config",
             get(federation::get_federation_config),
         )
+        .route("/:federation_id/meta", get(get_federation_meta))
         .route("/:federation_id/transactions", get(list_transactions))
         .route(
             "/:federation_id/transactions/count",

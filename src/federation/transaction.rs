@@ -67,7 +67,7 @@ pub(super) async fn transaction_histogram(
                 date,
                 json!({
                     "count": count,
-                    "amount": amount
+                    "amount_msat": amount
                 }),
             )
         })

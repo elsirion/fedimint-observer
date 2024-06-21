@@ -20,7 +20,9 @@ use serde_json::json;
 use crate::federation::meta::get_federation_meta;
 use crate::federation::query::run_query;
 use crate::federation::session::{count_sessions, list_sessions};
-use crate::federation::transaction::{count_transactions, list_transactions, transaction};
+use crate::federation::transaction::{
+    count_transactions, list_transactions, transaction, transaction_histogram,
+};
 use crate::util::{config_to_json, get_decoders};
 use crate::{federation, AppState};
 
@@ -44,6 +46,10 @@ pub fn get_federations_routes() -> Router<AppState> {
         .route(
             "/:federation_id/transactions/count",
             get(count_transactions),
+        )
+        .route(
+            "/:federation_id/transactions/histogram",
+            get(transaction_histogram),
         )
         .route("/:federation_id/sessions", get(list_sessions))
         .route("/:federation_id/sessions/count", get(count_sessions))

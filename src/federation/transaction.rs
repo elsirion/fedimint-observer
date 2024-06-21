@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io::Cursor;
 
 use anyhow::Context;
@@ -8,6 +9,7 @@ use fedimint_core::core::{DynInput, DynOutput, DynUnknown};
 use fedimint_core::encoding::Encodable;
 use fedimint_core::TransactionId;
 use serde::Serialize;
+use serde_json::json;
 use sqlx::query_as;
 
 use crate::federation::db;
@@ -48,6 +50,28 @@ pub(super) async fn transaction(
         .federation_observer
         .transaction_details(federation_id, transaction_id)
         .await?
+        .into())
+}
+
+pub(super) async fn transaction_histogram(
+    Path(federation_id): Path<FederationId>,
+    State(state): State<AppState>,
+) -> crate::error::Result<Json<BTreeMap<String, serde_json::Value>>> {
+    Ok(state
+        .federation_observer
+        .transaction_histogram(federation_id)
+        .await?
+        .into_iter()
+        .map(|(date, count, amount)| {
+            (
+                date,
+                json!({
+                    "count": count,
+                    "amount": amount
+                }),
+            )
+        })
+        .collect::<BTreeMap<_, _>>()
         .into())
 }
 
@@ -94,7 +118,7 @@ impl FederationObserver {
             .context("Federation doesn't exist")?
             .config;
 
-        let tx=query_as::<_, db::Transaction>("SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1 AND txid = $2")
+        let tx= query_as::<_, db::Transaction>("SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1 AND txid = $2")
             .bind(federation_id.consensus_encode_to_vec())
             .bind(transaction_id.consensus_encode_to_vec())
             .fetch_one(self.connection().await?.as_mut())
@@ -159,6 +183,45 @@ impl FederationObserver {
             .collect::<Vec<_>>();
 
         Ok(DebugTransaction { inputs, outputs })
+    }
+
+    pub async fn transaction_histogram(
+        &self,
+        federation_id: FederationId,
+    ) -> anyhow::Result<Vec<(String, u64, u64)>> {
+        const QUERY: &str = "
+            SELECT DATE(datetime(st.estimated_session_timestamp, 'unixepoch')) AS calendar_day,
+                   COUNT(DISTINCT t.txid)                                      AS transaction_count,
+                   CAST(SUM(ti.total_input_amount) AS TEXT)                    AS transaction_amt
+            FROM transactions t
+                     JOIN
+                 session_times st ON t.session_index = st.session_index AND t.federation_id = st.federation_id
+                     JOIN
+                 (SELECT federation_id,
+                         txid,
+                         SUM(amount_msat) AS total_input_amount
+                  FROM transaction_inputs
+                  GROUP BY txid, federation_id) ti ON t.txid = ti.txid AND t.federation_id = ti.federation_id
+            WHERE t.federation_id = $1
+            GROUP BY calendar_day
+            ORDER BY calendar_day;
+        ";
+
+        // Check federation exists
+        let _federation = self
+            .get_federation(federation_id)
+            .await?
+            .context("Federation doesn't exist")?;
+
+        let histogram = query_as::<_, (String, i64, String)>(QUERY)
+            .bind(federation_id.consensus_encode_to_vec())
+            .fetch_all(self.connection().await?.as_mut())
+            .await?
+            .into_iter()
+            .map(|(date, cnt, amt)| (date, cnt as u64, amt.parse().expect("is a number")))
+            .collect();
+
+        Ok(histogram)
     }
 }
 

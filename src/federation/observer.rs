@@ -56,15 +56,20 @@ impl FederationObserver {
     }
 
     async fn spawn_observer(&self, federation: Federation) {
+        const SLEEP_SECS: u64 = 30;
         let slf = self.clone();
         self.task_group.spawn_cancellable(
             format!("Observer for {}", federation.federation_id),
             async move {
-                if let Err(e) = slf
-                    .observe_federation(federation.federation_id, federation.config)
-                    .await
-                {
-                    error!("Observer errored: {e:?}");
+                loop {
+                    if let Err(e) = slf
+                        .clone()
+                        .observe_federation(federation.federation_id, federation.config.clone())
+                        .await
+                    {
+                        error!("Observer errored: {e:?}");
+                        sleep(Duration::from_secs(SLEEP_SECS)).await;
+                    }
                 }
             },
         );
@@ -388,15 +393,52 @@ impl FederationObserver {
                 _ => (None, None),
             };
 
-            query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6)")
-                .bind(federation_id.consensus_encode_to_vec())
-                .bind(txid.consensus_encode_to_vec())
-                .bind(in_idx as i64)
-                .bind(kind.as_str())
-                .bind(maybe_ln_contract_id.map(|cid| cid.consensus_encode_to_vec()))
-                .bind(maybe_amount_msat.map(|amt| amt as i64))
-                .execute(dbtx.as_mut())
-                .await?;
+            // FIXME: There is something weird going on here, sqlx + postgres is unable to
+            // handle NULL for None. This may be due to an issue with the driver or
+            // library. Revisit this after future sqlx updates to see if the issue has been
+            // resolved.
+            if let Some(ln_contract_id) =
+                maybe_ln_contract_id.map(|cid| cid.consensus_encode_to_vec())
+            {
+                if let Some(amount_msat) = maybe_amount_msat {
+                    query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6)")
+                        .bind(federation_id.consensus_encode_to_vec())
+                        .bind(txid.consensus_encode_to_vec())
+                        .bind(in_idx as i64)
+                        .bind(kind.as_str())
+                        .bind(ln_contract_id)
+                        .bind(amount_msat as i64)
+                        .execute(dbtx.as_mut())
+                        .await?;
+                } else {
+                    query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, NULL)")
+                        .bind(federation_id.consensus_encode_to_vec())
+                        .bind(txid.consensus_encode_to_vec())
+                        .bind(in_idx as i64)
+                        .bind(kind.as_str())
+                        .bind(ln_contract_id)
+                        .execute(dbtx.as_mut())
+                        .await?;
+                }
+            } else if let Some(amount_msat) = maybe_amount_msat {
+                query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, NULL, $5)")
+                    .bind(federation_id.consensus_encode_to_vec())
+                    .bind(txid.consensus_encode_to_vec())
+                    .bind(in_idx as i64)
+                    .bind(kind.as_str())
+                    .bind(amount_msat as i64)
+                    .execute(dbtx.as_mut())
+                    .await?;
+            } else {
+                query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, NULL, NULL)")
+                    .bind(federation_id.consensus_encode_to_vec())
+                    .bind(txid.consensus_encode_to_vec())
+                    .bind(in_idx as i64)
+                    .bind(kind.as_str())
+                    .bind(maybe_amount_msat.map(|amt| amt as i64))
+                    .execute(dbtx.as_mut())
+                    .await?;
+            }
         }
 
         for (out_idx, output) in transaction.outputs.into_iter().enumerate() {
@@ -468,16 +510,54 @@ impl FederationObserver {
                 _ => (None, None),
             };
 
-            query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, $7)")
-                .bind(federation_id.consensus_encode_to_vec())
-                .bind(txid.consensus_encode_to_vec())
-                .bind(out_idx as i64)
-                .bind(kind.as_str())
-                .bind(maybe_ln_contract.map(|cd| cd.0))
-                .bind(maybe_ln_contract.map(|cd| cd.1.consensus_encode_to_vec()))
-                .bind(maybe_amount_msat.map(|amt| amt as i64))
-                .execute(dbtx.as_mut())
-                .await?;
+            // FIXME: There is something weird going on here, sqlx + postgres is unable to
+            // handle NULL for None. This may be due to an issue with the driver or
+            // library. Revisit this after future sqlx updates to see if the issue has been
+            // resolved.
+            if let Some(ln_contract_id) = maybe_ln_contract.map(|cd| cd.1.consensus_encode_to_vec())
+            {
+                if let Some(amount_msat) = maybe_amount_msat {
+                    query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, $7)")
+                        .bind(federation_id.consensus_encode_to_vec())
+                        .bind(txid.consensus_encode_to_vec())
+                        .bind(out_idx as i64)
+                        .bind(kind.as_str())
+                        .bind(maybe_ln_contract.map(|cd| cd.0))
+                        .bind(ln_contract_id)
+                        .bind(amount_msat as i64)
+                        .execute(dbtx.as_mut())
+                        .await?;
+                } else {
+                    query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, NULL)")
+                        .bind(federation_id.consensus_encode_to_vec())
+                        .bind(txid.consensus_encode_to_vec())
+                        .bind(out_idx as i64)
+                        .bind(kind.as_str())
+                        .bind(maybe_ln_contract.map(|cd| cd.0))
+                        .bind(ln_contract_id)
+                        .execute(dbtx.as_mut())
+                        .await?;
+                }
+            } else if let Some(amount_msat) = maybe_amount_msat {
+                query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, NULL, $6)")
+                    .bind(federation_id.consensus_encode_to_vec())
+                    .bind(txid.consensus_encode_to_vec())
+                    .bind(out_idx as i64)
+                    .bind(kind.as_str())
+                    .bind(maybe_ln_contract.map(|cd| cd.0))
+                    .bind(amount_msat as i64)
+                    .execute(dbtx.as_mut())
+                    .await?;
+            } else {
+                query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, NULL, NULL)")
+                    .bind(federation_id.consensus_encode_to_vec())
+                    .bind(txid.consensus_encode_to_vec())
+                    .bind(out_idx as i64)
+                    .bind(kind.as_str())
+                    .bind(maybe_ln_contract.map(|cd| cd.0))
+                    .execute(dbtx.as_mut())
+                    .await?;
+            }
         }
 
         Ok(())

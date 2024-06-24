@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime};
 
-use anyhow::ensure;
+use anyhow::{bail, ensure};
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::core::DynModuleConsensusItem;
@@ -43,7 +43,7 @@ impl FederationObserver {
             task_group: Default::default(),
         };
 
-        slf.setup_schema().await?;
+        slf.setup_schema(database).await?;
 
         for federation in slf.list_federations().await? {
             slf.spawn_observer(federation).await;
@@ -70,13 +70,20 @@ impl FederationObserver {
         );
     }
 
-    async fn setup_schema(&self) -> anyhow::Result<()> {
-        query(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/schema/v0.sql"
-        )))
-        .execute(self.connection().await?.as_mut())
-        .await?;
+    async fn setup_schema(&self, database: &str) -> anyhow::Result<()> {
+        let create_schema = if database.starts_with("sqlite") {
+            include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v0.sqlite.sql"))
+        } else if database.starts_with("postgres") {
+            include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/schema/v0.postgres.sql"
+            ))
+        } else {
+            bail!("Unsupported database, use sqlite or postgres")
+        };
+        sqlx::raw_sql(create_schema)
+            .execute(self.connection().await?.as_mut())
+            .await?;
         Ok(())
     }
 
@@ -381,15 +388,32 @@ impl FederationObserver {
                 _ => (None, None),
             };
 
-            query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6)")
-                .bind(federation_id.consensus_encode_to_vec())
-                .bind(txid.consensus_encode_to_vec())
-                .bind(in_idx as i64)
-                .bind(kind.as_str())
-                .bind(maybe_ln_contract_id.map(|cid| cid.consensus_encode_to_vec()))
-                .bind(maybe_amount_msat.map(|amt| amt as i64))
-                .execute(dbtx.as_mut())
-                .await?;
+            // FIXME: Currently, sqlx + postgres is unable to handle passing NULL when
+            // ln_contract_id is None. This may be due to an issue with the
+            // driver or library. Revisit this after future sqlx updates
+            // to see if the issue has been resolved.
+            if let Some(ln_contract_id) =
+                maybe_ln_contract_id.map(|cid| cid.consensus_encode_to_vec())
+            {
+                query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6)")
+                    .bind(federation_id.consensus_encode_to_vec())
+                    .bind(txid.consensus_encode_to_vec())
+                    .bind(in_idx as i64)
+                    .bind(kind.as_str())
+                    .bind(ln_contract_id)
+                    .bind(maybe_amount_msat.map(|amt| amt as i64))
+                    .execute(dbtx.as_mut())
+                    .await?;
+            } else {
+                query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, NULL, $5)")
+                    .bind(federation_id.consensus_encode_to_vec())
+                    .bind(txid.consensus_encode_to_vec())
+                    .bind(in_idx as i64)
+                    .bind(kind.as_str())
+                    .bind(maybe_amount_msat.map(|amt| amt as i64))
+                    .execute(dbtx.as_mut())
+                    .await?;
+            }
         }
 
         for (out_idx, output) in transaction.outputs.into_iter().enumerate() {
@@ -461,16 +485,33 @@ impl FederationObserver {
                 _ => (None, None),
             };
 
-            query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, $7)")
-                .bind(federation_id.consensus_encode_to_vec())
-                .bind(txid.consensus_encode_to_vec())
-                .bind(out_idx as i64)
-                .bind(kind.as_str())
-                .bind(maybe_ln_contract.map(|cd| cd.0))
-                .bind(maybe_ln_contract.map(|cd| cd.1.consensus_encode_to_vec()))
-                .bind(maybe_amount_msat.map(|amt| amt as i64))
-                .execute(dbtx.as_mut())
-                .await?;
+            // FIXME: Currently, sqlx + postgres is unable to handle passing NULL when
+            // ln_contract_id is None. This may be due to an issue with the
+            // driver or library. Revisit this after future sqlx updates
+            // to see if the issue has been resolved.
+            if let Some(ln_contract_id) = maybe_ln_contract.map(|cd| cd.1.consensus_encode_to_vec())
+            {
+                query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, $7)")
+                    .bind(federation_id.consensus_encode_to_vec())
+                    .bind(txid.consensus_encode_to_vec())
+                    .bind(out_idx as i64)
+                    .bind(kind.as_str())
+                    .bind(maybe_ln_contract.map(|cd| cd.0))
+                    .bind(ln_contract_id)
+                    .bind(maybe_amount_msat.map(|amt| amt as i64))
+                    .execute(dbtx.as_mut())
+                    .await?;
+            } else {
+                query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, NULL, $6)")
+                    .bind(federation_id.consensus_encode_to_vec())
+                    .bind(txid.consensus_encode_to_vec())
+                    .bind(out_idx as i64)
+                    .bind(kind.as_str())
+                    .bind(maybe_ln_contract.map(|cd| cd.0))
+                    .bind(maybe_amount_msat.map(|amt| amt as i64))
+                    .execute(dbtx.as_mut())
+                    .await?;
+            }
         }
 
         Ok(())

@@ -43,8 +43,9 @@ CREATE TABLE IF NOT EXISTS transaction_inputs (
     ln_contract_id BYTEA,
     amount_msat BIGINT,
     PRIMARY KEY (federation_id, txid, in_index),
-    FOREIGN KEY (federation_id, txid) REFERENCES transactions(federation_id, txid), -- This might be a bit too heavy of a foreign key? Maybe use rowid instead?
-    FOREIGN KEY (federation_id, ln_contract_id) REFERENCES ln_contracts(federation_id, contract_id)
+    FOREIGN KEY (federation_id, txid) REFERENCES transactions(federation_id, txid) -- This might be a bit too heavy of a foreign key? Maybe use rowid instead?
+    -- Can't apply the following FK constraint because contract can be null:
+    -- FOREIGN KEY (federation_id, ln_contract_id) REFERENCES ln_contracts(federation_id, contract_id)
 );
 CREATE INDEX IF NOT EXISTS federation_inputs ON transaction_inputs(federation_id);
 CREATE INDEX IF NOT EXISTS federation_transaction_inputs ON transaction_inputs(federation_id, txid);

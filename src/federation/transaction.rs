@@ -8,13 +8,13 @@ use fedimint_core::config::FederationId;
 use fedimint_core::core::{DynInput, DynOutput, DynUnknown};
 use fedimint_core::encoding::Encodable;
 use fedimint_core::TransactionId;
+use postgres_from_row::FromRow;
 use serde::Serialize;
 use serde_json::json;
-use sqlx::query_as;
 
 use crate::federation::db;
 use crate::federation::observer::FederationObserver;
-use crate::util::get_decoders;
+use crate::util::{get_decoders, query, query_one, query_value};
 use crate::AppState;
 
 pub(super) async fn list_transactions(
@@ -62,12 +62,12 @@ pub(super) async fn transaction_histogram(
         .transaction_histogram(federation_id)
         .await?
         .into_iter()
-        .map(|(date, count, amount)| {
+        .map(|histogram_entry| {
             (
-                date,
+                histogram_entry.date,
                 json!({
-                    "count": count,
-                    "amount_msat": amount
+                    "count": histogram_entry.count,
+                    "amount_msat": histogram_entry.amount
                 }),
             )
         })
@@ -84,10 +84,7 @@ impl FederationObserver {
             .await
             .context("Federation doesn't exist")?;
 
-        Ok(query_as::<_, db::Transaction>("SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1")
-            .bind(federation_id.consensus_encode_to_vec())
-            .fetch_all(self.connection().await?.as_mut())
-            .await?)
+        Ok(query::<db::Transaction>(&self.connection().await?, "SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1", &[&federation_id.consensus_encode_to_vec()]).await?)
     }
 
     pub async fn federation_transaction_count(
@@ -98,13 +95,12 @@ impl FederationObserver {
             .await
             .context("Federation doesn't exist")?;
 
-        Ok(query_as::<_, (i64,)>(
+        Ok(query_value::<i64>(
+            &self.connection().await?,
             "SELECT COALESCE(COUNT(txid), 0) FROM transactions WHERE federation_id = $1",
+            &[&federation_id.consensus_encode_to_vec()],
         )
-        .bind(federation_id.consensus_encode_to_vec())
-        .fetch_one(self.connection().await?.as_mut())
-        .await?
-        .0 as u64)
+        .await? as u64)
     }
 
     pub async fn transaction_details(
@@ -118,11 +114,7 @@ impl FederationObserver {
             .context("Federation doesn't exist")?
             .config;
 
-        let tx= query_as::<_, db::Transaction>("SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1 AND txid = $2")
-            .bind(federation_id.consensus_encode_to_vec())
-            .bind(transaction_id.consensus_encode_to_vec())
-            .fetch_one(self.connection().await?.as_mut())
-            .await?;
+        let tx = query_one::<db::Transaction>(&self.connection().await?, "SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1 AND txid = $2", &[&federation_id.consensus_encode_to_vec(), &transaction_id.consensus_encode_to_vec()]).await?;
 
         let decoders = get_decoders(
             cfg.modules
@@ -188,11 +180,11 @@ impl FederationObserver {
     pub async fn transaction_histogram(
         &self,
         federation_id: FederationId,
-    ) -> anyhow::Result<Vec<(String, u64, u64)>> {
+    ) -> anyhow::Result<Vec<HistogramEntry>> {
         const QUERY: &str = "
-            SELECT DATE(datetime(st.estimated_session_timestamp, 'unixepoch')) AS calendar_day,
-                   COUNT(DISTINCT t.txid)                                      AS transaction_count,
-                   CAST(SUM(ti.total_input_amount) AS TEXT)                    AS transaction_amt
+            SELECT DATE(datetime(st.estimated_session_timestamp, 'unixepoch')) AS date,
+                   COUNT(DISTINCT t.txid)                                      AS count,
+                   SUM(ti.total_input_amount)                                  AS amount
             FROM transactions t
                      JOIN
                  session_times st ON t.session_index = st.session_index AND t.federation_id = st.federation_id
@@ -213,13 +205,12 @@ impl FederationObserver {
             .await?
             .context("Federation doesn't exist")?;
 
-        let histogram = query_as::<_, (String, i64, String)>(QUERY)
-            .bind(federation_id.consensus_encode_to_vec())
-            .fetch_all(self.connection().await?.as_mut())
-            .await?
-            .into_iter()
-            .map(|(date, cnt, amt)| (date, cnt as u64, amt.parse().expect("is a number")))
-            .collect();
+        let histogram = query::<HistogramEntry>(
+            &self.connection().await?,
+            QUERY,
+            &[&federation_id.consensus_encode_to_vec()],
+        )
+        .await?;
 
         Ok(histogram)
     }
@@ -229,4 +220,11 @@ impl FederationObserver {
 pub struct DebugTransaction {
     inputs: Vec<String>,
     outputs: Vec<String>,
+}
+
+#[derive(Debug, Clone, FromRow)]
+pub struct HistogramEntry {
+    date: String,
+    count: i64,
+    amount: i64,
 }

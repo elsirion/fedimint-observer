@@ -1,3 +1,4 @@
+use deadpool_postgres::GenericClient;
 use fedimint_core::config::{ClientConfig, ClientModuleConfig, JsonClientConfig, JsonWithKind};
 use fedimint_core::core::{ModuleInstanceId, ModuleKind};
 use fedimint_core::encoding::DynRawFallback;
@@ -7,6 +8,7 @@ use fedimint_ln_common::LightningCommonInit;
 use fedimint_mint_common::MintCommonInit;
 use fedimint_wallet_common::WalletCommonInit;
 use hex::ToHex;
+use postgres_from_row::FromRow;
 use serde_json::json;
 
 pub fn config_to_json(cfg: ClientConfig) -> anyhow::Result<JsonClientConfig> {
@@ -70,4 +72,55 @@ pub fn get_decoders(
         },
     ))
     .with_fallback()
+}
+
+pub async fn query_one<T>(
+    conn: &impl GenericClient,
+    sql: &str,
+    params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+) -> anyhow::Result<T>
+where
+    T: FromRow,
+{
+    let result = conn.query_one(sql, params).await?;
+    Ok(T::try_from_row(&result)?)
+}
+
+pub async fn query_value<T>(
+    conn: &impl GenericClient,
+    sql: &str,
+    params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+) -> anyhow::Result<T>
+where
+    for<'a> T: tokio_postgres::types::FromSql<'a>,
+{
+    let result = conn.query_one(sql, params).await?;
+    Ok(result.try_get(0)?)
+}
+
+pub async fn query_opt<T>(
+    conn: &impl GenericClient,
+    sql: &str,
+    params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+) -> anyhow::Result<Option<T>>
+where
+    T: FromRow,
+{
+    let result = conn.query_opt(sql, params).await?;
+    Ok(result.map(|row| T::try_from_row(&row)).transpose()?)
+}
+
+pub async fn query<T>(
+    conn: &impl GenericClient,
+    sql: &str,
+    params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+) -> anyhow::Result<Vec<T>>
+where
+    T: FromRow,
+{
+    let result = conn.query(sql, params).await?;
+    Ok(result
+        .iter()
+        .map(T::try_from_row)
+        .collect::<Result<_, _>>()?)
 }

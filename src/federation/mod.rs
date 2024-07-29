@@ -1,14 +1,12 @@
 pub mod db;
 mod meta;
 pub mod observer;
-mod query;
 mod session;
 mod transaction;
 
 use anyhow::Context;
 use axum::extract::{Path, State};
-use axum::response::Html;
-use axum::routing::{get, post, put};
+use axum::routing::{get, put};
 use axum::{Json, Router};
 use axum_auth::AuthBearer;
 use fedimint_core::api::InviteCode;
@@ -18,7 +16,6 @@ use fedimint_core::module::registry::ModuleDecoderRegistry;
 use serde_json::json;
 
 use crate::federation::meta::get_federation_meta;
-use crate::federation::query::run_query;
 use crate::federation::session::{count_sessions, list_sessions};
 use crate::federation::transaction::{
     count_transactions, list_transactions, transaction, transaction_histogram,
@@ -28,8 +25,6 @@ use crate::{federation, AppState};
 
 pub fn get_federations_routes() -> Router<AppState> {
     Router::new()
-        .route("/query", post(run_query))
-        .route("/query", get(|| async { Html(include_str!("query.html")) }))
         .route("/", get(list_observed_federations))
         .route("/", put(add_observed_federation))
         .route("/:federation_id", get(get_federation_overview))

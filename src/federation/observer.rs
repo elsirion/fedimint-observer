@@ -82,6 +82,25 @@ impl FederationObserver {
                 "/schema/v0.sql"
             )))
             .await?;
+
+        if query_value::<i64>(
+            &self.connection().await?,
+            "SELECT COUNT(*)::bigint FROM block_times",
+            &[],
+        )
+        .await?
+            == 0
+        {
+            // Seed block times table
+            self.connection()
+                .await?
+                .batch_execute(include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/schema/block_times.sql"
+                )))
+                .await?;
+        }
+
         Ok(())
     }
 
@@ -152,7 +171,7 @@ impl FederationObserver {
     }
 
     async fn fetch_block_times_inner(&self) -> anyhow::Result<()> {
-        let builder = esplora_client::Builder::new("https://blockstream.info/api");
+        let builder = esplora_client::Builder::new("https://mempool.space/api");
         let esplora_client = builder.build_async()?;
 
         // TODO: find a better way to pre-seed the DB so we don't have to bother

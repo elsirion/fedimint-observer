@@ -5,16 +5,17 @@ use axum::extract::{Path, State};
 use axum::Json;
 use fedimint_core::config::FederationId;
 use fedimint_core::encoding::Encodable;
+use postgres_from_row::FromRow;
 use serde_json::json;
-use sqlx::query_as;
 
 use crate::federation::observer::FederationObserver;
+use crate::util::{query, query_value};
 use crate::AppState;
 
 pub(super) async fn list_sessions(
     Path(federation_id): Path<FederationId>,
     State(state): State<AppState>,
-) -> crate::error::Result<Json<BTreeMap<u64, serde_json::Value>>> {
+) -> crate::error::Result<Json<BTreeMap<i64, serde_json::Value>>> {
     Ok(state
         .federation_observer
         .federation_session_list(federation_id)
@@ -41,9 +42,10 @@ pub(super) async fn count_sessions(
         .into())
 }
 
+#[derive(FromRow)]
 pub struct SessionData {
-    pub session_index: u64,
-    pub transaction_count: u64,
+    pub session_index: i64,
+    pub transaction_count: i64,
 }
 
 impl FederationObserver {
@@ -55,20 +57,15 @@ impl FederationObserver {
             .await
             .context("Federation doesn't exist")?;
 
-        Ok(query_as::<_, (i64, i64)>("
+        Ok(query::<SessionData>(&self.connection().await?, "
             SELECT s.session_index, COUNT(t.txid) AS transaction_count
             FROM sessions AS s
             LEFT JOIN transactions AS t ON s.federation_id = t.federation_id AND s.session_index = t.session_index
             WHERE s.federation_id = $1
             GROUP BY s.session_index
             ORDER BY s.session_index ASC
-        ")
-            .bind(federation_id.consensus_encode_to_vec())
-            .fetch_all(self.connection().await?.as_mut())
-            .await?.into_iter().map(|(session_index, transaction_count)| SessionData {
-            session_index: session_index as u64,
-            transaction_count: transaction_count as u64,
-        }).collect())
+        ", &[&federation_id.consensus_encode_to_vec()])
+        .await?)
     }
 
     pub async fn federation_session_count(
@@ -76,10 +73,11 @@ impl FederationObserver {
         federation_id: FederationId,
     ) -> anyhow::Result<u64> {
         let session_count =
-            query_as::<_, (i64,)>("SELECT COALESCE(COUNT(session_index), 0) as max_session_index FROM sessions WHERE federation_id = $1")
-                .bind(federation_id.consensus_encode_to_vec())
-                .fetch_one(self.connection().await?.as_mut())
-                .await?.0;
+            query_value::<i64>(
+                &self.connection().await?,
+                "SELECT COALESCE(COUNT(session_index), 0) as max_session_index FROM sessions WHERE federation_id = $1",
+                &[&federation_id.consensus_encode_to_vec()]
+            ).await?;
         Ok(session_count as u64)
     }
 }

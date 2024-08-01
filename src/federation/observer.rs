@@ -1,6 +1,8 @@
 use std::time::{Duration, SystemTime};
 
 use anyhow::ensure;
+use chrono::DateTime;
+use deadpool_postgres::{Runtime, Transaction};
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::core::DynModuleConsensusItem;
@@ -15,27 +17,29 @@ use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
 use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput};
 use futures::StreamExt;
-use sqlx::any::install_default_drivers;
-use sqlx::pool::PoolConnection;
-use sqlx::{query, query_as, Any, AnyPool, Connection, Row, Transaction};
 use tokio::time::sleep;
+use tokio_postgres::NoTls;
 use tracing::log::info;
 use tracing::{debug, error, warn};
 
 use crate::federation::db::Federation;
 use crate::federation::{db, decoders_from_config, instance_to_kind};
+use crate::util::{query, query_opt, query_value};
 
 #[derive(Debug, Clone)]
 pub struct FederationObserver {
-    connection_pool: AnyPool,
+    connection_pool: deadpool_postgres::Pool,
     admin_auth: String,
     task_group: TaskGroup,
 }
 
 impl FederationObserver {
     pub async fn new(database: &str, admin_auth: &str) -> anyhow::Result<FederationObserver> {
-        install_default_drivers();
-        let connection_pool = sqlx::AnyPool::connect(database).await?;
+        let connection_pool = {
+            let mut pool_config = deadpool_postgres::Config::default();
+            pool_config.url = Some(database.to_owned());
+            pool_config.create_pool(Some(Runtime::Tokio1), NoTls)
+        }?;
 
         let slf = FederationObserver {
             connection_pool,
@@ -71,35 +75,53 @@ impl FederationObserver {
     }
 
     async fn setup_schema(&self) -> anyhow::Result<()> {
-        query(include_str!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/schema/v0.sql"
-        )))
-        .execute(self.connection().await?.as_mut())
-        .await?;
+        self.connection()
+            .await?
+            .batch_execute(include_str!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/schema/v0.sql"
+            )))
+            .await?;
+
+        if query_value::<i64>(
+            &self.connection().await?,
+            "SELECT COUNT(*)::bigint FROM block_times",
+            &[],
+        )
+        .await?
+            == 0
+        {
+            // Seed block times table
+            self.connection()
+                .await?
+                .batch_execute(include_str!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/schema/block_times.sql"
+                )))
+                .await?;
+        }
+
         Ok(())
     }
 
-    pub(super) async fn connection(&self) -> anyhow::Result<PoolConnection<Any>> {
-        Ok(self.connection_pool.acquire().await?)
+    pub(super) async fn connection(&self) -> anyhow::Result<deadpool_postgres::Object> {
+        Ok(self.connection_pool.get().await?)
     }
 
     pub async fn list_federations(&self) -> anyhow::Result<Vec<db::Federation>> {
-        Ok(query_as::<_, db::Federation>("SELECT * FROM federations")
-            .fetch_all(self.connection().await?.as_mut())
-            .await?)
+        Ok(query(&self.connection().await?, "SELECT * FROM federations", &[]).await?)
     }
 
     pub async fn get_federation(
         &self,
         federation_id: FederationId,
     ) -> anyhow::Result<Option<Federation>> {
-        Ok(
-            query_as::<_, db::Federation>("SELECT * FROM federations WHERE federation_id = $1")
-                .bind(federation_id.consensus_encode_to_vec())
-                .fetch_optional(self.connection().await?.as_mut())
-                .await?,
+        Ok(query_opt(
+            &self.connection().await?,
+            "SELECT * FROM federations WHERE federation_id = $1",
+            &[&federation_id.consensus_encode_to_vec()],
         )
+        .await?)
     }
 
     pub async fn add_federation(&self, invite: &InviteCode) -> anyhow::Result<FederationId> {
@@ -111,10 +133,15 @@ impl FederationObserver {
 
         let config = ClientConfig::download_from_invite_code(invite).await?;
 
-        query("INSERT INTO federations VALUES ($1, $2)")
-            .bind(federation_id.consensus_encode_to_vec())
-            .bind(config.consensus_encode_to_vec())
-            .execute(self.connection().await?.as_mut())
+        self.connection()
+            .await?
+            .execute(
+                "INSERT INTO federations VALUES ($1, $2)",
+                &[
+                    &federation_id.consensus_encode_to_vec(),
+                    &config.consensus_encode_to_vec(),
+                ],
+            )
             .await?;
 
         self.spawn_observer(Federation {
@@ -144,14 +171,13 @@ impl FederationObserver {
     }
 
     async fn fetch_block_times_inner(&self) -> anyhow::Result<()> {
-        let builder = esplora_client::Builder::new("https://blockstream.info/api");
+        let builder = esplora_client::Builder::new("https://mempool.space/api");
         let esplora_client = builder.build_async()?;
 
         // TODO: find a better way to pre-seed the DB so we don't have to bother
         // blockstream.info Block 820k was mined Dec 2023, afaik there are no
         // compatible federations older than that
-        let next_block_height =
-            (self.last_fetched_block_height().await?.unwrap_or(820_000) + 1) as u32;
+        let next_block_height = self.last_fetched_block_height().await?.unwrap_or(820_000) + 1;
         let current_block_height = esplora_client.get_height().await?;
 
         info!("Fetching block times for block {next_block_height} to {current_block_height}");
@@ -171,10 +197,17 @@ impl FederationObserver {
         let mut timer = SystemTime::now();
         let mut last_log_height = next_block_height;
         while let Some((block_height, block)) = block_stream.next().await.transpose()? {
-            query("INSERT INTO block_times VALUES ($1, $2)")
-                .bind(block_height as i64)
-                .bind(block.time as i64)
-                .execute(self.connection().await?.as_mut())
+            self.connection()
+                .await?
+                .execute(
+                    "INSERT INTO block_times VALUES ($1, $2)",
+                    &[
+                        &(block_height as i32),
+                        &DateTime::from_timestamp(block.time as i64, 0)
+                            .expect("Invalid timestamp")
+                            .naive_utc(),
+                    ],
+                )
                 .await?;
 
             // TODO: write abstraction
@@ -191,15 +224,15 @@ impl FederationObserver {
         Ok(())
     }
 
-    async fn last_fetched_block_height(&self) -> anyhow::Result<Option<u64>> {
-        let row = query("SELECT MAX(block_height) AS max_height FROM block_times")
-            .fetch_one(self.connection().await?.as_mut())
-            .await?;
+    async fn last_fetched_block_height(&self) -> anyhow::Result<Option<u32>> {
+        let max_height = query_value::<Option<i32>>(
+            &self.connection().await?,
+            "SELECT MAX(block_height) AS max_height FROM block_times",
+            &[],
+        )
+        .await?;
 
-        Ok(row
-            .try_get::<i64, _>("max_height")
-            .ok()
-            .map(|max_height| max_height as u64))
+        Ok(max_height.map(|max_height| max_height as u32))
     }
 
     async fn observe_federation(
@@ -270,75 +303,77 @@ impl FederationObserver {
         session_index: u64,
         signed_session_outcome: SessionOutcome,
     ) -> anyhow::Result<()> {
-        self.connection()
-            .await?
-            .transaction(|dbtx: &mut Transaction<Any>| {
-                Box::pin(async move {
-                    query("INSERT INTO sessions VALUES ($1, $2, $3)")
-                        .bind(federation_id.consensus_encode_to_vec())
-                        .bind(session_index as i64)
-                        .bind(signed_session_outcome.consensus_encode_to_vec())
-                        .execute(dbtx.as_mut())
-                        .await?;
+        let mut connection = self.connection().await?;
+        let dbtx = connection.transaction().await?;
 
-                    for (item_idx, item) in signed_session_outcome.items.into_iter().enumerate() {
-                        match item.item {
-                            ConsensusItem::Transaction(transaction) => {
-                                Self::process_transaction(
-                                    dbtx,
-                                    federation_id,
-                                    &config,
-                                    session_index,
-                                    item_idx as u64,
-                                    transaction,
-                                )
-                                .await?;
-                            }
-                            ConsensusItem::Module(module_ci) => {
-                                Self::process_ci(
-                                    dbtx,
-                                    federation_id,
-                                    &config,
-                                    session_index,
-                                    item_idx as u64,
-                                    item.peer,
-                                    module_ci,
-                                )
-                                .await?;
-                            }
-                            _ => {
-                                // Ignore unknown CIs
-                            }
-                        }
-                    }
+        dbtx.execute(
+            "INSERT INTO sessions VALUES ($1, $2, $3)",
+            &[
+                &federation_id.consensus_encode_to_vec(),
+                &(session_index as i32),
+                &signed_session_outcome.consensus_encode_to_vec(),
+            ],
+        )
+        .await?;
 
-                    Result::<(), sqlx::Error>::Ok(())
-                })
-            })
-            .await?;
+        for (item_idx, item) in signed_session_outcome.items.into_iter().enumerate() {
+            match item.item {
+                ConsensusItem::Transaction(transaction) => {
+                    Self::process_transaction(
+                        &dbtx,
+                        federation_id,
+                        &config,
+                        session_index,
+                        item_idx as u64,
+                        transaction,
+                    )
+                    .await?;
+                }
+                ConsensusItem::Module(module_ci) => {
+                    Self::process_ci(
+                        &dbtx,
+                        federation_id,
+                        &config,
+                        session_index,
+                        item_idx as u64,
+                        item.peer,
+                        module_ci,
+                    )
+                    .await?;
+                }
+                _ => {
+                    // Ignore unknown CIs
+                }
+            }
+        }
+
+        dbtx.commit().await?;
 
         debug!("Processed session {session_index} of federation {federation_id}");
         Ok(())
     }
 
     async fn process_transaction(
-        dbtx: &mut Transaction<'_, Any>,
+        dbtx: &Transaction<'_>,
         federation_id: FederationId,
         config: &ClientConfig,
         session_index: u64,
         item_index: u64,
         transaction: fedimint_core::transaction::Transaction,
-    ) -> sqlx::Result<()> {
+    ) -> Result<(), tokio_postgres::Error> {
         let txid = transaction.tx_hash();
 
-        query("INSERT INTO transactions VALUES ($1, $2, $3, $4, $5)")
-            .bind(txid.consensus_encode_to_vec())
-            .bind(federation_id.consensus_encode_to_vec())
-            .bind(session_index as i64)
-            .bind(item_index as i64)
-            .bind(transaction.consensus_encode_to_vec())
-            .execute(dbtx.as_mut())
-            .await?;
+        dbtx.execute(
+            "INSERT INTO transactions VALUES ($1, $2, $3, $4, $5)",
+            &[
+                &txid.consensus_encode_to_vec(),
+                &federation_id.consensus_encode_to_vec(),
+                &(session_index as i32),
+                &(item_index as i32),
+                &transaction.consensus_encode_to_vec(),
+            ],
+        )
+        .await?;
 
         for (in_idx, input) in transaction.inputs.into_iter().enumerate() {
             let kind = instance_to_kind(config, input.module_instance_id());
@@ -381,15 +416,18 @@ impl FederationObserver {
                 _ => (None, None),
             };
 
-            query("INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6)")
-                .bind(federation_id.consensus_encode_to_vec())
-                .bind(txid.consensus_encode_to_vec())
-                .bind(in_idx as i64)
-                .bind(kind.as_str())
-                .bind(maybe_ln_contract_id.map(|cid| cid.consensus_encode_to_vec()))
-                .bind(maybe_amount_msat.map(|amt| amt as i64))
-                .execute(dbtx.as_mut())
-                .await?;
+            dbtx.execute(
+                "INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6)",
+                &[
+                    &federation_id.consensus_encode_to_vec(),
+                    &txid.consensus_encode_to_vec(),
+                    &(in_idx as i32),
+                    &kind,
+                    &maybe_ln_contract_id.map(|cid| cid.consensus_encode_to_vec()),
+                    &maybe_amount_msat.map(|amt| amt as i64),
+                ],
+            )
+            .await?;
         }
 
         for (out_idx, output) in transaction.outputs.into_iter().enumerate() {
@@ -411,13 +449,16 @@ impl FederationObserver {
                                     Contract::Outgoing(c) => ("outgoing", c.hash),
                                 };
 
-                                query("INSERT INTO ln_contracts VALUES ($1, $2, $3, $4)")
-                                    .bind(federation_id.consensus_encode_to_vec())
-                                    .bind(contract_id.consensus_encode_to_vec())
-                                    .bind(contract_type)
-                                    .bind(payment_hash.consensus_encode_to_vec())
-                                    .execute(dbtx.as_mut())
-                                    .await?;
+                                dbtx.execute(
+                                    "INSERT INTO ln_contracts VALUES ($1, $2, $3, $4)",
+                                    &[
+                                        &federation_id.consensus_encode_to_vec(),
+                                        &contract_id.consensus_encode_to_vec(),
+                                        &contract_type,
+                                        &payment_hash.consensus_encode_to_vec(),
+                                    ],
+                                )
+                                .await?;
 
                                 (Some(contract.amount.msats), "fund", contract_id)
                             }
@@ -461,30 +502,33 @@ impl FederationObserver {
                 _ => (None, None),
             };
 
-            query("INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, $7)")
-                .bind(federation_id.consensus_encode_to_vec())
-                .bind(txid.consensus_encode_to_vec())
-                .bind(out_idx as i64)
-                .bind(kind.as_str())
-                .bind(maybe_ln_contract.map(|cd| cd.0))
-                .bind(maybe_ln_contract.map(|cd| cd.1.consensus_encode_to_vec()))
-                .bind(maybe_amount_msat.map(|amt| amt as i64))
-                .execute(dbtx.as_mut())
-                .await?;
+            dbtx.execute(
+                "INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                &[
+                    &federation_id.consensus_encode_to_vec(),
+                    &txid.consensus_encode_to_vec(),
+                    &(out_idx as i32),
+                    &kind,
+                    &maybe_ln_contract.map(|(kind, _id)| kind),
+                    &maybe_ln_contract.map(|(_kind, id)| id.consensus_encode_to_vec()),
+                    &maybe_amount_msat.map(|amt| amt as i64),
+                ],
+            )
+            .await?;
         }
 
         Ok(())
     }
 
     async fn process_ci(
-        dbtx: &mut Transaction<'_, Any>,
+        dbtx: &Transaction<'_>,
         federation_id: FederationId,
         config: &ClientConfig,
         session_index: u64,
         item_index: u64,
         peer_id: PeerId,
         ci: DynModuleConsensusItem,
-    ) -> sqlx::Result<()> {
+    ) -> Result<(), tokio_postgres::Error> {
         let kind = instance_to_kind(config, ci.module_instance_id());
 
         if kind != "wallet" {
@@ -496,14 +540,17 @@ impl FederationObserver {
             .downcast_ref::<WalletConsensusItem>()
             .expect("config says this should be a wallet CI");
         if let WalletConsensusItem::BlockCount(height_vote) = wallet_ci {
-            query("INSERT INTO block_height_votes VALUES ($1, $2, $3, $4, $5)")
-                .bind(federation_id.consensus_encode_to_vec())
-                .bind(session_index as i64)
-                .bind(item_index as i64)
-                .bind(peer_id.to_usize() as i64)
-                .bind(*height_vote as i64)
-                .execute(dbtx.as_mut())
-                .await?;
+            dbtx.execute(
+                "INSERT INTO block_height_votes VALUES ($1, $2, $3, $4, $5)",
+                &[
+                    &federation_id.consensus_encode_to_vec(),
+                    &(session_index as i32),
+                    &(item_index as i32),
+                    &(peer_id.to_usize() as i32),
+                    &(*height_vote as i32),
+                ],
+            )
+            .await?;
         }
 
         Ok(())
@@ -520,7 +567,8 @@ impl FederationObserver {
         // representations while any other DBMS will call 64bit integers BIGINT or
         // something similar. That's why we serialize the number to a string and the
         // deserialize again in rust.
-        let total_assets_msat = query_as::<_, (String,)>(
+        let total_assets_msat = query_value::<i64>(
+            &self.connection().await?,
             "
         SELECT
             CAST((SELECT COALESCE(SUM(amount_msat), 0)
@@ -528,16 +576,12 @@ impl FederationObserver {
              WHERE kind = 'wallet' AND federation_id = $1) -
             (SELECT COALESCE(SUM(amount_msat), 0)
              FROM transaction_outputs
-             WHERE kind = 'wallet' AND federation_id = $1) AS TEXT) AS net_amount_msat
+             WHERE kind = 'wallet' AND federation_id = $1) AS BIGINT) AS net_amount_msat
         ",
+            &[&federation_id.consensus_encode_to_vec()],
         )
-        .bind(federation_id.consensus_encode_to_vec())
-        .fetch_one(self.connection().await?.as_mut())
-        .await?
-        .0;
+        .await?;
 
-        Ok(Amount::from_msats(
-            total_assets_msat.parse().expect("DB returns valid number"),
-        ))
+        Ok(Amount::from_msats(total_assets_msat as u64))
     }
 }

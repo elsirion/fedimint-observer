@@ -62,9 +62,16 @@
       in
       {
         devShells = flakeboxLib.mkShells {
-          nativeBuildInputs = [ ] ++ lib.optionals stdenv.isDarwin [
+          nativeBuildInputs = [
+            pkgs.postgresql
+          ] ++ lib.optionals stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
+
+          shellHook = ''
+            source scripts/pg_dev/env.sh
+            echo "Type 'just pg_start' to start the $PGDATABASE database, use 'pg' to connect to it"
+          '';
         };
 
         legacyPackages = packages;

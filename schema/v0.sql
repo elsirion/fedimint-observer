@@ -80,7 +80,7 @@ CREATE INDEX IF NOT EXISTS federation_output_kinds ON transaction_outputs (feder
 CREATE TABLE IF NOT EXISTS block_times
 (
     block_height INTEGER PRIMARY KEY,
-    timestamp    BIGINT NOT NULL
+    timestamp    TIMESTAMP NOT NULL
 );
 CREATE INDEX IF NOT EXISTS block_times_time ON block_times (timestamp);
 

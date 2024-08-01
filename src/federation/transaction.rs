@@ -4,6 +4,7 @@ use std::io::Cursor;
 use anyhow::Context;
 use axum::extract::{Path, State};
 use axum::Json;
+use chrono::NaiveDate;
 use fedimint_core::config::FederationId;
 use fedimint_core::core::{DynInput, DynOutput, DynUnknown};
 use fedimint_core::encoding::Encodable;
@@ -56,7 +57,7 @@ pub(super) async fn transaction(
 pub(super) async fn transaction_histogram(
     Path(federation_id): Path<FederationId>,
     State(state): State<AppState>,
-) -> crate::error::Result<Json<BTreeMap<String, serde_json::Value>>> {
+) -> crate::error::Result<Json<BTreeMap<NaiveDate, serde_json::Value>>> {
     Ok(state
         .federation_observer
         .transaction_histogram(federation_id)
@@ -181,10 +182,11 @@ impl FederationObserver {
         &self,
         federation_id: FederationId,
     ) -> anyhow::Result<Vec<HistogramEntry>> {
+        // language=postgresql
         const QUERY: &str = "
-            SELECT DATE(datetime(st.estimated_session_timestamp, 'unixepoch')) AS date,
-                   COUNT(DISTINCT t.txid)                                      AS count,
-                   SUM(ti.total_input_amount)                                  AS amount
+            SELECT DATE(st.estimated_session_timestamp) AS date,
+                   COUNT(DISTINCT t.txid)::bigint       AS count,
+                   SUM(ti.total_input_amount)::bigint   AS amount
             FROM transactions t
                      JOIN
                  session_times st ON t.session_index = st.session_index AND t.federation_id = st.federation_id
@@ -195,8 +197,8 @@ impl FederationObserver {
                   FROM transaction_inputs
                   GROUP BY txid, federation_id) ti ON t.txid = ti.txid AND t.federation_id = ti.federation_id
             WHERE t.federation_id = $1
-            GROUP BY calendar_day
-            ORDER BY calendar_day;
+            GROUP BY date
+            ORDER BY date;
         ";
 
         // Check federation exists
@@ -224,7 +226,7 @@ pub struct DebugTransaction {
 
 #[derive(Debug, Clone, FromRow)]
 pub struct HistogramEntry {
-    date: String,
+    date: NaiveDate,
     count: i64,
     amount: i64,
 }

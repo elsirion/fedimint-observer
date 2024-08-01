@@ -1,6 +1,7 @@
 use std::time::{Duration, SystemTime};
 
 use anyhow::ensure;
+use chrono::DateTime;
 use deadpool_postgres::{Runtime, Transaction};
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
@@ -181,7 +182,12 @@ impl FederationObserver {
                 .await?
                 .execute(
                     "INSERT INTO block_times VALUES ($1, $2)",
-                    &[&(block_height as i32), &(block.time as i64)],
+                    &[
+                        &(block_height as i32),
+                        &DateTime::from_timestamp(block.time as i64, 0)
+                            .expect("Invalid timestamp")
+                            .naive_utc(),
+                    ],
                 )
                 .await?;
 

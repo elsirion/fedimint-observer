@@ -34,8 +34,8 @@ impl FromRow for Federation {
 
 pub struct Transaction {
     pub txid: TransactionId,
-    pub session_index: u64,
-    pub item_index: u64,
+    pub session_index: i32,
+    pub item_index: i32,
     pub data: fedimint_core::transaction::Transaction,
 }
 
@@ -51,9 +51,9 @@ impl FromRow for crate::federation::db::Transaction {
         let txid =
             TransactionId::consensus_decode_vec(txid_bytes, &decoder).expect("Invalid data in DB");
 
-        let session_index = row.try_get::<_, i64>("session_index")? as u64;
+        let session_index = row.try_get::<_, i32>("session_index")?;
 
-        let item_index = row.try_get::<_, i64>("item_index")? as u64;
+        let item_index = row.try_get::<_, i32>("item_index")?;
 
         let data_bytes: Vec<u8> = row.try_get("data")?;
         let data =

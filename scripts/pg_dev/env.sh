@@ -1,5 +1,4 @@
 # shellcheck shell=bash
-set -o noclobber -o nounset
 
 # shellcheck disable=SC2155
 export PGDATA="$(pwd)/.pg_dev"

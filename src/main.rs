@@ -1,6 +1,7 @@
 use anyhow::Context;
 use axum::routing::get;
 use axum::Router;
+use tower_http::cors::CorsLayer;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -45,6 +46,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/health", get(|| async { "Server is up and running!" }))
         .nest("/config", get_config_routes())
         .nest("/federations", get_federations_routes())
+        .layer(CorsLayer::permissive())
         .with_state(AppState {
             federation_config_cache: Default::default(),
             meta_override_cache: Default::default(),

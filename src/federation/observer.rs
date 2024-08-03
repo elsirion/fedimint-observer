@@ -64,24 +64,57 @@ impl FederationObserver {
         self.task_group.spawn_cancellable(
             format!("Observer for {}", federation.federation_id),
             async move {
-                if let Err(e) = slf
-                    .observe_federation(federation.federation_id, federation.config)
-                    .await
-                {
-                    error!("Observer errored: {e:?}");
+                loop {
+                    let e = slf
+                        .observe_federation(federation.federation_id, federation.config.clone())
+                        .await
+                        .expect_err("observer task exited unexpectedly");
+                    error!("Observer errored, restarting in 30s: {e:?}");
+                    tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             },
         );
     }
 
     async fn setup_schema(&self) -> anyhow::Result<()> {
-        self.connection()
-            .await?
-            .batch_execute(include_str!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/schema/v0.sql"
-            )))
-            .await?;
+        let schema_version = query_value::<i32>(
+            &self.connection().await?,
+            // language=postgresql
+            "SELECT
+                    CASE
+                        WHEN EXISTS (
+                            SELECT FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            AND table_name = 'schema_version'
+                        )
+                        THEN (SELECT COALESCE(MAX(version), 0) FROM schema_version)
+                        ELSE 0
+                    END AS max_version;",
+            &[],
+        )
+        .await?;
+
+        let migration_map = [
+            (
+                0,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v0.sql")),
+            ),
+            (
+                1,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v1.sql")),
+            ),
+        ];
+
+        for (version, migration) in migration_map.iter() {
+            if *version > schema_version {
+                self.connection()
+                    .await?
+                    .transaction()
+                    .await?
+                    .batch_execute(migration)
+                    .await?;
+            }
+        }
 
         if query_value::<i64>(
             &self.connection().await?,
@@ -236,7 +269,7 @@ impl FederationObserver {
     }
 
     async fn observe_federation(
-        self,
+        &self,
         federation_id: FederationId,
         config: ClientConfig,
     ) -> anyhow::Result<()> {
@@ -290,6 +323,12 @@ impl FederationObserver {
                 info!("Synced up to session {session_index}, processed {sessions_synced} sessions at a rate of {rate:.2} sessions/s");
                 timer = SystemTime::now();
                 last_session = session_index;
+
+                // If we are syncing up initially we don't want to refresh the views every
+                // session, later we do
+                if rate < 1f64 {
+                    self.refresh_views().await?;
+                }
             }
         }
 
@@ -350,6 +389,16 @@ impl FederationObserver {
         dbtx.commit().await?;
 
         debug!("Processed session {session_index} of federation {federation_id}");
+        Ok(())
+    }
+
+    async fn refresh_views(&self) -> anyhow::Result<()> {
+        info!("Refreshing views");
+        self.connection()
+            .await?
+            .batch_execute("REFRESH MATERIALIZED VIEW CONCURRENTLY session_times;")
+            .await?;
+
         Ok(())
     }
 

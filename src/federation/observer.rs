@@ -64,11 +64,13 @@ impl FederationObserver {
         self.task_group.spawn_cancellable(
             format!("Observer for {}", federation.federation_id),
             async move {
-                if let Err(e) = slf
-                    .observe_federation(federation.federation_id, federation.config)
-                    .await
-                {
-                    error!("Observer errored: {e:?}");
+                loop {
+                    let e = slf
+                        .observe_federation(federation.federation_id, federation.config.clone())
+                        .await
+                        .expect_err("observer task exited unexpectedly");
+                    error!("Observer errored, restarting in 30s: {e:?}");
+                    tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             },
         );
@@ -267,7 +269,7 @@ impl FederationObserver {
     }
 
     async fn observe_federation(
-        self,
+        &self,
         federation_id: FederationId,
         config: ClientConfig,
     ) -> anyhow::Result<()> {

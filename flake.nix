@@ -18,7 +18,32 @@
         lib = pkgs.lib;
         stdenv = pkgs.stdenv;
 
-        stdToolchains = flakeboxLib.mkStdToolchains { };
+        toolchains = flakeboxLib.mkFenixToolchain {
+          components = [
+            "rustc"
+            "cargo"
+            "clippy"
+            "rust-analyzer"
+            "rust-src"
+          ];
+
+          args = {
+            nativeBuildInputs = with pkgs; [
+              wasm-bindgen-cli
+              wasm-pack
+              trunk
+              nodejs
+              nodePackages.tailwindcss
+            ];
+          };
+          targets = (pkgs.lib.getAttrs
+            ([
+              "default"
+              "wasm32-unknown"
+            ])
+            (flakeboxLib.mkStdTargets { })
+          );
+        };
 
         rustSrc = flakeboxLib.filterSubPaths {
           root = builtins.path {
@@ -31,16 +56,18 @@
             ".cargo"
             "fmo_api_types"
             "fmo_server"
+            "fmo_frontend"
           ];
         };
 
         packages =
-          (flakeboxLib.craneMultiBuild { toolchains = stdToolchains; }) (craneLib':
+          (flakeboxLib.craneMultiBuild { toolchains = {default = toolchains;}; }) (craneLib':
             let
               craneLib = (craneLib'.overrideArgs {
                 pname = "fmo_server";
                 version = "0.1.0";
                 src = rustSrc;
+                cargoExtraArgs = "--package=fmo_server";
               });
             in
             rec {
@@ -63,6 +90,8 @@
       in
       {
         devShells = flakeboxLib.mkShells {
+          toolchain = toolchains;
+
           nativeBuildInputs = [
             pkgs.postgresql
             # sqlite is used only for creating the dump file for migrating existing instances

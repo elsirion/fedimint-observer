@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "fmo_api_types",
+    "fmo_frontend",
     "fmo_server",
 ]
 

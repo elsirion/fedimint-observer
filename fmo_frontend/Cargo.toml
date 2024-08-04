@@ -1,0 +1,28 @@
+[package]
+name = "fmo-frontend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.86"
+chrono = { version = "0.4.38", features = ["serde"] }
+console_error_panic_hook = "0.1"
+fedimint-core = "0.3.2-rc.0"
+fmo_api_types = { path = "../fmo_api_types" }
+futures = "0.3.30"
+leptos = { version = "0.6", features = ["csr"] }
+leptos-chartistry = "0.1.6"
+leptos_router = { version = "0.6.13", features = ["csr"] }
+reqwest = { version = "0.12.5", default-features = false, features = [ "json" ] }
+serde_json = "1.0.122"
+tokio = {version = "1.39.2"}
+tracing = "0.1.40"
+tracing-wasm = "0.2.1"
+web-sys = { version = "0.3.69", features = ["Navigator", "Clipboard"] }
+itertools = "0.12.1"
+
+[profile.release]
+opt-level = 'z'
+lto = true
+codegen-units = 1
+panic = "abort"

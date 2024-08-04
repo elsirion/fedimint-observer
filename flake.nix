@@ -18,7 +18,32 @@
         lib = pkgs.lib;
         stdenv = pkgs.stdenv;
 
-        stdToolchains = flakeboxLib.mkStdToolchains { };
+        toolchains = flakeboxLib.mkFenixToolchain {
+          components = [
+            "rustc"
+            "cargo"
+            "clippy"
+            "rust-analyzer"
+            "rust-src"
+          ];
+
+          args = {
+            nativeBuildInputs = with pkgs; [
+              wasm-bindgen-cli
+              wasm-pack
+              trunk
+              nodejs
+              nodePackages.tailwindcss
+            ];
+          };
+          targets = (pkgs.lib.getAttrs
+            ([
+              "default"
+              "wasm32-unknown"
+            ])
+            (flakeboxLib.mkStdTargets { })
+          );
+        };
 
         rustSrc = flakeboxLib.filterSubPaths {
           root = builtins.path {
@@ -36,7 +61,7 @@
         };
 
         packages =
-          (flakeboxLib.craneMultiBuild { toolchains = stdToolchains; }) (craneLib':
+          (flakeboxLib.craneMultiBuild { toolchains = toolchains; }) (craneLib':
             let
               craneLib = (craneLib'.overrideArgs {
                 pname = "fedimint-observer";
@@ -63,6 +88,8 @@
       in
       {
         devShells = flakeboxLib.mkShells {
+          toolchain = toolchains;
+
           nativeBuildInputs = [
             pkgs.postgresql
           ] ++ lib.optionals stdenv.isDarwin [

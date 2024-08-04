@@ -11,7 +11,7 @@ pub struct FederationSummary {
     pub invite: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct FederationActivity {
     pub num_transactions: u64,
     pub amount_transferred: Amount,

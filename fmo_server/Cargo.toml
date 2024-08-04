@@ -21,6 +21,7 @@ dotenv = "0.15.0"
 esplora-client = { version = "0.7.0", default-features = false, features = [
   "async-https-rustls",
 ] }
+fmo_api_types = { path = "../fmo_api_types" }
 futures = "0.3.30"
 hex = "0.4.3"
 postgres-from-row = "0.5.2"

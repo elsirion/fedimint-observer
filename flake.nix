@@ -29,6 +29,7 @@
             "Cargo.toml"
             "Cargo.lock"
             ".cargo"
+            "fmo_api_types"
             "fmo_server"
           ];
         };

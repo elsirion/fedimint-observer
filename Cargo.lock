@@ -1009,6 +1009,7 @@ dependencies = [
  "fedimint-ln-common",
  "fedimint-mint-common",
  "fedimint-wallet-common",
+ "fmo_api_types",
  "futures",
  "hex",
  "postgres-from-row",
@@ -1095,6 +1096,14 @@ dependencies = [
  "bitvec",
  "rand_core",
  "subtle",
+]
+
+[[package]]
+name = "fmo_api_types"
+version = "0.1.0"
+dependencies = [
+ "fedimint-core",
+ "serde",
 ]
 
 [[package]]

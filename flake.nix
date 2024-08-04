@@ -26,6 +26,7 @@
             path = ./.;
           };
           paths = [
+            "fmo_api_types"
             "Cargo.toml"
             "Cargo.lock"
             ".cargo"

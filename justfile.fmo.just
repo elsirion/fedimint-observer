@@ -3,3 +3,6 @@ pg_start:
 
 pg_stop:
   ./scripts/pg_dev/stop.sh
+
+serve_frontend:
+  cd frontend && RUSTFLAGS=--cfg=web_sys_unstable_apis trunk serve

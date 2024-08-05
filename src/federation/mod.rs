@@ -13,6 +13,7 @@ use fedimint_core::api::InviteCode;
 use fedimint_core::config::{ClientConfig, FederationId, JsonClientConfig};
 use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
+use fmo_api_types::FederationSummary;
 use serde_json::json;
 
 use crate::federation::meta::get_federation_meta;
@@ -52,14 +53,11 @@ pub fn get_federations_routes() -> Router<AppState> {
 
 pub async fn list_observed_federations(
     State(state): State<AppState>,
-) -> crate::error::Result<Json<Vec<FederationId>>> {
+) -> crate::error::Result<Json<Vec<FederationSummary>>> {
     Ok(state
         .federation_observer
-        .list_federations()
+        .list_federation_summaries()
         .await?
-        .into_iter()
-        .map(|federation| federation.config.calculate_federation_id())
-        .collect::<Vec<_>>()
         .into())
 }
 

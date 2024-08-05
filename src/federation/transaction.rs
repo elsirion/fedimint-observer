@@ -8,7 +8,8 @@ use chrono::NaiveDate;
 use fedimint_core::config::FederationId;
 use fedimint_core::core::{DynInput, DynOutput, DynUnknown};
 use fedimint_core::encoding::Encodable;
-use fedimint_core::TransactionId;
+use fedimint_core::{Amount, TransactionId};
+use fmo_api_types::FederationActivity;
 use postgres_from_row::FromRow;
 use serde::Serialize;
 use serde_json::json;
@@ -57,7 +58,7 @@ pub(super) async fn transaction(
 pub(super) async fn transaction_histogram(
     Path(federation_id): Path<FederationId>,
     State(state): State<AppState>,
-) -> crate::error::Result<Json<BTreeMap<NaiveDate, serde_json::Value>>> {
+) -> crate::error::Result<Json<BTreeMap<NaiveDate, FederationActivity>>> {
     Ok(state
         .federation_observer
         .transaction_histogram(federation_id)
@@ -66,10 +67,10 @@ pub(super) async fn transaction_histogram(
         .map(|histogram_entry| {
             (
                 histogram_entry.date,
-                json!({
-                    "count": histogram_entry.count,
-                    "amount_msat": histogram_entry.amount
-                }),
+                FederationActivity {
+                    num_transactions: histogram_entry.count as u64,
+                    amount_transferred: Amount::from_msats(histogram_entry.amount as u64),
+                },
             )
         })
         .collect::<BTreeMap<_, _>>()

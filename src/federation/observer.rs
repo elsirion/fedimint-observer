@@ -1,7 +1,7 @@
 use std::time::{Duration, SystemTime};
 
 use anyhow::ensure;
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDate};
 use deadpool_postgres::{Runtime, Transaction};
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
@@ -16,7 +16,10 @@ use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
 use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput};
+use fmo_api_types::{FederationActivity, FederationSummary};
+use futures::future::join_all;
 use futures::StreamExt;
+use postgres_from_row::FromRow;
 use tokio::time::sleep;
 use tokio_postgres::NoTls;
 use tracing::log::info;
@@ -64,24 +67,57 @@ impl FederationObserver {
         self.task_group.spawn_cancellable(
             format!("Observer for {}", federation.federation_id),
             async move {
-                if let Err(e) = slf
-                    .observe_federation(federation.federation_id, federation.config)
-                    .await
-                {
-                    error!("Observer errored: {e:?}");
+                loop {
+                    let e = slf
+                        .observe_federation(federation.federation_id, federation.config.clone())
+                        .await
+                        .expect_err("observer task exited unexpectedly");
+                    error!("Observer errored, restarting in 30s: {e:?}");
+                    tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             },
         );
     }
 
     async fn setup_schema(&self) -> anyhow::Result<()> {
-        self.connection()
-            .await?
-            .batch_execute(include_str!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/schema/v0.sql"
-            )))
-            .await?;
+        let schema_version = query_value::<i32>(
+            &self.connection().await?,
+            // language=postgresql
+            "SELECT
+                    CASE
+                        WHEN EXISTS (
+                            SELECT FROM information_schema.tables
+                            WHERE table_schema = 'public'
+                            AND table_name = 'schema_version'
+                        )
+                        THEN (SELECT COALESCE(MAX(version), 0) FROM schema_version)
+                        ELSE 0
+                    END AS max_version;",
+            &[],
+        )
+        .await?;
+
+        let migration_map = [
+            (
+                0,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v0.sql")),
+            ),
+            (
+                1,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v1.sql")),
+            ),
+        ];
+
+        for (version, migration) in migration_map.iter() {
+            if *version > schema_version {
+                self.connection()
+                    .await?
+                    .transaction()
+                    .await?
+                    .batch_execute(migration)
+                    .await?;
+            }
+        }
 
         if query_value::<i64>(
             &self.connection().await?,
@@ -110,6 +146,87 @@ impl FederationObserver {
 
     pub async fn list_federations(&self) -> anyhow::Result<Vec<db::Federation>> {
         Ok(query(&self.connection().await?, "SELECT * FROM federations", &[]).await?)
+    }
+
+    pub async fn list_federation_summaries(&self) -> anyhow::Result<Vec<FederationSummary>> {
+        let federations =
+            query::<Federation>(&self.connection().await?, "SELECT * FROM federations", &[])
+                .await?;
+        join_all(federations.into_iter().map(|federation| async move {
+            let deposits = self.get_federation_assets(federation.federation_id).await?;
+            let name = federation
+                .config
+                .global
+                .meta
+                .get("federation_name")
+                .cloned();
+
+            // language=postgresql
+            let last_7d_activity = self
+                .federation_activity(federation.federation_id, 7)
+                .await?;
+
+            let invite = federation
+                .config
+                .invite_code(&PeerId::from(0))
+                .expect("There should always be a peer 0")
+                .to_string();
+
+            Ok(FederationSummary {
+                id: federation.federation_id,
+                name,
+                last_7d_activity,
+                deposits,
+                invite,
+            })
+        }))
+        .await
+        .into_iter()
+        .collect()
+    }
+
+    async fn federation_activity(
+        &self,
+        federation_id: FederationId,
+        days: u32,
+    ) -> anyhow::Result<Vec<FederationActivity>> {
+        #[derive(Debug, FromRow)]
+        struct FederationActivityRow {
+            date: NaiveDate,
+            tx_count: i64,
+            total_amount: i64,
+        }
+
+        let now = chrono::offset::Utc::now();
+
+        // language=postgresql
+        let activity = query::<FederationActivityRow>(&self.connection().await?, "
+            SELECT DATE(st.estimated_session_timestamp) AS date,
+                   COUNT(DISTINCT t.txid)::bigint       AS tx_count,
+                   COALESCE(SUM((SELECT SUM(amount_msat)
+                        FROM transaction_inputs
+                        WHERE transaction_inputs.txid = t.txid AND transaction_inputs.federation_id = t.federation_id))::bigint, 0)   AS total_amount
+            FROM transactions t
+                     JOIN
+                 session_times st ON t.session_index = st.session_index AND t.federation_id = st.federation_id
+            WHERE t.federation_id = $1  AND st.estimated_session_timestamp >= $2
+            GROUP BY date
+            ORDER BY date;
+        ", &[&federation_id.consensus_encode_to_vec(), &(now - chrono::Duration::days(8)).naive_utc()]).await?;
+
+        Ok(last_n_day_iter(now.date_naive(), days)
+            .map(|date| {
+                let (tx_count, total_amt) = activity
+                    .iter()
+                    .find(|row| row.date == date)
+                    .map(|row| (row.tx_count, row.total_amount))
+                    .unwrap_or((0, 0));
+                FederationActivity {
+                    num_transactions: tx_count as u64,
+                    amount_transferred: Amount::from_msats(total_amt as u64),
+                }
+            })
+            .collect())
     }
 
     pub async fn get_federation(
@@ -236,7 +353,7 @@ impl FederationObserver {
     }
 
     async fn observe_federation(
-        self,
+        &self,
         federation_id: FederationId,
         config: ClientConfig,
     ) -> anyhow::Result<()> {
@@ -290,6 +407,12 @@ impl FederationObserver {
                 info!("Synced up to session {session_index}, processed {sessions_synced} sessions at a rate of {rate:.2} sessions/s");
                 timer = SystemTime::now();
                 last_session = session_index;
+
+                // If we are syncing up initially we don't want to refresh the views every
+                // session, later we do
+                if rate < 1f64 {
+                    self.refresh_views().await?;
+                }
             }
         }
 
@@ -350,6 +473,16 @@ impl FederationObserver {
         dbtx.commit().await?;
 
         debug!("Processed session {session_index} of federation {federation_id}");
+        Ok(())
+    }
+
+    async fn refresh_views(&self) -> anyhow::Result<()> {
+        info!("Refreshing views");
+        self.connection()
+            .await?
+            .batch_execute("REFRESH MATERIALIZED VIEW CONCURRENTLY session_times;")
+            .await?;
+
         Ok(())
     }
 
@@ -583,5 +716,26 @@ impl FederationObserver {
         .await?;
 
         Ok(Amount::from_msats(total_assets_msat as u64))
+    }
+}
+
+fn last_n_day_iter(now: NaiveDate, days: u32) -> impl Iterator<Item = NaiveDate> {
+    (0..days)
+        .rev()
+        .map(move |day| now - chrono::Duration::days(day as i64))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::federation::observer::last_n_day_iter;
+
+    #[test]
+    fn test_day_iter() {
+        let now = chrono::offset::Utc::now().date_naive();
+        let days = 7;
+        let last_7_days = last_n_day_iter(now, days).collect::<Vec<_>>();
+        assert_eq!(last_7_days.len(), days as usize);
+        assert_eq!(last_7_days[6], now);
+        assert_eq!(last_7_days[0], now - chrono::Duration::days(6));
     }
 }

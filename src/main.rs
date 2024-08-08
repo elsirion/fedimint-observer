@@ -51,8 +51,7 @@ async fn main() -> anyhow::Result<()> {
             federation_config_cache: Default::default(),
             meta_override_cache: Default::default(),
             federation_observer: FederationObserver::new(
-                &dotenv::var("FO_DATABASE")
-                    .unwrap_or_else(|_| "sqlite://fedimint_observer.db".to_owned()),
+                &dotenv::var("FO_DATABASE").context("No FO_DATABASE provided")?,
                 &dotenv::var("FO_ADMIN_AUTH").context("No FO_ADMIN_AUTH provided")?,
             )
             .await?,

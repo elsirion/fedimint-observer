@@ -24,7 +24,7 @@ use tracing::{debug, error, warn};
 
 use crate::federation::db::Federation;
 use crate::federation::{db, decoders_from_config, instance_to_kind};
-use crate::util::{query, query_opt, query_value};
+use crate::util::{execute, query, query_opt, query_value};
 
 #[derive(Debug, Clone)]
 pub struct FederationObserver {
@@ -77,22 +77,35 @@ impl FederationObserver {
     }
 
     async fn setup_schema(&self) -> anyhow::Result<()> {
-        let schema_version = query_value::<i32>(
+        execute(
             &self.connection().await?,
-            // language=postgresql
-            "SELECT
-                    CASE
-                        WHEN EXISTS (
-                            SELECT FROM information_schema.tables
-                            WHERE table_schema = 'public'
-                            AND table_name = 'schema_version'
-                        )
-                        THEN (SELECT COALESCE(MAX(version), 0) FROM schema_version)
-                        ELSE 0
-                    END AS max_version;",
+            "
+            CREATE OR REPLACE FUNCTION get_max_version() RETURNS INTEGER AS $$
+            DECLARE
+                max_version INTEGER;
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 
+                    FROM pg_catalog.pg_tables 
+                    WHERE schemaname = 'public' 
+                    AND tablename = 'schema_version'
+                ) THEN
+                    SELECT COALESCE(MAX(version), 0) INTO max_version
+                    FROM schema_version;
+                ELSE
+                    max_version := 0;
+                END IF;
+
+                RETURN max_version;
+            END;
+            $$ LANGUAGE plpgsql;
+            ",
             &[],
         )
         .await?;
+
+        let schema_version =
+            query_value::<i32>(&self.connection().await?, "SELECT get_max_version();", &[]).await?;
 
         let migration_map = [
             (
@@ -107,12 +120,10 @@ impl FederationObserver {
 
         for (version, migration) in migration_map.iter() {
             if *version > schema_version {
-                self.connection()
-                    .await?
-                    .transaction()
-                    .await?
-                    .batch_execute(migration)
-                    .await?;
+                let mut conn = self.connection().await?;
+                let transaction = conn.transaction().await?;
+                transaction.batch_execute(migration).await?;
+                transaction.commit().await?;
             }
         }
 

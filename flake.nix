@@ -64,6 +64,8 @@
         devShells = flakeboxLib.mkShells {
           nativeBuildInputs = [
             pkgs.postgresql
+            # sqlite is used only for creating the dump file for migrating existing instances
+            pkgs.sqlite
           ] ++ lib.optionals stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];

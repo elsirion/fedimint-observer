@@ -74,6 +74,15 @@ pub fn get_decoders(
     .with_fallback()
 }
 
+pub async fn execute(
+    conn: &impl GenericClient,
+    sql: &str,
+    params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+) -> anyhow::Result<u64> {
+    let num_rows = conn.execute(sql, params).await?;
+    Ok(num_rows)
+}
+
 pub async fn query_one<T>(
     conn: &impl GenericClient,
     sql: &str,

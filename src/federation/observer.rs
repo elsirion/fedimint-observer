@@ -24,7 +24,7 @@ use tracing::{debug, error, warn};
 
 use crate::federation::db::Federation;
 use crate::federation::{db, decoders_from_config, instance_to_kind};
-use crate::util::{query, query_opt, query_value};
+use crate::util::{execute, query, query_opt, query_value};
 
 #[derive(Debug, Clone)]
 pub struct FederationObserver {
@@ -64,24 +64,68 @@ impl FederationObserver {
         self.task_group.spawn_cancellable(
             format!("Observer for {}", federation.federation_id),
             async move {
-                if let Err(e) = slf
-                    .observe_federation(federation.federation_id, federation.config)
-                    .await
-                {
-                    error!("Observer errored: {e:?}");
+                loop {
+                    let e = slf
+                        .observe_federation(federation.federation_id, federation.config.clone())
+                        .await
+                        .expect_err("observer task exited unexpectedly");
+                    error!("Observer errored, restarting in 30s: {e:?}");
+                    tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             },
         );
     }
 
     async fn setup_schema(&self) -> anyhow::Result<()> {
-        self.connection()
-            .await?
-            .batch_execute(include_str!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/schema/v0.sql"
-            )))
-            .await?;
+        execute(
+            &self.connection().await?,
+            "
+            CREATE OR REPLACE FUNCTION get_max_version() RETURNS INTEGER AS $$
+            DECLARE
+                max_version INTEGER;
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 
+                    FROM pg_catalog.pg_tables 
+                    WHERE schemaname = 'public' 
+                    AND tablename = 'schema_version'
+                ) THEN
+                    SELECT COALESCE(MAX(version), 0) INTO max_version
+                    FROM schema_version;
+                ELSE
+                    max_version := 0;
+                END IF;
+
+                RETURN max_version;
+            END;
+            $$ LANGUAGE plpgsql;
+            ",
+            &[],
+        )
+        .await?;
+
+        let schema_version =
+            query_value::<i32>(&self.connection().await?, "SELECT get_max_version();", &[]).await?;
+
+        let migration_map = [
+            (
+                0,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v0.sql")),
+            ),
+            (
+                1,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v1.sql")),
+            ),
+        ];
+
+        for (version, migration) in migration_map.iter() {
+            if *version > schema_version {
+                let mut conn = self.connection().await?;
+                let transaction = conn.transaction().await?;
+                transaction.batch_execute(migration).await?;
+                transaction.commit().await?;
+            }
+        }
 
         if query_value::<i64>(
             &self.connection().await?,
@@ -236,7 +280,7 @@ impl FederationObserver {
     }
 
     async fn observe_federation(
-        self,
+        &self,
         federation_id: FederationId,
         config: ClientConfig,
     ) -> anyhow::Result<()> {
@@ -290,6 +334,12 @@ impl FederationObserver {
                 info!("Synced up to session {session_index}, processed {sessions_synced} sessions at a rate of {rate:.2} sessions/s");
                 timer = SystemTime::now();
                 last_session = session_index;
+
+                // If we are syncing up initially we don't want to refresh the views every
+                // session, later we do
+                if rate < 1f64 {
+                    self.refresh_views().await?;
+                }
             }
         }
 
@@ -350,6 +400,16 @@ impl FederationObserver {
         dbtx.commit().await?;
 
         debug!("Processed session {session_index} of federation {federation_id}");
+        Ok(())
+    }
+
+    async fn refresh_views(&self) -> anyhow::Result<()> {
+        info!("Refreshing views");
+        self.connection()
+            .await?
+            .batch_execute("REFRESH MATERIALIZED VIEW CONCURRENTLY session_times;")
+            .await?;
+
         Ok(())
     }
 

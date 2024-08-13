@@ -15,6 +15,7 @@ anyhow = "1.0.81"
 async-stream = "0.3.5"
 axum = { version = "0.7.5", features = ["json"] }
 axum-auth = "0.7.0"
+bitcoin = "0.30.2"
 csv = "1.3.0"
 dotenv = "0.15.0"
 esplora-client = { version = "0.7.0", default-features = false, features = [

@@ -87,15 +87,22 @@ impl FederationObserver {
                 max_version INTEGER;
             BEGIN
                 IF EXISTS (
-                    SELECT 1 
-                    FROM pg_catalog.pg_tables 
-                    WHERE schemaname = 'public' 
+                    SELECT 1
+                    FROM pg_catalog.pg_tables
+                    WHERE schemaname = current_schema()
                     AND tablename = 'schema_version'
                 ) THEN
                     SELECT COALESCE(MAX(version), 0) INTO max_version
                     FROM schema_version;
-                ELSE
+                ELSIF EXISTS (
+                    SELECT 1
+                    FROM pg_catalog.pg_tables
+                    WHERE schemaname = current_schema()
+                    AND tablename = 'federations'
+                ) THEN
                     max_version := 0;
+                ELSE
+                    max_version := -1;
                 END IF;
 
                 RETURN max_version;

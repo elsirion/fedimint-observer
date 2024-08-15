@@ -68,3 +68,58 @@ impl FromRow for crate::federation::db::Transaction {
         })
     }
 }
+
+#[derive(Debug)]
+pub struct SessionOutcome {
+    pub session_index: i32,
+    pub data: fedimint_core::session_outcome::SessionOutcome,
+}
+
+impl FromRow for crate::federation::db::SessionOutcome {
+    fn from_row(row: &Row) -> Self {
+        Self::try_from_row(row).expect("Decoding row failed")
+    }
+
+    fn try_from_row(row: &Row) -> Result<Self, Error> {
+        let decoder = ModuleDecoderRegistry::default().with_fallback();
+
+        let session_data_bytes: Vec<u8> = row.try_get("session")?;
+        let data = fedimint_core::session_outcome::SessionOutcome::consensus_decode_vec(
+            session_data_bytes,
+            &decoder,
+        )
+        .expect("Invalid data in DB");
+
+        let session_index = row.try_get::<_, i32>("session_index")?;
+
+        Ok(crate::federation::db::SessionOutcome {
+            session_index,
+            data,
+        })
+    }
+}
+
+impl SessionOutcome {
+    pub fn from_row_with_decoders(row: &Row, decoders: &ModuleDecoderRegistry) -> Self {
+        Self::try_from_row_with_decoders(row, decoders).expect("Decoding row failed")
+    }
+
+    pub fn try_from_row_with_decoders(
+        row: &Row,
+        decoders: &ModuleDecoderRegistry,
+    ) -> Result<Self, Error> {
+        let session_data_bytes: Vec<u8> = row.try_get("session")?;
+        let data = fedimint_core::session_outcome::SessionOutcome::consensus_decode_vec(
+            session_data_bytes,
+            &decoders,
+        )
+        .expect("Invalid data in DB");
+
+        let session_index = row.try_get::<_, i32>("session_index")?;
+
+        Ok(crate::federation::db::SessionOutcome {
+            session_index,
+            data,
+        })
+    }
+}

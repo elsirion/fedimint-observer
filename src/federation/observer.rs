@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
 use anyhow::ensure;
@@ -10,12 +11,13 @@ use fedimint_core::encoding::Encodable;
 use fedimint_core::epoch::ConsensusItem;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
-use fedimint_core::util::{retry, ConstantBackoff};
+use fedimint_core::util::{retry, ConstantBackoff, FibonacciBackoff};
 use fedimint_core::{Amount, PeerId};
+use fedimint_ln_common::bitcoin::hashes::hex::{FromHex, ToHex};
 use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
-use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput};
+use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput, WalletOutputV0};
 use futures::StreamExt;
 use tokio::time::sleep;
 use tokio_postgres::NoTls;
@@ -116,6 +118,10 @@ impl FederationObserver {
                 1,
                 include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v1.sql")),
             ),
+            (
+                2,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v2.sql")),
+            ),
         ];
 
         for (version, migration) in migration_map.iter() {
@@ -123,6 +129,7 @@ impl FederationObserver {
                 let mut conn = self.connection().await?;
                 let transaction = conn.transaction().await?;
                 transaction.batch_execute(migration).await?;
+                self.handle_backfill(*version, &transaction).await?;
                 transaction.commit().await?;
             }
         }
@@ -146,6 +153,75 @@ impl FederationObserver {
         }
 
         Ok(())
+    }
+
+    async fn backfill_v2_migration_wallet_data(
+        &self,
+        dbtx: &Transaction<'_>,
+    ) -> anyhow::Result<()> {
+        info!("Beginning backfill for v2 wallet migration data, this may take a long time");
+
+        let num_cpus = std::thread::available_parallelism()
+            .map(|non_zero_cpus| non_zero_cpus.get())
+            .unwrap_or(12);
+
+        for fed in self.list_federations().await? {
+            info!(
+                "Parsing all session outcomes for fed: {}",
+                fed.federation_id
+            );
+            let decoders = decoders_from_config(&fed.config);
+            let session_outcome_rows = dbtx
+                .query(
+                    "SELECT * FROM sessions WHERE federation_id = $1",
+                    &[&fed.federation_id.consensus_encode_to_vec()],
+                )
+                .await?;
+
+            let rows_count = session_outcome_rows.len();
+
+            // take advantage of all cores, otherwise backfilling can take a long time
+            let mut parsing_stream =
+                futures::stream::iter(session_outcome_rows.into_iter().enumerate())
+                    .map(|(row_idx, row)| {
+                        let decoders_clone = decoders.clone();
+                        tokio::task::spawn(async move {
+                            if row_idx % 1000 == 0 {
+                                let percentage = (row_idx as f64) / (rows_count as f64);
+                                let percentage_str = format!("{:.2}%", percentage * 100.0);
+                                info!(
+                                    "parsing session index: {:?}/{:?} ({})",
+                                    row_idx, rows_count, percentage_str
+                                );
+                            }
+                            db::SessionOutcome::from_row_with_decoders(
+                                &row,
+                                &decoders_clone.clone(),
+                            )
+                        })
+                    })
+                    .buffered(num_cpus)
+                    .boxed();
+
+            while let Some(outcome) = parsing_stream.next().await.transpose()? {
+                self.process_session(
+                    fed.federation_id,
+                    fed.config.clone(),
+                    outcome.session_index as u64,
+                    outcome.data,
+                    &dbtx,
+                )
+                .await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn handle_backfill(&self, version: i32, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
+        match version {
+            2 => Ok(self.backfill_v2_migration_wallet_data(dbtx).await?),
+            _ => Ok(()),
+        }
     }
 
     pub(super) async fn connection(&self) -> anyhow::Result<deadpool_postgres::Object> {
@@ -319,13 +395,17 @@ impl FederationObserver {
         let mut timer = SystemTime::now();
         let mut last_session = next_session;
         while let Some((session_index, signed_session_outcome)) = session_stream.next().await {
+            let mut connection = self.connection().await?;
+            let dbtx = connection.transaction().await?;
             self.process_session(
                 federation_id,
                 config.clone(),
                 session_index,
                 signed_session_outcome,
+                &dbtx,
             )
             .await?;
+            dbtx.commit().await?;
 
             let elapsed = timer.elapsed().unwrap_or_default();
             if elapsed >= Duration::from_secs(5) {
@@ -352,12 +432,10 @@ impl FederationObserver {
         config: ClientConfig,
         session_index: u64,
         signed_session_outcome: SessionOutcome,
+        dbtx: &Transaction<'_>,
     ) -> anyhow::Result<()> {
-        let mut connection = self.connection().await?;
-        let dbtx = connection.transaction().await?;
-
         dbtx.execute(
-            "INSERT INTO sessions VALUES ($1, $2, $3)",
+            "INSERT INTO sessions VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
             &[
                 &federation_id.consensus_encode_to_vec(),
                 &(session_index as i32),
@@ -397,8 +475,6 @@ impl FederationObserver {
             }
         }
 
-        dbtx.commit().await?;
-
         debug!("Processed session {session_index} of federation {federation_id}");
         Ok(())
     }
@@ -407,8 +483,15 @@ impl FederationObserver {
         info!("Refreshing views");
         self.connection()
             .await?
-            .batch_execute("REFRESH MATERIALIZED VIEW CONCURRENTLY session_times;")
+            .batch_execute(
+                "
+                REFRESH MATERIALIZED VIEW CONCURRENTLY session_times;
+                REFRESH MATERIALIZED VIEW CONCURRENTLY utxos;
+                ",
+            )
             .await?;
+
+        info!("Refresh complete");
 
         Ok(())
     }
@@ -421,12 +504,12 @@ impl FederationObserver {
         item_index: u64,
         transaction: fedimint_core::transaction::Transaction,
     ) -> Result<(), tokio_postgres::Error> {
-        let txid = transaction.tx_hash();
+        let fedimint_txid = transaction.tx_hash();
 
         dbtx.execute(
-            "INSERT INTO transactions VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO transactions VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
             &[
-                &txid.consensus_encode_to_vec(),
+                &fedimint_txid.consensus_encode_to_vec(),
                 &federation_id.consensus_encode_to_vec(),
                 &(session_index as i32),
                 &(item_index as i32),
@@ -477,10 +560,10 @@ impl FederationObserver {
             };
 
             dbtx.execute(
-                "INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6)",
+                "INSERT INTO transaction_inputs VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
                 &[
                     &federation_id.consensus_encode_to_vec(),
-                    &txid.consensus_encode_to_vec(),
+                    &fedimint_txid.consensus_encode_to_vec(),
                     &(in_idx as i32),
                     &kind,
                     &maybe_ln_contract_id.map(|cid| cid.consensus_encode_to_vec()),
@@ -488,6 +571,40 @@ impl FederationObserver {
                 ],
             )
             .await?;
+
+            if kind.as_str() == "wallet" {
+                let peg_in_proof = &input
+                    .as_any()
+                    .downcast_ref::<WalletInput>()
+                    .expect("Not Wallet input")
+                    .maybe_v0_ref()
+                    .expect("Not v0")
+                    .0;
+
+                let outpoint = peg_in_proof.outpoint();
+                let on_chain_txid = fedimint_core::TransactionId::from_hex(&outpoint.txid.to_hex())
+                    .expect("Invalid data in DB")
+                    .consensus_encode_to_vec();
+
+                let address = bitcoin::Address::from_script(
+                    bitcoin::Script::from_bytes(peg_in_proof.tx_output().script_pubkey.as_bytes()),
+                    bitcoin::Network::Bitcoin,
+                )
+                .expect("Invalid output address");
+
+                dbtx.execute(
+                        "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
+                        &[
+                            &on_chain_txid,
+                            &(outpoint.vout as i32),
+                            &address.to_string(),
+                            &maybe_amount_msat.map(|amt| amt as i64).expect("Wallet input must have amount"),
+                            &federation_id.consensus_encode_to_vec(),
+                            &fedimint_txid.consensus_encode_to_vec(),
+                            &(in_idx as i32),
+                        ]
+                    ).await?;
+            }
         }
 
         for (out_idx, output) in transaction.outputs.into_iter().enumerate() {
@@ -510,7 +627,7 @@ impl FederationObserver {
                                 };
 
                                 dbtx.execute(
-                                    "INSERT INTO ln_contracts VALUES ($1, $2, $3, $4)",
+                                    "INSERT INTO ln_contracts VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
                                     &[
                                         &federation_id.consensus_encode_to_vec(),
                                         &contract_id.consensus_encode_to_vec(),
@@ -563,10 +680,10 @@ impl FederationObserver {
             };
 
             dbtx.execute(
-                "INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                "INSERT INTO transaction_outputs VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
                 &[
                     &federation_id.consensus_encode_to_vec(),
-                    &txid.consensus_encode_to_vec(),
+                    &fedimint_txid.consensus_encode_to_vec(),
                     &(out_idx as i32),
                     &kind,
                     &maybe_ln_contract.map(|(kind, _id)| kind),
@@ -575,6 +692,52 @@ impl FederationObserver {
                 ],
             )
             .await?;
+
+            if kind.as_str() == "wallet" {
+                let wallet_v0_output = output
+                    .as_any()
+                    .downcast_ref::<WalletOutput>()
+                    .expect("Not Wallet input")
+                    .maybe_v0_ref()
+                    .expect("Not v0");
+
+                match wallet_v0_output {
+                    WalletOutputV0::PegOut(peg_out) => {
+                        let withdrawal_address = peg_out.recipient.clone();
+                        dbtx.execute(
+                            "INSERT INTO wallet_withdrawal_addresses VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
+                            &[
+                                &withdrawal_address.to_string(),
+                                &federation_id.consensus_encode_to_vec(),
+                                &(session_index as i32),
+                                &(item_index as i32),
+                                &fedimint_txid.consensus_encode_to_vec(),
+                                &(out_idx as i32),
+                            ]
+                        ).await?;
+                    }
+                    WalletOutputV0::Rbf(_) => {
+                        // panic, since the benefits may outweigh the annoyance of removing and
+                        // restarting
+                        panic!(
+                            r#"
+                            You've discovered a terribly unfortunate situation: an RBF wallet output
+
+                            Federation ID: {}
+                            Name: {}
+
+                            If you know any of the guardians of the federation, please give them a heads up
+                            that they should expect failures re-syncing, or worse. They can reach out to the
+                            core dev team on Discord (chat.fedimint.org).
+
+                            For more context, see: https://github.com/fedimint/fedimint/pull/5496
+                        "#,
+                            federation_id,
+                            config.global.federation_name().unwrap_or("no name defined"),
+                        );
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -599,18 +762,163 @@ impl FederationObserver {
             .as_any()
             .downcast_ref::<WalletConsensusItem>()
             .expect("config says this should be a wallet CI");
-        if let WalletConsensusItem::BlockCount(height_vote) = wallet_ci {
-            dbtx.execute(
-                "INSERT INTO block_height_votes VALUES ($1, $2, $3, $4, $5)",
-                &[
-                    &federation_id.consensus_encode_to_vec(),
-                    &(session_index as i32),
-                    &(item_index as i32),
-                    &(peer_id.to_usize() as i32),
-                    &(*height_vote as i32),
-                ],
-            )
-            .await?;
+        match wallet_ci {
+            WalletConsensusItem::BlockCount(height_vote) => {
+                dbtx.execute(
+                    "INSERT INTO block_height_votes VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
+                    &[
+                        &federation_id.consensus_encode_to_vec(),
+                        &(session_index as i32),
+                        &(item_index as i32),
+                        &(peer_id.to_usize() as i32),
+                        &(*height_vote as i32),
+                    ],
+                )
+                .await?;
+            }
+            WalletConsensusItem::PegOutSignature(peg_out_sig) => {
+                let peg_out_txid = peg_out_sig.txid.to_string();
+                let peg_out_txid_encoded =
+                    fedimint_core::TransactionId::from_str(peg_out_txid.as_str())
+                        .expect("Invalid on chain txid")
+                        .consensus_encode_to_vec();
+
+                dbtx.execute(
+                    "INSERT INTO wallet_withdrawal_transactions VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                    &[
+                        &peg_out_txid_encoded,
+                        &federation_id.consensus_encode_to_vec(),
+                    ],
+                )
+                .await?;
+
+                dbtx.execute(
+                    "INSERT INTO wallet_withdrawal_signatures VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+                    &[
+                        &peg_out_txid_encoded,
+                        &(session_index as i32),
+                        &(item_index as i32),
+                        &(peer_id.to_usize() as i32),
+                    ],
+                )
+                .await?;
+
+                let num_sigs = dbtx
+                    .query_one(
+                        "
+                        SELECT COUNT(peer_id)::INT num_sigs
+                        FROM wallet_withdrawal_signatures
+                        WHERE on_chain_txid = $1
+                        GROUP BY on_chain_txid
+                        ",
+                        &[&peg_out_txid_encoded],
+                    )
+                    .await?
+                    .get::<_, i32>("num_sigs") as usize;
+
+                // 3n + 1 <= num_peers
+                // n <= (num_peers - 1) / 3
+                // threshold = num_peers - floor((num_peers - 1) / 3)
+                let threshold = {
+                    let num_peers = config.global.api_endpoints.len();
+                    num_peers - (num_peers - 1) / 3
+                };
+
+                if num_sigs < threshold {
+                    return Ok(());
+                }
+
+                // at this point, the transaction reached threshold and should broadcast
+
+                let esplora_txid = esplora_client::Txid::from_str(peg_out_txid.as_str())
+                    .expect("Couldn't create esplora txid");
+
+                let builder = esplora_client::Builder::new("https://mempool.space/api");
+                let client = builder
+                    .build_async()
+                    .expect("Failed to build esplora client");
+
+                let fetched_tx = retry(
+                    format!("fetching tx from esplora"),
+                    FibonacciBackoff::default()
+                        .with_min_delay(Duration::from_secs(30))
+                        .with_max_delay(Duration::from_secs(60 * 30))
+                        .with_max_times(usize::MAX),
+                    || async {
+                        client.get_tx_no_opt(&esplora_txid).await.map_err(|e| {
+                            warn!("failed to fetch tx: {e:?}");
+                            anyhow::anyhow!("failed fetching tx from esplora")
+                        })
+                    },
+                )
+                .await
+                .expect("Reached usize::MAX retries");
+
+                for input in fetched_tx.input {
+                    let prev_out_txid = fedimint_core::TransactionId::from_str(
+                        input.previous_output.txid.to_string().as_str(),
+                    )
+                    .expect("Invalid txid")
+                    .consensus_encode_to_vec();
+
+                    dbtx.execute(
+                        "INSERT INTO wallet_withdrawal_transaction_inputs VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+                        &[
+                            &prev_out_txid,
+                            &(input.previous_output.vout as i32),
+                            &peg_out_txid_encoded,
+                        ],
+                    )
+                    .await?;
+                }
+
+                for (out_idx, output) in fetched_tx.output.iter().enumerate() {
+                    let address = bitcoin::Address::from_script(
+                        bitcoin::Script::from_bytes(output.script_pubkey.as_bytes()),
+                        bitcoin::Network::Bitcoin,
+                    )
+                    .expect("Invalid bitcoin address");
+
+                    dbtx.execute(
+                        "INSERT INTO wallet_withdrawal_transaction_outputs VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+                        &[
+                            &peg_out_txid_encoded,
+                            &(out_idx as i32),
+                            &address.to_string(),
+                            &((output.value.to_sat() as i64) * 1000),
+
+                        ],
+                    )
+                    .await?;
+
+                    // update federation_txid if we found a matching withdrawal address
+                    dbtx.execute(
+                        "
+                        UPDATE wallet_withdrawal_transactions
+                        SET federation_txid = (
+                            SELECT txid
+                            FROM wallet_withdrawal_addresses wwa
+                            WHERE address = $1
+                              AND NOT EXISTS (
+                                SELECT *
+                                FROM wallet_withdrawal_transactions wwt
+                                WHERE wwa.txid = wwt.federation_txid
+                              )
+                            -- if address reuse, assume earliest withdrawal request first
+                            ORDER BY session_index, item_index
+                            LIMIT 1
+                        )
+                        WHERE on_chain_txid = $2
+                          AND federation_txid IS NULL
+                        ",
+                        &[&address.to_string(), &peg_out_txid_encoded],
+                    )
+                    .await?;
+                }
+            }
+            _ => {
+                // other WalletConsesnsusItems are not needed yet
+            }
         }
 
         Ok(())

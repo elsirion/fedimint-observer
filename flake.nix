@@ -22,15 +22,14 @@
 
         rustSrc = flakeboxLib.filterSubPaths {
           root = builtins.path {
-            name = "flakebox-tutorial";
+            name = "fmo";
             path = ./.;
           };
           paths = [
             "Cargo.toml"
             "Cargo.lock"
             ".cargo"
-            "src"
-            "schema"
+            "fmo_server"
           ];
         };
 
@@ -38,7 +37,8 @@
           (flakeboxLib.craneMultiBuild { toolchains = stdToolchains; }) (craneLib':
             let
               craneLib = (craneLib'.overrideArgs {
-                pname = "fedimint-observer";
+                pname = "fmo_server";
+                version = "0.1.0";
                 src = rustSrc;
               });
             in
@@ -47,13 +47,13 @@
               workspaceBuild = craneLib.buildWorkspace {
                 cargoArtifacts = workspaceDeps;
               };
-              fedimint-observer = craneLib.buildPackage { };
-              fedimint-observer-image = pkgs.dockerTools.buildLayeredImage {
-                name = "fedimint-observer";
-                contents = [ fedimint-observer pkgs.bash pkgs.coreutils ];
+              fmo_server = craneLib.buildPackage { };
+              fmo_server_image = pkgs.dockerTools.buildLayeredImage {
+                name = "fmo_server";
+                contents = [ fmo_server pkgs.bash pkgs.coreutils ];
                 config = {
                   Cmd = [
-                    "${fedimint-observer}/bin/fedimint-observer"
+                    "${fmo_server}/bin/fmo_server"
                   ];
                 };
               };

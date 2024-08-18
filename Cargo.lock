@@ -1252,7 +1252,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "fmo-frontend"
+name = "fmo_api_types"
+version = "0.1.0"
+dependencies = [
+ "fedimint-core",
+ "serde",
+]
+
+[[package]]
+name = "fmo_frontend"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1271,14 +1279,6 @@ dependencies = [
  "tracing",
  "tracing-wasm",
  "web-sys",
-]
-
-[[package]]
-name = "fmo_api_types"
-version = "0.1.0"
-dependencies = [
- "fedimint-core",
- "serde",
 ]
 
 [[package]]

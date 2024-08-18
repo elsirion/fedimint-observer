@@ -1,5 +1,5 @@
 [package]
-name = "fmo-frontend"
+name = "fmo_frontend"
 version = "0.1.0"
 edition = "2021"
 

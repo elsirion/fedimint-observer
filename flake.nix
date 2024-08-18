@@ -18,28 +18,57 @@
         lib = pkgs.lib;
         stdenv = pkgs.stdenv;
 
-        stdToolchains = flakeboxLib.mkStdToolchains { };
+        toolchains = flakeboxLib.mkFenixToolchain {
+          components = [
+            "rustc"
+            "cargo"
+            "clippy"
+            "rust-analyzer"
+            "rust-src"
+          ];
+
+          args = {
+            nativeBuildInputs = with pkgs; [
+              wasm-bindgen-cli
+              wasm-pack
+              trunk
+              nodejs
+              nodePackages.tailwindcss
+            ];
+          };
+          targets = (pkgs.lib.getAttrs
+            ([
+              "default"
+              "wasm32-unknown"
+            ])
+            (flakeboxLib.mkStdTargets { })
+          );
+        };
 
         rustSrc = flakeboxLib.filterSubPaths {
           root = builtins.path {
-            name = "flakebox-tutorial";
+            name = "fmo";
             path = ./.;
           };
           paths = [
             "Cargo.toml"
             "Cargo.lock"
             ".cargo"
-            "src"
-            "schema"
+            "fmo_api_types"
+            "fmo_server"
+            "fmo_frontend"
+            "tailwind.config.js"
           ];
         };
 
-        packages =
-          (flakeboxLib.craneMultiBuild { toolchains = stdToolchains; }) (craneLib':
+        nativePackages =
+          (flakeboxLib.craneMultiBuild { toolchains = {default = toolchains;}; }) (craneLib':
             let
               craneLib = (craneLib'.overrideArgs {
-                pname = "fedimint-observer";
+                pname = "fmo_server";
+                version = "0.1.0";
                 src = rustSrc;
+                cargoExtraArgs = "--package=fmo_server";
               });
             in
             rec {
@@ -47,21 +76,61 @@
               workspaceBuild = craneLib.buildWorkspace {
                 cargoArtifacts = workspaceDeps;
               };
-              fedimint-observer = craneLib.buildPackage { };
-              fedimint-observer-image = pkgs.dockerTools.buildLayeredImage {
-                name = "fedimint-observer";
-                contents = [ fedimint-observer pkgs.bash pkgs.coreutils ];
+              fmo_server = craneLib.buildPackage { };
+              fmo_server_image = pkgs.dockerTools.buildLayeredImage {
+                name = "fmo_server";
+                contents = [ fmo_server pkgs.bash pkgs.coreutils ];
                 config = {
                   Cmd = [
-                    "${fedimint-observer}/bin/fedimint-observer"
+                    "${fmo_server}/bin/fmo_server"
                   ];
                 };
               };
 
             });
+
+        wasmPackages = let
+          craneLib = (flakeboxLib.mkStdToolchains {}).wasm32-unknown.craneLib;
+
+          wasmArgs = {
+            src = rustSrc;
+
+            cargoExtraArgs = "--package=fmo_frontend";
+            trunkIndexPath = "fmo_frontend/index.html";
+            strictDeps = true;
+
+            pname = "fmo_frontend";
+            version = "0.1.0";
+
+            # Specify the wasm32 target
+            CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
+            RUSTFLAGS = "--cfg=web_sys_unstable_apis";
+          };
+
+          cargoArtifactsWasm = craneLib.buildDepsOnly (wasmArgs // {
+            doCheck = false;
+          });
+        in {
+          fmo_frontend = craneLib.buildTrunkPackage (wasmArgs // {
+            nativeBuildInputs = with pkgs; [
+              wasm-pack
+              nodejs
+              binaryen
+              nodePackages.tailwindcss
+            ];
+
+            wasm-bindgen-cli = pkgs.wasm-bindgen-cli.override {
+              version = "0.2.92";
+              hash = "sha256-1VwY8vQy7soKEgbki4LD+v259751kKxSxmo/gqE6yV0=";
+              cargoHash = "sha256-aACJ+lYNEU8FFBs158G1/JG8sc6Rq080PeKCMnwdpH0=";
+            };
+          });
+        };
       in
       {
         devShells = flakeboxLib.mkShells {
+          toolchain = toolchains;
+
           nativeBuildInputs = [
             pkgs.postgresql
             # sqlite is used only for creating the dump file for migrating existing instances
@@ -76,8 +145,8 @@
           '';
         };
 
-        legacyPackages = packages;
-        packages.default = packages.fedimint-observer;
+        legacyPackages = nativePackages // wasmPackages;
+        packages.default = nativePackages.fmo_server;
       }
     );
 }

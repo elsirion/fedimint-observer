@@ -5,3 +5,5 @@ fedimint_observer.db
 .direnv
 .pg_dev
 /db_backups
+/fmo_frontend/dist
+/fmo_frontend/node_modules

@@ -145,7 +145,7 @@
           '';
         };
 
-        packages = nativePackages // wasmPackages;
+        packages = nativePackages // wasmPackages // { default = nativePackages.fmo_server;};
       }
     );
 }

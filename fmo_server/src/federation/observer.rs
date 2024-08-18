@@ -2,6 +2,8 @@ use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
 use anyhow::ensure;
+use bitcoin::hashes::Hash;
+use bitcoin::{Address, OutPoint, Txid};
 use chrono::{DateTime, NaiveDate};
 use deadpool_postgres::{Runtime, Transaction};
 use fedimint_core::api::{DynGlobalApi, InviteCode};
@@ -18,7 +20,7 @@ use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
 use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput, WalletOutputV0};
-use fmo_api_types::{FederationActivity, FederationSummary};
+use fmo_api_types::{FederationActivity, FederationSummary, FederationUtxo};
 use futures::future::join_all;
 use futures::StreamExt;
 use postgres_from_row::FromRow;
@@ -1042,6 +1044,37 @@ impl FederationObserver {
         .await?;
 
         Ok(Amount::from_msats(total_assets_msat as u64))
+    }
+
+    pub async fn federation_utxos(
+        &self,
+        federation_id: FederationId,
+    ) -> anyhow::Result<Vec<FederationUtxo>> {
+        self.get_federation(federation_id).await?;
+
+        #[derive(Debug, FromRow)]
+        struct FederationUtxoRaw {
+            on_chain_txid: Vec<u8>,
+            on_chain_vout: i32,
+            address: String,
+            amount_msat: i64,
+        }
+
+        query::<FederationUtxoRaw>(
+            &self.connection().await?,
+            // language=postgresql
+            "SELECT on_chain_txid, on_chain_vout, address, amount_msat FROM utxos WHERE federation_id = $1 ORDER BY amount_msat DESC",
+            &[&federation_id.consensus_encode_to_vec()],
+        ).await?.into_iter().map(|utxo| {
+            Result::<_, anyhow::Error>::Ok(FederationUtxo {
+                address: Address::from_str(&utxo.address)?,
+                out_point: OutPoint {
+                    txid: Txid::from_slice(&utxo.on_chain_txid)?,
+                    vout: utxo.on_chain_vout.try_into()?,
+                },
+                amount: Amount::from_msats(utxo.amount_msat.try_into()?),
+            })
+        }).collect()
     }
 }
 

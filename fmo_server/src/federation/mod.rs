@@ -47,6 +47,7 @@ pub fn get_federations_routes() -> Router<AppState> {
             "/:federation_id/transactions/histogram",
             get(transaction_histogram),
         )
+        .route("/:federation_id/utxos", get(get_federation_utxos))
         .route("/:federation_id/sessions", get(list_sessions))
         .route("/:federation_id/sessions/count", get(count_sessions))
 }
@@ -114,6 +115,17 @@ async fn get_federation_overview(
         "total_assets_msat": total_assets_msat
     })
     .into())
+}
+
+async fn get_federation_utxos(
+    Path(federation_id): Path<FederationId>,
+    State(state): State<AppState>,
+) -> crate::error::Result<Json<Vec<fmo_api_types::FederationUtxo>>> {
+    let utxos = state
+        .federation_observer
+        .federation_utxos(federation_id)
+        .await?;
+    Ok(utxos.into())
 }
 
 fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {

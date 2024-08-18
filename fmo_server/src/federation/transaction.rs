@@ -12,7 +12,6 @@ use fedimint_core::{Amount, TransactionId};
 use fmo_api_types::FederationActivity;
 use postgres_from_row::FromRow;
 use serde::Serialize;
-use serde_json::json;
 
 use crate::federation::db;
 use crate::federation::observer::FederationObserver;

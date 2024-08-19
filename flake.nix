@@ -143,6 +143,8 @@
             source scripts/pg_dev/env.sh
             echo "Type 'just pg_start' to start the $PGDATABASE database, use 'pg' to connect to it"
           '';
+
+          RUSTFLAGS = "--cfg=web_sys_unstable_apis";
         };
 
         legacyPackages = nativePackages // wasmPackages;

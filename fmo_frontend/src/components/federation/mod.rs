@@ -12,6 +12,7 @@ use leptos_router::{use_params, Params, ParamsError, ParamsMap};
 use crate::components::federation::activity::ActivityChart;
 use crate::components::federation::general::General;
 use crate::components::federation::guardians::{Guardian, Guardians};
+use crate::components::tabs::{Tab, Tabs};
 use crate::BASE_URL;
 
 #[component]
@@ -76,7 +77,11 @@ pub fn Federation() -> impl IntoView {
                                             .collect()/>
                                         <General config=config/>
                                     </div>
-                                    <ActivityChart id=id().unwrap()/>
+                                    <Tabs default="Activity">
+                                        <Tab name="Activity">
+                                            <ActivityChart id=id().unwrap()/>
+                                        </Tab>
+                                    </Tabs>
                                 }
                                     .into_view()
                             }

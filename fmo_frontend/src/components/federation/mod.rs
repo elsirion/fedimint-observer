@@ -1,6 +1,7 @@
 mod activity;
 mod general;
 mod guardians;
+mod utxos;
 
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -8,6 +9,7 @@ use std::str::FromStr;
 use fedimint_core::config::{FederationId, JsonClientConfig};
 use leptos::{component, create_resource, view, IntoView, Show, SignalGet, SignalWith};
 use leptos_router::{use_params, Params, ParamsError, ParamsMap};
+use utxos::Utxos;
 
 use crate::components::federation::activity::ActivityChart;
 use crate::components::federation::general::General;
@@ -80,6 +82,9 @@ pub fn Federation() -> impl IntoView {
                                     <Tabs default="Activity">
                                         <Tab name="Activity">
                                             <ActivityChart id=id().unwrap()/>
+                                        </Tab>
+                                        <Tab name="UTXOs">
+                                            <Utxos federation_id=id().unwrap()/>
                                         </Tab>
                                     </Tabs>
                                 }

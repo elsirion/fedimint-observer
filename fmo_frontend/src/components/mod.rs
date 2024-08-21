@@ -1,3 +1,4 @@
+mod alert;
 mod copyable;
 mod federation;
 mod federations;

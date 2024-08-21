@@ -14,6 +14,7 @@ use leptos::{
 };
 use leptos_chartistry::*;
 
+use crate::components::alert::{Alert, AlertLevel};
 use crate::util::AsBitcoin;
 
 #[component]
@@ -80,7 +81,12 @@ pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoVie
     let (filter_outliers, set_filter_outliers) = create_signal(true);
 
     view! {
-        <div class="w-full bg-white rounded-lg shadow dark:bg-gray-800 p-4 md:p-6 m-4">
+        <Alert
+            message="Some transaction types, like Lightning transactions, cause more than one Fedimint transaction."
+            level=AlertLevel::Info
+            class="my-4"
+        />
+        <div class="w-full bg-white rounded-lg shadow dark:bg-gray-800 p-4 md:p-6">
             <div class="flex justify-between">
                 <div>
                     <h5 class="leading-none text-3xl font-bold text-gray-900 dark:text-white pb-2">

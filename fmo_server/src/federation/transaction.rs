@@ -189,9 +189,9 @@ impl FederationObserver {
     ) -> anyhow::Result<Vec<HistogramEntry>> {
         // language=postgresql
         const QUERY: &str = "
-            SELECT DATE(st.estimated_session_timestamp) AS date,
-                   COUNT(DISTINCT t.txid)::bigint       AS count,
-                   SUM(ti.total_input_amount)::bigint   AS amount
+            SELECT DATE(st.estimated_session_timestamp)            AS date,
+                   COUNT(DISTINCT t.txid)::bigint                  AS count,
+                   COALESCE(SUM(ti.total_input_amount), 0)::bigint AS amount
             FROM transactions t
                      JOIN
                  session_times st ON t.session_index = st.session_index AND t.federation_id = st.federation_id

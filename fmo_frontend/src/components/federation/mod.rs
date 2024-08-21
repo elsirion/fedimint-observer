@@ -76,7 +76,7 @@ pub fn Federation() -> impl IntoView {
                                             url: guardian.url.to_string(),
                                         })
                                         .collect()/>
-                                    <General config=config/>
+                                    <General config={config.clone()}/>
                                 </div>
                                 <Tabs default="Activity">
                                     <Tab name="Activity">
@@ -84,6 +84,11 @@ pub fn Federation() -> impl IntoView {
                                     </Tab>
                                     <Tab name="UTXOs">
                                         <Utxos federation_id=id().unwrap()/>
+                                    </Tab>
+                                    <Tab name="Config">
+                                        <div class="w-full overflow-x-scroll my-4">
+                                            <pre>{serde_json::to_string_pretty(&config).expect("can be encoded")}</pre>
+                                        </div>
                                     </Tab>
                                 </Tabs>
                             }

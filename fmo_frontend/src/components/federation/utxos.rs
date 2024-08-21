@@ -2,6 +2,7 @@ use fedimint_core::config::FederationId;
 use fmo_api_types::FederationUtxo;
 use leptos::{component, create_resource, view, IntoView, SignalGet};
 
+use crate::components::alert::{Alert, AlertLevel};
 use crate::util::AsBitcoin;
 
 #[component]
@@ -22,14 +23,16 @@ pub fn Utxos(federation_id: FederationId) -> impl IntoView {
                                                 "https://mempool.space/address/{}",
                                                 utxo.address.clone().assume_checked().to_string(),
                                             )
-                                            class="font-medium text-blue-600 underline dark:text-blue-500 hover:no-underline"
+                                            class="text-blue-600 underline dark:text-blue-500 hover:no-underline"
                                         >
-                                            <span class="truncate flex-shrink min-w-0 font-mono">
-                                                {utxo.out_point.txid.to_string()}
-                                            </span>
-                                            <span class="flex-shrink-0 font-mono">
-                                                ":" {utxo.out_point.vout.to_string()}
-                                            </span>
+                                            <pre>
+                                                <span class="truncate flex-shrink min-w-0">
+                                                    {utxo.out_point.txid.to_string()}
+                                                </span>
+                                                <span class="flex-shrink-0">
+                                                    ":" {utxo.out_point.vout.to_string()}
+                                                </span>
+                                            </pre>
                                         </a>
                                     </td>
                                     <td class="px-6 py-4">

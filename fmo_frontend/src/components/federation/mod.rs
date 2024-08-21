@@ -62,40 +62,37 @@ pub fn Federation() -> impl IntoView {
                     }}
 
                 </h2>
-                <pre>
-                    {move || {
-                        match config_resource.get() {
-                            Some(Ok(config)) => {
-                                view! {
-                                    <div class="flex">
-                                        <Guardians guardians=config
-                                            .global
-                                            .api_endpoints
-                                            .iter()
-                                            .map(|(_, guardian)| Guardian {
-                                                name: guardian.name.clone(),
-                                                url: guardian.url.to_string(),
-                                            })
-                                            .collect()/>
-                                        <General config=config/>
-                                    </div>
-                                    <Tabs default="Activity">
-                                        <Tab name="Activity">
-                                            <ActivityChart id=id().unwrap()/>
-                                        </Tab>
-                                        <Tab name="UTXOs">
-                                            <Utxos federation_id=id().unwrap()/>
-                                        </Tab>
-                                    </Tabs>
-                                }
-                                    .into_view()
+                {move || {
+                    match config_resource.get() {
+                        Some(Ok(config)) => {
+                            view! {
+                                <div class="flex">
+                                    <Guardians guardians=config
+                                        .global
+                                        .api_endpoints
+                                        .iter()
+                                        .map(|(_, guardian)| Guardian {
+                                            name: guardian.name.clone(),
+                                            url: guardian.url.to_string(),
+                                        })
+                                        .collect()/>
+                                    <General config=config/>
+                                </div>
+                                <Tabs default="Activity">
+                                    <Tab name="Activity">
+                                        <ActivityChart id=id().unwrap()/>
+                                    </Tab>
+                                    <Tab name="UTXOs">
+                                        <Utxos federation_id=id().unwrap()/>
+                                    </Tab>
+                                </Tabs>
                             }
-                            Some(Err(e)) => view! { { format!("Error: {}", e) } }.into_view(),
-                            None => view! { "Loading..." }.into_view(),
+                                .into_view()
                         }
-                    }}
-
-                </pre>
+                        Some(Err(e)) => view! { { format!("Error: {}", e) } }.into_view(),
+                        None => view! { "Loading..." }.into_view(),
+                    }
+                }}
             </div>
         </Show>
     }

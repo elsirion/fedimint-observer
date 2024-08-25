@@ -1,3 +1,4 @@
+use bitcoin::address::NetworkUnchecked;
 use fedimint_core::config::FederationId;
 use fedimint_core::Amount;
 use serde::{Deserialize, Serialize};
@@ -15,4 +16,11 @@ pub struct FederationSummary {
 pub struct FederationActivity {
     pub num_transactions: u64,
     pub amount_transferred: Amount,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FederationUtxo {
+    pub address: bitcoin::Address<NetworkUnchecked>,
+    pub out_point: bitcoin::OutPoint,
+    pub amount: Amount,
 }

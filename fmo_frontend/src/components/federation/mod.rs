@@ -1,6 +1,7 @@
 mod activity;
 mod general;
 mod guardians;
+mod utxos;
 
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -8,10 +9,12 @@ use std::str::FromStr;
 use fedimint_core::config::{FederationId, JsonClientConfig};
 use leptos::{component, create_resource, view, IntoView, Show, SignalGet, SignalWith};
 use leptos_router::{use_params, Params, ParamsError, ParamsMap};
+use utxos::Utxos;
 
 use crate::components::federation::activity::ActivityChart;
 use crate::components::federation::general::General;
 use crate::components::federation::guardians::{Guardian, Guardians};
+use crate::components::tabs::{Tab, Tabs};
 use crate::BASE_URL;
 
 #[component]
@@ -59,33 +62,42 @@ pub fn Federation() -> impl IntoView {
                     }}
 
                 </h2>
-                <pre>
-                    {move || {
-                        match config_resource.get() {
-                            Some(Ok(config)) => {
-                                view! {
-                                    <div class="flex">
-                                        <Guardians guardians=config
-                                            .global
-                                            .api_endpoints
-                                            .iter()
-                                            .map(|(_, guardian)| Guardian {
-                                                name: guardian.name.clone(),
-                                                url: guardian.url.to_string(),
-                                            })
-                                            .collect()/>
-                                        <General config=config/>
-                                    </div>
-                                    <ActivityChart id=id().unwrap()/>
-                                }
-                                    .into_view()
+                {move || {
+                    match config_resource.get() {
+                        Some(Ok(config)) => {
+                            view! {
+                                <div class="flex">
+                                    <Guardians guardians=config
+                                        .global
+                                        .api_endpoints
+                                        .iter()
+                                        .map(|(_, guardian)| Guardian {
+                                            name: guardian.name.clone(),
+                                            url: guardian.url.to_string(),
+                                        })
+                                        .collect()/>
+                                    <General config={config.clone()}/>
+                                </div>
+                                <Tabs default="Activity">
+                                    <Tab name="Activity">
+                                        <ActivityChart id=id().unwrap()/>
+                                    </Tab>
+                                    <Tab name="UTXOs">
+                                        <Utxos federation_id=id().unwrap()/>
+                                    </Tab>
+                                    <Tab name="Config">
+                                        <div class="w-full overflow-x-scroll my-4">
+                                            <pre>{serde_json::to_string_pretty(&config).expect("can be encoded")}</pre>
+                                        </div>
+                                    </Tab>
+                                </Tabs>
                             }
-                            Some(Err(e)) => view! { { format!("Error: {}", e) } }.into_view(),
-                            None => view! { "Loading..." }.into_view(),
+                                .into_view()
                         }
-                    }}
-
-                </pre>
+                        Some(Err(e)) => view! { { format!("Error: {}", e) } }.into_view(),
+                        None => view! { "Loading..." }.into_view(),
+                    }
+                }}
             </div>
         </Show>
     }

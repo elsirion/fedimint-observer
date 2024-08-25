@@ -1,7 +1,9 @@
+mod alert;
 mod copyable;
 mod federation;
 mod federations;
 mod navbar;
+mod tabs;
 
 pub use copyable::Copyable;
 pub use federation::Federation;

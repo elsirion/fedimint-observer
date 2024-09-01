@@ -5,6 +5,7 @@ use fedimint_core::TransactionId;
 use postgres_from_row::FromRow;
 use tokio_postgres::{Error, Row};
 
+#[derive(Debug, Clone)]
 pub struct Federation {
     pub federation_id: FederationId,
     pub config: ClientConfig,

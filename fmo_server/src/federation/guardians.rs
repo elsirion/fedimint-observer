@@ -1,11 +1,12 @@
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
-use fedimint_core::api::{DynGlobalApi, FederationApiExt, StatusResponse};
+use fedimint_api_client::api::{DynGlobalApi, FederationApiExt, StatusResponse};
 use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::encoding::Encodable;
-use fedimint_core::endpoint_constants::{BLOCK_COUNT_LOCAL_ENDPOINT, STATUS_ENDPOINT};
+use fedimint_core::endpoint_constants::STATUS_ENDPOINT;
 use fedimint_core::module::ApiRequestErased;
+use fedimint_wallet_common::endpoint_constants::BLOCK_COUNT_LOCAL_ENDPOINT;
 use futures::future::join_all;
 
 use crate::federation::observer::FederationObserver;
@@ -20,7 +21,14 @@ impl FederationObserver {
         const REQUEST_INTERVAL: Duration = Duration::from_secs(60);
 
         let mut interval = tokio::time::interval(REQUEST_INTERVAL);
-        let api = DynGlobalApi::from_config(&config);
+        let api = DynGlobalApi::from_endpoints(
+            config
+                .global
+                .api_endpoints
+                .iter()
+                .map(|(&peer_id, peer_url)| (peer_id, peer_url.url.clone())),
+            &None,
+        );
         let wallet_module = config
             .modules
             .iter()

@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 
 use axum::extract::{Path, State};
 use axum::Json;
-use fedimint_core::api::InviteCode;
 use fedimint_core::core::ModuleKind;
+use fedimint_core::invite_code::InviteCode;
 
 use crate::AppState;
 

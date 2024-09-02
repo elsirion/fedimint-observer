@@ -141,8 +141,9 @@ impl FederationObserver {
                     .get(module_instance_id)
                     .map(|decoder| {
                         decoder
-                            .decode::<DynInput>(
+                            .decode_complete::<DynInput>(
                                 &mut Cursor::new(&undecoded.0),
+                                undecoded.0.len() as u64,
                                 module_instance_id,
                                 &Default::default(),
                             )
@@ -167,8 +168,9 @@ impl FederationObserver {
                     .get(module_instance_id)
                     .map(|decoder| {
                         decoder
-                            .decode::<DynOutput>(
+                            .decode_complete::<DynOutput>(
                                 &mut Cursor::new(&undecoded.0),
+                                undecoded.0.len() as u64,
                                 module_instance_id,
                                 &Default::default(),
                             )

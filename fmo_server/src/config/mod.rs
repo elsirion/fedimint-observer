@@ -1,11 +1,13 @@
 use std::collections::HashMap;
+use std::io::ErrorKind::ConnectionRefused;
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use fedimint_core::api::InviteCode;
+use fedimint_api_client::download_from_invite_code;
 use fedimint_core::config::{ClientConfig, FederationId, JsonClientConfig};
+use fedimint_core::invite_code::InviteCode;
 use reqwest::Method;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::warn;
@@ -86,6 +88,6 @@ impl FederationConfigCache {
 }
 
 async fn fetch_config_inner(invite: &InviteCode) -> anyhow::Result<JsonClientConfig> {
-    let raw_config = ClientConfig::download_from_invite_code(invite).await?;
+    let raw_config = download_from_invite_code(invite).await?;
     config_to_json(raw_config)
 }

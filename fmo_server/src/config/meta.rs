@@ -5,8 +5,8 @@ use std::time::{Duration, SystemTime};
 use anyhow::anyhow;
 use axum::extract::{Path, State};
 use axum::Json;
-use fedimint_core::api::InviteCode;
 use fedimint_core::config::FederationId;
+use fedimint_core::invite_code::InviteCode;
 
 use crate::meta::federation_meta;
 use crate::AppState;

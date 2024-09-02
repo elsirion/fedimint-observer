@@ -7,7 +7,7 @@ edition = "2021"
 anyhow = "1.0.86"
 chrono = { version = "0.4.38", features = ["serde"] }
 console_error_panic_hook = "0.1"
-fedimint-core = "0.3.2-rc.0"
+fedimint-core = { workspace = true }
 fmo_api_types = { path = "../fmo_api_types" }
 futures = "0.3.30"
 leptos = { version = "0.6", features = ["csr"] }

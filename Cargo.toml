@@ -6,3 +6,9 @@ members = [
 ]
 
 resolver = "2"
+
+[workspace.dependencies]
+fedimint-core = "0.3.2-rc.0"
+fedimint-ln-common = "0.3.2-rc.0"
+fedimint-mint-common = "0.3.2-rc.0"
+fedimint-wallet-common = "0.3.2-rc.0"

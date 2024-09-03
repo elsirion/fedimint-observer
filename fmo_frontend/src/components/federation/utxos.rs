@@ -19,10 +19,12 @@ pub fn Utxos(federation_id: FederationId) -> impl IntoView {
                             view! {
                                 <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
                                     <td class="px-6 py-4">
-                                        <a href=format!(
+                                        <a
+                                            href=format!(
                                                 "https://mempool.space/address/{}",
                                                 utxo.address.clone().assume_checked().to_string(),
                                             )
+
                                             class="text-blue-600 underline dark:text-blue-500 hover:no-underline"
                                         >
                                             <pre>
@@ -42,7 +44,6 @@ pub fn Utxos(federation_id: FederationId) -> impl IntoView {
                             }
                         })
                         .collect::<Vec<_>>();
-
                     view! {
                         <div>
                             <Alert
@@ -54,16 +55,16 @@ pub fn Utxos(federation_id: FederationId) -> impl IntoView {
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                     <tr>
                                         <th scope="col" class="px-6 py-3">
-                                            "UTXOs (" { utxos.len() } " total)"
+                                            "UTXOs ("
+                                            {utxos.len()}
+                                            " total)"
                                         </th>
                                         <th scope="col" class="px-6 py-3">
                                             Amount
                                         </th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    { rows }
-                                </tbody>
+                                <tbody>{rows}</tbody>
                             </table>
                         </div>
                     }

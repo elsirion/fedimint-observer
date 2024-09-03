@@ -38,10 +38,17 @@ pub fn Tabs(#[prop(into)] default: String, children: Children) -> impl IntoView 
             <li class="me-2">
                 <a
                     href="#"
-                    class=move || { if tab_name_a == active_tab.get() { ACTIVE_CLASSES } else { INACTIVE_CLASSES } }
+                    class=move || {
+                        if tab_name_a == active_tab.get() {
+                            ACTIVE_CLASSES
+                        } else {
+                            INACTIVE_CLASSES
+                        }
+                    }
+
                     on:click=move |_| set_active_tab.set(tab_name_c.clone())
                 >
-                    { tab_name }
+                    {tab_name}
                 </a>
             </li>
         }
@@ -62,9 +69,7 @@ pub fn Tabs(#[prop(into)] default: String, children: Children) -> impl IntoView 
 
     view! {
         <div class="text-sm font-medium text-center text-gray-500 border-b border-gray-200 dark:text-gray-400 dark:border-gray-700">
-            <ul class="flex flex-wrap -mb-px">
-                { tabs }
-            </ul>
+            <ul class="flex flex-wrap -mb-px">{tabs}</ul>
         </div>
         {move || (get_tab_content(active_tab.get()))()}
     }

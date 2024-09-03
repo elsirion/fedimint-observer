@@ -76,7 +76,7 @@ pub fn Federation() -> impl IntoView {
                                             url: guardian.url.to_string(),
                                         })
                                         .collect()/>
-                                    <General config={config.clone()}/>
+                                    <General config=config.clone()/>
                                 </div>
                                 <Tabs default="Activity">
                                     <Tab name="Activity">
@@ -87,17 +87,21 @@ pub fn Federation() -> impl IntoView {
                                     </Tab>
                                     <Tab name="Config">
                                         <div class="w-full overflow-x-scroll my-4">
-                                            <pre>{serde_json::to_string_pretty(&config).expect("can be encoded")}</pre>
+                                            <pre>
+                                                {serde_json::to_string_pretty(&config)
+                                                    .expect("can be encoded")}
+                                            </pre>
                                         </div>
                                     </Tab>
                                 </Tabs>
                             }
                                 .into_view()
                         }
-                        Some(Err(e)) => view! { { format!("Error: {}", e) } }.into_view(),
+                        Some(Err(e)) => view! { {format!("Error: {}", e)} }.into_view(),
                         None => view! { "Loading..." }.into_view(),
                     }
                 }}
+
             </div>
         </Show>
     }

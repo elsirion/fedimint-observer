@@ -5,7 +5,7 @@ use anyhow::ensure;
 use bitcoin::hashes::Hash;
 use bitcoin::{Address, OutPoint, Txid};
 use chrono::{DateTime, NaiveDate};
-use deadpool_postgres::{Runtime, Transaction};
+use deadpool_postgres::{GenericClient, Runtime, Transaction};
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::core::DynModuleConsensusItem;
@@ -68,15 +68,35 @@ impl FederationObserver {
 
     async fn spawn_observer(&self, federation: Federation) {
         let slf = self.clone();
+
+        let federation_inner = federation.clone();
         self.task_group.spawn_cancellable(
-            format!("Observer for {}", federation.federation_id),
+            format!("Observer for {}", federation_inner.federation_id),
             async move {
                 loop {
                     let e = slf
-                        .observe_federation(federation.federation_id, federation.config.clone())
+                        .observe_federation_history(
+                            federation_inner.federation_id,
+                            federation_inner.config.clone(),
+                        )
                         .await
                         .expect_err("observer task exited unexpectedly");
-                    error!("Observer errored, restarting in 30s: {e:?}");
+                    error!("Observer errored, restarting in 30s: {e}");
+                    tokio::time::sleep(Duration::from_secs(30)).await;
+                }
+            },
+        );
+
+        let slf = self.clone();
+        self.task_group.spawn_cancellable(
+            format!("Health Monitor for {}", federation.federation_id),
+            async move {
+                loop {
+                    let e = slf
+                        .monitor_health(federation.federation_id, federation.config.clone())
+                        .await
+                        .expect_err("health monitor task exited unexpectedly");
+                    error!("Health Monitor errored, restarting in 30s: {e}");
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             },
@@ -133,6 +153,10 @@ impl FederationObserver {
             (
                 2,
                 include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v2.sql")),
+            ),
+            (
+                3,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v3.sql")),
             ),
         ];
 
@@ -448,7 +472,7 @@ impl FederationObserver {
         Ok(max_height.map(|max_height| max_height as u32))
     }
 
-    async fn observe_federation(
+    async fn observe_federation_history(
         &self,
         federation_id: FederationId,
         config: ClientConfig,

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FedimintTotals {
+    pub federations: u64,
     pub tx_volume: Amount,
     pub tx_count: u64,
 }

@@ -28,7 +28,26 @@ pub fn Totals() -> impl IntoView {
     view! {
         <div class="flex items-center justify-center space-x-10">
             <div class="text-center">
-
+                {move || {
+                    match totals_res.get() {
+                        Some(totals) => {
+                            view! {
+                                <div class="text-4xl font-bold mb-2">
+                                    {totals.federations.to_formatted_string(&Locale::en)}
+                                </div>
+                            }
+                        }
+                        None => {
+                            view! {
+                                <div class="text-4xl h-4 bg-gray-200 rounded-full dark:bg-gray-700 w-48 my-4 animate-pulse"></div>
+                            }
+                        }
+                    }
+                }}
+                <div class="text-gray-500">Public Federations</div>
+            </div>
+            <div class="border-l border-gray-300 h-12"></div>
+            <div class="text-center">
                 {move || {
                     match totals_res.get() {
                         Some(totals) => {
@@ -49,7 +68,6 @@ pub fn Totals() -> impl IntoView {
             </div>
             <div class="border-l border-gray-300 h-12"></div>
             <div class="text-center">
-
                 {move || {
                     match totals_res.get() {
                         Some(totals) => {
@@ -71,6 +89,7 @@ pub fn Totals() -> impl IntoView {
                                         5,
                                         totals.tx_volume.msats as f64 / 100_000_000_000f64,
                                     )}
+
                                 </div>
                             }
                         }

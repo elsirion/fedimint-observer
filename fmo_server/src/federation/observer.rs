@@ -1080,6 +1080,7 @@ impl FederationObserver {
     pub async fn totals(&self) -> anyhow::Result<FedimintTotals> {
         #[derive(Debug, FromRow)]
         struct FedimintTotalsResult {
+            federations: i64,
             tx_count: i64,
             tx_volume: i64,
         }
@@ -1088,7 +1089,8 @@ impl FederationObserver {
             &self.connection().await?,
             // language=postgresql
             "
-                SELECT (SELECT count(*) from transactions)::bigint               as tx_count,
+                SELECT (SELECT count(*) from federations)::bigint               as federations,
+                       (SELECT count(*) from transactions)::bigint               as tx_count,
                        (SELECT sum(amount_msat) from transaction_inputs)::bigint as tx_volume
             ",
             &[],
@@ -1096,6 +1098,7 @@ impl FederationObserver {
         .await?;
 
         Ok(FedimintTotals {
+            federations: totals.federations as u64,
             tx_count: totals.tx_count as u64,
             tx_volume: Amount::from_msats(totals.tx_volume as u64),
         })

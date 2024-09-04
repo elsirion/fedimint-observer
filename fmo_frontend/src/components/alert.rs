@@ -25,7 +25,8 @@ pub fn Alert(
 
     view! {
         <div class=class role="alert">
-          <span class="font-bold">{title}</span> {message}
+            <span class="font-bold">{title}</span>
+            {message}
         </div>
     }
 }

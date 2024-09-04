@@ -13,7 +13,7 @@ use fedimint_core::api::InviteCode;
 use fedimint_core::config::{ClientConfig, FederationId, JsonClientConfig};
 use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
-use fmo_api_types::FederationSummary;
+use fmo_api_types::{FederationSummary, FedimintTotals};
 use serde_json::json;
 
 use crate::federation::meta::get_federation_meta;
@@ -28,6 +28,7 @@ pub fn get_federations_routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_observed_federations))
         .route("/", put(add_observed_federation))
+        .route("/totals", get(get_federation_totals))
         .route("/:federation_id", get(get_federation_overview))
         .route(
             "/:federation_id/config",
@@ -126,6 +127,12 @@ async fn get_federation_utxos(
         .federation_utxos(federation_id)
         .await?;
     Ok(utxos.into())
+}
+
+async fn get_federation_totals(
+    State(state): State<AppState>,
+) -> crate::error::Result<Json<FedimintTotals>> {
+    Ok(state.federation_observer.totals().await?.into())
 }
 
 fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {

@@ -4,6 +4,13 @@ use fedimint_core::Amount;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FedimintTotals {
+    pub federations: u64,
+    pub tx_volume: Amount,
+    pub tx_count: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FederationSummary {
     pub id: FederationId,
     pub name: Option<String>,

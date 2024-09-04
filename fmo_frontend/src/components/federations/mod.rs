@@ -1,10 +1,12 @@
 mod federation_row;
+mod totals;
 
 use fedimint_core::Amount;
 use fmo_api_types::FederationSummary;
 use leptos::{component, create_resource, view, IntoView, SignalGet};
 
 use crate::components::federations::federation_row::FederationRow;
+use crate::components::federations::totals::Totals;
 use crate::BASE_URL;
 
 #[component]
@@ -37,6 +39,9 @@ pub fn Federations() -> impl IntoView {
     };
 
     view! {
+        <div class="my-16">
+            <Totals/>
+        </div>
         <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
                 <caption class="p-5 text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">

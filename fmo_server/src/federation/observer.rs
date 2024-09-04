@@ -20,7 +20,7 @@ use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
 use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput, WalletOutputV0};
-use fmo_api_types::{FederationActivity, FederationSummary, FederationUtxo};
+use fmo_api_types::{FederationActivity, FederationSummary, FederationUtxo, FedimintTotals};
 use futures::future::join_all;
 use futures::StreamExt;
 use postgres_from_row::FromRow;
@@ -31,7 +31,7 @@ use tracing::{debug, error, warn};
 
 use crate::federation::db::Federation;
 use crate::federation::{db, decoders_from_config, instance_to_kind};
-use crate::util::{execute, query, query_opt, query_value};
+use crate::util::{execute, query, query_one, query_opt, query_value};
 
 #[derive(Debug, Clone)]
 pub struct FederationObserver {
@@ -1075,6 +1075,33 @@ impl FederationObserver {
                 amount: Amount::from_msats(utxo.amount_msat.try_into()?),
             })
         }).collect()
+    }
+
+    pub async fn totals(&self) -> anyhow::Result<FedimintTotals> {
+        #[derive(Debug, FromRow)]
+        struct FedimintTotalsResult {
+            federations: i64,
+            tx_count: i64,
+            tx_volume: i64,
+        }
+
+        let totals = query_one::<FedimintTotalsResult>(
+            &self.connection().await?,
+            // language=postgresql
+            "
+                SELECT (SELECT count(*) from federations)::bigint               as federations,
+                       (SELECT count(*) from transactions)::bigint               as tx_count,
+                       (SELECT sum(amount_msat) from transaction_inputs)::bigint as tx_volume
+            ",
+            &[],
+        )
+        .await?;
+
+        Ok(FedimintTotals {
+            federations: totals.federations as u64,
+            tx_count: totals.tx_count as u64,
+            tx_volume: Amount::from_msats(totals.tx_volume as u64),
+        })
     }
 }
 

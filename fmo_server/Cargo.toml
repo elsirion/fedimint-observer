@@ -24,6 +24,7 @@ esplora-client = { version = "0.7.0", default-features = false, features = [
 fmo_api_types = { path = "../fmo_api_types" }
 futures = "0.3.30"
 hex = "0.4.3"
+nostr-sdk = "0.34.0"
 postgres-from-row = "0.5.2"
 reqwest = { version = "0.12.2", default-features = false, features = [
   "json",
@@ -38,3 +39,4 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tower-http = { version = "0.5.2", features = ["cors"] }
 chrono = { version = "0.4.38", features = ["serde"] }
+regex = "1.10.4"

@@ -1,6 +1,7 @@
 pub mod db;
 mod guardians;
 mod meta;
+mod nostr;
 pub mod observer;
 mod session;
 mod transaction;

@@ -148,7 +148,7 @@ impl FederationObserver {
         let query_res = query_one::<FederationRatingRow>(
             &self.connection().await?,
             // language=postgresql
-            "SELECT COUNT(*)::bigint as count, AVG(star_vote)::DOUBLE PRECISION as avg from nostr_votes WHERE federation_id = $1;",
+            "SELECT COUNT(star_vote)::bigint as count, AVG(star_vote)::DOUBLE PRECISION as avg from nostr_votes WHERE federation_id = $1;",
             &[&federation_id.consensus_encode_to_vec()],
         )
         .await?;

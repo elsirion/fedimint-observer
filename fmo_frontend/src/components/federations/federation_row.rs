@@ -2,8 +2,10 @@ use std::str::FromStr;
 
 use fedimint_core::config::FederationId;
 use fedimint_core::Amount;
+use fmo_api_types::FederationRating;
 use leptos::{component, view, IntoView};
 
+use crate::components::federations::rating::Rating;
 use crate::components::Copyable;
 use crate::util::AsBitcoin;
 
@@ -11,6 +13,7 @@ use crate::util::AsBitcoin;
 pub fn FederationRow(
     id: FederationId,
     name: String,
+    rating: FederationRating,
     invite: String,
     total_assets: Amount,
     avg_txs: f64,
@@ -34,6 +37,12 @@ pub fn FederationRow(
                     {name}
                 </a>
             </th>
+            <td>
+                <Rating
+                    count=rating.count
+                    rating=rating.avg
+                />
+            </td>
             <td class="px-6 py-4">
 
                 {if degraded_federations.contains(&id) {

@@ -10,7 +10,7 @@ fn main() {
     mount_to_body(move || {
         view! {
             <Router>
-                <main class="container mx-auto max-w-5xl px-4">
+                <main class="container mx-auto max-w-6xl px-4">
                     <NavBar items=vec![
                         NavItem {
                             name: "Home".to_owned(),

@@ -1,5 +1,5 @@
 mod federation_row;
-mod rating;
+pub mod rating;
 mod totals;
 
 use fedimint_core::Amount;

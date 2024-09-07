@@ -1407,6 +1407,7 @@ dependencies = [
  "leptos",
  "leptos-chartistry",
  "leptos_router",
+ "nostr-sdk",
  "num-format",
  "reqwest 0.12.5",
  "serde_json",

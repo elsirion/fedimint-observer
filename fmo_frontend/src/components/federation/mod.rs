@@ -1,6 +1,8 @@
 mod activity;
 mod general;
 mod guardians;
+pub mod nostr_vote;
+pub mod stars_seletor;
 mod utxos;
 
 use std::collections::BTreeMap;
@@ -14,6 +16,7 @@ use utxos::Utxos;
 use crate::components::federation::activity::ActivityChart;
 use crate::components::federation::general::General;
 use crate::components::federation::guardians::{Guardian, Guardians};
+use crate::components::federation::nostr_vote::NostrVote;
 use crate::components::tabs::{Tab, Tabs};
 use crate::BASE_URL;
 
@@ -66,17 +69,24 @@ pub fn Federation() -> impl IntoView {
                     match config_resource.get() {
                         Some(Ok(config)) => {
                             view! {
-                                <div class="flex">
-                                    <Guardians guardians=config
-                                        .global
-                                        .api_endpoints
-                                        .iter()
-                                        .map(|(_, guardian)| Guardian {
-                                            name: guardian.name.clone(),
-                                            url: guardian.url.to_string(),
-                                        })
-                                        .collect()/>
-                                    <General config=config.clone()/>
+                                <div class="flex flex-wrap items-stretch gap-4 ">
+                                    <div class="flex-1 min-w-[400px]">
+                                        <Guardians guardians=config
+                                            .global
+                                            .api_endpoints
+                                            .iter()
+                                            .map(|(_, guardian)| Guardian {
+                                                name: guardian.name.clone(),
+                                                url: guardian.url.to_string(),
+                                            })
+                                            .collect()
+                                        />
+                                    </div>
+                                    <div class="flex-1 min-w-[400px]">
+                                        <General config=config.clone() />
+                                        <div class="h-4" />
+                                        <NostrVote config=config.clone() />
+                                    </div>
                                 </div>
                                 <Tabs default="Activity">
                                     <Tab name="Activity">

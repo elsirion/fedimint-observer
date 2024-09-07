@@ -62,6 +62,8 @@ impl FederationObserver {
 
         slf.task_group
             .spawn_cancellable("fetch block times", Self::fetch_block_times(slf.clone()));
+        slf.task_group
+            .spawn_cancellable("sync nostr events", Self::sync_nostr_events(slf.clone()));
 
         Ok(slf)
     }
@@ -157,6 +159,10 @@ impl FederationObserver {
             (
                 3,
                 include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v3.sql")),
+            ),
+            (
+                4,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v4.sql")),
             ),
         ];
 
@@ -272,6 +278,7 @@ impl FederationObserver {
         let federations =
             query::<Federation>(&self.connection().await?, "SELECT * FROM federations", &[])
                 .await?;
+
         join_all(federations.into_iter().map(|federation| async move {
             let deposits = self.get_federation_assets(federation.federation_id).await?;
             let name = federation
@@ -281,7 +288,6 @@ impl FederationObserver {
                 .get("federation_name")
                 .cloned();
 
-            // language=postgresql
             let last_7d_activity = self
                 .federation_activity(federation.federation_id, 7)
                 .await?;
@@ -298,6 +304,7 @@ impl FederationObserver {
                 last_7d_activity,
                 deposits,
                 invite,
+                nostr_votes: self.federation_rating(federation.federation_id).await?,
             })
         }))
         .await

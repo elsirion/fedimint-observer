@@ -27,7 +27,7 @@ pub fn Guardians(guardians: Vec<Guardian>) -> impl IntoView {
         .collect::<Vec<_>>();
 
     view! {
-        <div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-8 dark:bg-gray-800 dark:border-gray-700 m-4">
+        <div class="w-full h-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-8 dark:bg-gray-800 dark:border-gray-700">
             <div class="flex items-center justify-between mb-4">
                 <h5 class="text-xl font-bold leading-none text-gray-900 dark:text-white">
                     Guardians

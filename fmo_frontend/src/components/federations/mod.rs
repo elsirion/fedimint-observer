@@ -1,4 +1,5 @@
 mod federation_row;
+pub mod rating;
 mod totals;
 
 use fedimint_core::Amount;
@@ -27,6 +28,7 @@ pub fn Federations() -> impl IntoView {
                         <FederationRow
                             id=summary.id
                             name=summary.name.clone().unwrap_or_else(|| "Unnamed".to_owned())
+                            rating=summary.nostr_votes
                             invite=summary.invite.clone()
                             total_assets=summary.deposits
                             avg_txs=avg_txs
@@ -54,6 +56,14 @@ pub fn Federations() -> impl IntoView {
                     <tr>
                         <th scope="col" class="px-6 py-3">
                             "Name"
+                        </th>
+                        <th scope="col" class="px-6 py-3">
+                            <a
+                                href="https://github.com/nostr-protocol/nips/pull/1110"
+                                class="underline hover:no-underline"
+                            >
+                                "Recommendations"
+                            </a>
                         </th>
                         <th scope="col" class="px-6 py-3">
                             "Invite Code"

@@ -17,6 +17,13 @@ pub struct FederationSummary {
     pub last_7d_activity: Vec<FederationActivity>,
     pub deposits: Amount,
     pub invite: String,
+    pub nostr_votes: FederationRating,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct FederationRating {
+    pub count: u64,
+    pub avg: Option<f64>,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]

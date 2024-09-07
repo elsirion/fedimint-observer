@@ -97,7 +97,7 @@ pub fn Federation() -> impl IntoView {
                                     </Tab>
                                     <Tab name="Config">
                                         <div class="w-full overflow-x-scroll my-4">
-                                            <pre>
+                                            <pre class="dark:text-white">
                                                 {serde_json::to_string_pretty(&config)
                                                     .expect("can be encoded")}
                                             </pre>

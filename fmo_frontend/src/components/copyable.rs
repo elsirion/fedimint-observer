@@ -14,7 +14,7 @@ pub fn Copyable(text: String) -> impl IntoView {
     };
 
     view! {
-        <input value=text/>
+        <input class="dark:bg-gray-800" value=text/>
         <button
             on:click=copy_action
             class="ml-2 text-gray-900 bg-white hover:bg-gray-100 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 rounded-lg text-sm px-1 py-1 text-center inline-flex items-center dark:focus:ring-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700 me-1 mb-1"

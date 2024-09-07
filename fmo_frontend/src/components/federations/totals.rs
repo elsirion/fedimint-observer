@@ -26,7 +26,7 @@ pub fn Totals() -> impl IntoView {
     );
 
     view! {
-        <div class="flex items-center justify-center space-x-10">
+        <div class="flex items-center justify-center space-x-10 dark:text-white">
             <div class="text-center">
                 {move || {
                     match totals_res.get() {
@@ -52,7 +52,7 @@ pub fn Totals() -> impl IntoView {
                     match totals_res.get() {
                         Some(totals) => {
                             view! {
-                                <div class="text-4xl font-bold mb-2">
+                                <div class="text-4xl font-bold mb-2 dark:text-white">
                                     {totals.tx_count.to_formatted_string(&Locale::en)}
                                 </div>
                             }
@@ -72,7 +72,7 @@ pub fn Totals() -> impl IntoView {
                     match totals_res.get() {
                         Some(totals) => {
                             view! {
-                                <div class="text-4xl font-bold">
+                                <div class="text-4xl font-bold dark:text-white">
                                     <svg
                                         xmlns="http://www.w3.org/2000/svg"
                                         width="40"

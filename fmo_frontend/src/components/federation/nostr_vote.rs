@@ -80,7 +80,7 @@ pub fn NostrVote(config: JsonClientConfig) -> impl IntoView {
                                     default_value=5
                                     selected_stars=set_rating
                                 />
-                                <span class="mx-4">
+                                <span class="mx-4 inline-block text-xl dark:text-white">
                                     {move || {rating.get()}} "/5"
                                 </span>
                             </div>

@@ -40,7 +40,7 @@ pub fn StarsSelector(
 
     view! {
         <div
-            class="flex inline px-1 py-2"
+            class="inline-flex px-1 py-2"
             on:mouseleave=move |_| {set_hover.set(None);}
         >
             { move || {

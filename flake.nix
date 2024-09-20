@@ -112,7 +112,7 @@
               doCheck = false;
             });
           in
-          {
+          rec {
             fmo_frontend = api: craneLib.buildTrunkPackage (wasmArgs // {
               nativeBuildInputs = with pkgs; [
                 wasm-pack
@@ -129,6 +129,7 @@
                 cargoHash = "sha256-aACJ+lYNEU8FFBs158G1/JG8sc6Rq080PeKCMnwdpH0=";
               };
             });
+            fmo_frontend_default = fmo_frontend "http://localhost:3000";
           };
       in
       {

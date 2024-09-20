@@ -24,6 +24,10 @@ pub fn FederationRow(
     )
     .expect("can be parsed")];
 
+    if degraded_federations.contains(&id) {
+        return view! {}.into_view();
+    }
+
     view! {
         <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
             <th
@@ -44,18 +48,7 @@ pub fn FederationRow(
                 />
             </td>
             <td class="px-6 py-4">
-
-                {if degraded_federations.contains(&id) {
-                    view! {
-                        <span class="bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">
-                            "Degraded"
-                        </span>
-                    }
-                        .into_view()
-                } else {
-                    view! { <Copyable text=invite/> }.into_view()
-                }}
-
+                <Copyable text=invite/>
             </td>
             <td class="px-6 py-4">{total_assets.as_bitcoin(6).to_string()}</td>
             <td class="px-6 py-4">
@@ -66,4 +59,5 @@ pub fn FederationRow(
             </td>
         </tr>
     }
+    .into_view()
 }

@@ -27,7 +27,10 @@ pub fn Totals() -> impl IntoView {
                         Some(totals) => {
                             view! {
                                 <div class="text-4xl font-bold mb-2">
-                                    {totals.federations.to_formatted_string(&Locale::en)}
+                                    {
+                                        // TODO: remove hack, find generic way to hide federations
+                                        (totals.federations - 1).to_formatted_string(&Locale::en)
+                                    }
                                 </div>
                             }
                         }

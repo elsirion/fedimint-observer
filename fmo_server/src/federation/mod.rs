@@ -6,6 +6,8 @@ pub mod observer;
 mod session;
 mod transaction;
 
+use std::collections::BTreeMap;
+
 use anyhow::Context;
 use axum::extract::{Path, State};
 use axum::routing::{get, put};
@@ -15,6 +17,7 @@ use fedimint_core::api::InviteCode;
 use fedimint_core::config::{ClientConfig, FederationId, JsonClientConfig};
 use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
+use fedimint_core::Amount;
 use fmo_api_types::{FederationSummary, FedimintTotals};
 use serde_json::json;
 
@@ -52,6 +55,7 @@ pub fn get_federations_routes() -> Router<AppState> {
             get(transaction_histogram),
         )
         .route("/:federation_id/utxos", get(get_federation_utxos))
+        .route("/:federation_id/dup_ecash", get(list_duplicate_ecash))
         .route("/:federation_id/sessions", get(list_sessions))
         .route("/:federation_id/sessions/count", get(count_sessions))
 }
@@ -143,6 +147,21 @@ async fn publish_rating_event(
     Json(event): Json<nostr_sdk::Event>,
 ) -> crate::error::Result<()> {
     Ok(state.federation_observer.submit_rating(event).await?.into())
+}
+
+async fn list_duplicate_ecash(
+    Path(federation_id): Path<FederationId>,
+    State(state): State<AppState>,
+) -> crate::error::Result<Json<BTreeMap<String, Vec<(u64, u64, Amount)>>>> {
+    let dup_issuances = state
+        .federation_observer
+        .duplicate_ecash(federation_id)
+        .await?;
+    Ok(dup_issuances
+        .into_iter()
+        .map(|(blind_nonce, tx_refs)| (hex::encode(&blind_nonce), tx_refs))
+        .collect::<BTreeMap<String, Vec<(u64, u64, Amount)>>>()
+        .into())
 }
 
 fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {

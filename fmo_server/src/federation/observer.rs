@@ -1,7 +1,8 @@
+use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
-use anyhow::ensure;
+use anyhow::{ensure, Context};
 use bitcoin::hashes::Hash;
 use bitcoin::{Address, OutPoint, Txid};
 use chrono::{DateTime, NaiveDate};
@@ -9,7 +10,7 @@ use deadpool_postgres::{GenericClient, Runtime, Transaction};
 use fedimint_core::api::{DynGlobalApi, InviteCode};
 use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::core::DynModuleConsensusItem;
-use fedimint_core::encoding::Encodable;
+use fedimint_core::encoding::{Decodable, Encodable};
 use fedimint_core::epoch::ConsensusItem;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
@@ -1133,6 +1134,81 @@ impl FederationObserver {
             tx_count: totals.tx_count as u64,
             tx_volume: Amount::from_msats(totals.tx_volume as u64),
         })
+    }
+
+    pub async fn duplicate_ecash(
+        &self,
+        federation_id: FederationId,
+    ) -> anyhow::Result<BTreeMap<[u8; 48], Vec<(u64, u64, Amount)>>> {
+        #[derive(FromRow)]
+        struct TransactionRow {
+            session_index: i32,
+            item_index: i32,
+            data: Vec<u8>,
+        }
+
+        let federation = self
+            .get_federation(federation_id)
+            .await?
+            .context("Federation not found")?;
+        let decoders = decoders_from_config(&federation.config);
+        let mint_module_id = federation
+            .config
+            .modules
+            .iter()
+            .find_map(|(module_instance_id, module_cfg)| {
+                if module_cfg.kind.as_str() == "mint" {
+                    Some(*module_instance_id)
+                } else {
+                    None
+                }
+            })
+            .expect("Mint module not found");
+
+        let raw_transactions: Vec<TransactionRow> = query(
+            &self.connection().await?,
+            "SELECT session_index, item_index, data FROM transactions WHERE federation_id = $1",
+            &[&federation_id.consensus_encode_to_vec()],
+        )
+        .await?;
+
+        let notes_iter = raw_transactions.into_iter().flat_map(|row| {
+            let transaction: fedimint_core::transaction::Transaction =
+                Decodable::consensus_decode_vec(row.data, &decoders)
+                    .expect("Our DB should only contain valid transactions");
+            transaction.outputs.into_iter().filter_map(move |output| {
+                if output.module_instance_id() == mint_module_id {
+                    let mint_output = output
+                        .as_any()
+                        .downcast_ref::<MintOutput>()
+                        .expect("Not mint output");
+                    let mint_output_v0 = mint_output.maybe_v0_ref().expect("Not v0");
+                    let blind_nonce = mint_output_v0.blind_nonce;
+                    let amount = mint_output_v0.amount;
+                    Some((
+                        row.session_index as u64,
+                        row.item_index as u64,
+                        blind_nonce,
+                        amount,
+                    ))
+                } else {
+                    None
+                }
+            })
+        });
+
+        let mut ecash_map = BTreeMap::<[u8; 48], Vec<(u64, u64, Amount)>>::new();
+        for (session_index, item_index, blind_nonce, amount) in notes_iter {
+            ecash_map
+                .entry(blind_nonce.0 .0.to_compressed())
+                .or_default()
+                .push((session_index, item_index, amount));
+        }
+
+        Ok(ecash_map
+            .into_iter()
+            .filter(|(_, issuances)| issuances.len() != 1)
+            .collect())
     }
 }
 

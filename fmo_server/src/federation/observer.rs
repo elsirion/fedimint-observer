@@ -64,6 +64,8 @@ impl FederationObserver {
             .spawn_cancellable("fetch block times", Self::fetch_block_times(slf.clone()));
         slf.task_group
             .spawn_cancellable("sync nostr events", Self::sync_nostr_events(slf.clone()));
+        slf.task_group
+            .spawn_cancellable("refresh views", Self::refresh_views(slf.clone()));
 
         Ok(slf)
     }
@@ -542,12 +544,6 @@ impl FederationObserver {
                 info!("Synced up to session {session_index}, processed {sessions_synced} sessions at a rate of {rate:.2} sessions/s");
                 timer = SystemTime::now();
                 last_session = session_index;
-
-                // If we are syncing up initially we don't want to refresh the views every
-                // session, later we do
-                if rate < 1f64 {
-                    self.refresh_views().await?;
-                }
             }
         }
 
@@ -604,23 +600,6 @@ impl FederationObserver {
         }
 
         debug!("Processed session {session_index} of federation {federation_id}");
-        Ok(())
-    }
-
-    async fn refresh_views(&self) -> anyhow::Result<()> {
-        info!("Refreshing views");
-        self.connection()
-            .await?
-            .batch_execute(
-                "
-                REFRESH MATERIALIZED VIEW CONCURRENTLY session_times;
-                REFRESH MATERIALIZED VIEW CONCURRENTLY utxos;
-                ",
-            )
-            .await?;
-
-        info!("Refresh complete");
-
         Ok(())
     }
 
@@ -1048,6 +1027,33 @@ impl FederationObserver {
                 // other WalletConsesnsusItems are not needed yet
             }
         }
+
+        Ok(())
+    }
+
+    async fn refresh_views(self) {
+        loop {
+            let start = SystemTime::now();
+            debug!("Refreshing views...");
+            if let Err(e) = self.refresh_views_inner().await {
+                warn!("Error while refreshing views: {e:?}");
+            }
+            let elapsed = start.elapsed().unwrap_or_default().as_secs_f64();
+            info!("Views refresh completed in {elapsed:.2}s. Waiting for next refresh window");
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        }
+    }
+
+    async fn refresh_views_inner(&self) -> anyhow::Result<()> {
+        self.connection()
+            .await?
+            .batch_execute(
+                "
+                REFRESH MATERIALIZED VIEW CONCURRENTLY session_times;
+                REFRESH MATERIALIZED VIEW CONCURRENTLY utxos;
+                ",
+            )
+            .await?;
 
         Ok(())
     }

@@ -6,16 +6,21 @@ use bitcoin::hashes::Hash;
 use bitcoin::{Address, OutPoint, Txid};
 use chrono::{DateTime, NaiveDate};
 use deadpool_postgres::{GenericClient, Runtime, Transaction};
-use fedimint_core::api::{DynGlobalApi, InviteCode};
+use fedimint_api_client::api::DynGlobalApi;
+use fedimint_api_client::download_from_invite_code;
 use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::core::DynModuleConsensusItem;
 use fedimint_core::encoding::Encodable;
 use fedimint_core::epoch::ConsensusItem;
+use fedimint_core::invite_code::InviteCode;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
-use fedimint_core::util::{retry, ConstantBackoff, FibonacciBackoff};
+use fedimint_core::util::backon::{
+    BackoffBuilder, ConstantBackoff, ConstantBuilder, FibonacciBuilder,
+};
+use fedimint_core::util::{retry, SafeUrl};
 use fedimint_core::{Amount, PeerId};
-use fedimint_ln_common::bitcoin::hashes::hex::{FromHex, ToHex};
+use fedimint_ln_common::bitcoin::hashes::hex::FromHex;
 use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
@@ -298,11 +303,19 @@ impl FederationObserver {
                 .federation_activity(federation.federation_id, 7)
                 .await?;
 
-            let invite = federation
+            let (first_peer_id, first_peer_url) = federation
                 .config
-                .invite_code(&PeerId::from(0))
-                .expect("There should always be a peer 0")
-                .to_string();
+                .global
+                .api_endpoints
+                .first_key_value()
+                .expect("At least one peer");
+            let invite = InviteCode::new(
+                first_peer_url.url.clone(),
+                *first_peer_id,
+                federation.federation_id,
+                None,
+            )
+            .to_string();
 
             Ok(FederationSummary {
                 id: federation.federation_id,
@@ -381,7 +394,7 @@ impl FederationObserver {
             return Ok(federation_id);
         }
 
-        let config = ClientConfig::download_from_invite_code(invite).await?;
+        let config = download_from_invite_code(invite).await?;
 
         self.connection()
             .await?
@@ -490,7 +503,14 @@ impl FederationObserver {
         federation_id: FederationId,
         config: ClientConfig,
     ) -> anyhow::Result<()> {
-        let api = DynGlobalApi::from_config(&config);
+        let api = DynGlobalApi::from_endpoints(
+            config
+                .global
+                .api_endpoints
+                .iter()
+                .map(|(&peer_id, peer_url)| (peer_id, peer_url.url.clone())),
+            &None,
+        );
         let decoders = decoders_from_config(&config);
 
         info!("Starting background job for {federation_id}");
@@ -505,7 +525,7 @@ impl FederationObserver {
                 async move {
                     let signed_session_outcome = retry(
                         format!("Waiting for session {session_index}"),
-                        ConstantBackoff::default()
+                        ConstantBuilder::default()
                             .with_delay(Duration::from_secs(1))
                             .with_max_times(usize::MAX),
                         || async {
@@ -689,9 +709,6 @@ impl FederationObserver {
                     .0;
 
                 let outpoint = peg_in_proof.outpoint();
-                let on_chain_txid = fedimint_core::TransactionId::from_hex(&outpoint.txid.to_hex())
-                    .expect("Invalid data in DB")
-                    .consensus_encode_to_vec();
 
                 let address = bitcoin::Address::from_script(
                     bitcoin::Script::from_bytes(peg_in_proof.tx_output().script_pubkey.as_bytes()),
@@ -702,7 +719,7 @@ impl FederationObserver {
                 dbtx.execute(
                         "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
                         &[
-                            &on_chain_txid,
+                            &outpoint.txid[..].to_owned(),
                             &(outpoint.vout as i32),
                             &address.to_string(),
                             &maybe_amount_msat.map(|amt| amt as i64).expect("Wallet input must have amount"),
@@ -810,7 +827,7 @@ impl FederationObserver {
 
                 match wallet_v0_output {
                     WalletOutputV0::PegOut(peg_out) => {
-                        let withdrawal_address = peg_out.recipient.clone();
+                        let withdrawal_address = peg_out.recipient.clone().assume_checked();
                         dbtx.execute(
                             "INSERT INTO wallet_withdrawal_addresses VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
                             &[
@@ -947,7 +964,7 @@ impl FederationObserver {
 
                 let fetched_tx = retry(
                     format!("fetching tx from esplora"),
-                    FibonacciBackoff::default()
+                    FibonacciBuilder::default()
                         .with_min_delay(Duration::from_secs(30))
                         .with_max_delay(Duration::from_secs(60 * 30))
                         .with_max_times(usize::MAX),

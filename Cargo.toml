@@ -8,7 +8,8 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-fedimint-core = "0.3.2-rc.0"
-fedimint-ln-common = "0.3.2-rc.0"
-fedimint-mint-common = "0.3.2-rc.0"
-fedimint-wallet-common = "0.3.2-rc.0"
+fedimint-api-client = "0.4"
+fedimint-core = "0.4"
+fedimint-ln-common = "0.4"
+fedimint-mint-common = "0.4"
+fedimint-wallet-common = "0.4"

@@ -13,24 +13,30 @@ default:
 
 
 # run `cargo build` on everything
-build *ARGS="--workspace --all-targets":
+build_package PACKAGE *ARGS:
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -f Cargo.toml ]; then
     cd {{invocation_directory()}}
   fi
-  cargo build {{ARGS}}
+  cargo build -p {{PACKAGE}} {{ARGS}}
 
+build *ARGS:
+  just build_package fmo_server {{ARGS}}
+  just build_package fmo_frontend --target wasm32-unknown-unknown {{ARGS}}
 
 # run `cargo check` on everything
-check *ARGS="--workspace --all-targets":
+check_package PACKAGE *ARGS:
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -f Cargo.toml ]; then
     cd {{invocation_directory()}}
   fi
-  cargo check {{ARGS}}
+  cargo check -p {{PACKAGE}} {{ARGS}}
 
+check *ARGS:
+  just check_package fmo_server {{ARGS}}
+  just check_package fmo_frontend --target wasm32-unknown-unknown {{ARGS}}
 
 # run all checks recommended before opening a PR
 final-check: lint clippy
@@ -62,14 +68,17 @@ lint:
 
 
 # run tests
-test: build
+test_package PACKAGE:
   #!/usr/bin/env bash
   set -euo pipefail
   if [ ! -f Cargo.toml ]; then
     cd {{invocation_directory()}}
   fi
-  cargo test
+  cargo test -p {{PACKAGE}}
 
+test:
+  just test_package fmo_server
+  just test_package fmo_frontend --target wasm32-unknown-unknown
 
 # run and restart on changes
 watch *ARGS="-x run":
@@ -82,13 +91,20 @@ watch *ARGS="-x run":
 
 
 # run `cargo clippy` on everything
-clippy *ARGS="--locked --offline --workspace --all-targets":
-  cargo clippy {{ARGS}} -- --deny warnings --allow deprecated
+clippy_package PACKAGE *ARGS="--locked":
+  cargo clippy -p {{PACKAGE}} {{ARGS}}
+
+clippy *ARGS="--locked":
+  just clippy_package fmo_server {{ARGS}}
+  just clippy_package fmo_frontend --target wasm32-unknown-unknown {{ARGS}}
 
 # run `cargo clippy --fix` on everything
-clippy-fix *ARGS="--locked --offline --workspace --all-targets":
-  cargo clippy {{ARGS}} --fix
+clippy_fix-package PACKAGE *ARGS="--locked --offline":
+  cargo clippy -p {{PACKAGE}} {{ARGS}} --fix
 
+clippy-fix *ARGS="--locked --offline":
+  just clippy_fix-package fmo_server {{ARGS}}
+  just clippy_fix-package fmo_frontend --target wasm32-unknown-unknown {{ARGS}}
 
 # run `semgrep`
 semgrep:

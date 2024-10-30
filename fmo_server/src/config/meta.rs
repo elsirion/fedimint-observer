@@ -58,7 +58,7 @@ impl MetaOverrideCache {
         };
 
         let federation_meta = parse_meta_lenient(serde_json::from_value::<MetaFields>(
-            meta.get(&federation_id.to_string())
+            meta.get(federation_id.to_string())
                 .ok_or_else(|| anyhow!("No entry for federation {federation_id} in {url}"))?
                 .clone(),
         )?);

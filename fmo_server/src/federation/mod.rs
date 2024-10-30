@@ -142,7 +142,7 @@ async fn publish_rating_event(
     State(state): State<AppState>,
     Json(event): Json<nostr_sdk::Event>,
 ) -> crate::error::Result<()> {
-    Ok(state.federation_observer.submit_rating(event).await?.into())
+    Ok(state.federation_observer.submit_rating(event).await?)
 }
 
 fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {

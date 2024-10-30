@@ -85,11 +85,11 @@ impl FederationObserver {
             .await
             .context("Federation doesn't exist")?;
 
-        Ok(query::<db::Transaction>(
+        query::<db::Transaction>(
             &self.connection().await?,
             "SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1",
             &[&federation_id.consensus_encode_to_vec()]
-        ).await?)
+        ).await
     }
 
     pub async fn federation_transaction_count(

@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::io::ErrorKind::ConnectionRefused;
 use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use fedimint_api_client::download_from_invite_code;
-use fedimint_core::config::{ClientConfig, FederationId, JsonClientConfig};
+use fedimint_core::config::{FederationId, JsonClientConfig};
 use fedimint_core::invite_code::InviteCode;
 use reqwest::Method;
 use tower_http::cors::{Any, CorsLayer};

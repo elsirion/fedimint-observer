@@ -67,7 +67,9 @@ impl FromRow for Federation {
 
 pub struct Transaction {
     pub txid: TransactionId,
+    #[allow(dead_code)]
     pub session_index: i32,
+    #[allow(dead_code)]
     pub item_index: i32,
     pub data: fedimint_core::transaction::Transaction,
 }
@@ -144,7 +146,7 @@ impl SessionOutcome {
         let session_data_bytes: Vec<u8> = row.try_get("session")?;
         let data = fedimint_core::session_outcome::SessionOutcome::consensus_decode_vec(
             session_data_bytes,
-            &decoders,
+            decoders,
         )
         .expect("Invalid data in DB");
 

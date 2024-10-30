@@ -15,12 +15,9 @@ use fedimint_core::epoch::ConsensusItem;
 use fedimint_core::invite_code::InviteCode;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
-use fedimint_core::util::backon::{
-    BackoffBuilder, ConstantBackoff, ConstantBuilder, FibonacciBuilder,
-};
-use fedimint_core::util::{retry, SafeUrl};
+use fedimint_core::util::backon::{ConstantBuilder, FibonacciBuilder};
+use fedimint_core::util::retry;
 use fedimint_core::{Amount, PeerId};
-use fedimint_ln_common::bitcoin::hashes::hex::FromHex;
 use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
@@ -48,8 +45,10 @@ pub struct FederationObserver {
 impl FederationObserver {
     pub async fn new(database: &str, admin_auth: &str) -> anyhow::Result<FederationObserver> {
         let connection_pool = {
-            let mut pool_config = deadpool_postgres::Config::default();
-            pool_config.url = Some(database.to_owned());
+            let pool_config = deadpool_postgres::Config {
+                url: Some(database.to_owned()),
+                ..Default::default()
+            };
             pool_config.create_pool(Some(Runtime::Tokio1), NoTls)
         }?;
 
@@ -263,7 +262,7 @@ impl FederationObserver {
                     fed.config.clone(),
                     outcome.session_index as u64,
                     outcome.data,
-                    &dbtx,
+                    dbtx,
                 )
                 .await?;
             }
@@ -306,7 +305,7 @@ impl FederationObserver {
     }
 
     pub async fn list_federations(&self) -> anyhow::Result<Vec<db::Federation>> {
-        Ok(query(&self.connection().await?, "SELECT * FROM federations", &[]).await?)
+        query(&self.connection().await?, "SELECT * FROM federations", &[]).await
     }
 
     pub async fn list_federation_summaries(&self) -> anyhow::Result<Vec<FederationSummary>> {
@@ -403,12 +402,12 @@ impl FederationObserver {
         &self,
         federation_id: FederationId,
     ) -> anyhow::Result<Option<Federation>> {
-        Ok(query_opt(
+        query_opt(
             &self.connection().await?,
             "SELECT * FROM federations WHERE federation_id = $1",
             &[&federation_id.consensus_encode_to_vec()],
         )
-        .await?)
+        .await
     }
 
     pub async fn add_federation(&self, invite: &InviteCode) -> anyhow::Result<FederationId> {
@@ -616,7 +615,7 @@ impl FederationObserver {
             match item.item {
                 ConsensusItem::Transaction(transaction) => {
                     Self::process_transaction(
-                        &dbtx,
+                        dbtx,
                         federation_id,
                         &config,
                         session_index,
@@ -627,7 +626,7 @@ impl FederationObserver {
                 }
                 ConsensusItem::Module(module_ci) => {
                     Self::process_ci(
-                        &dbtx,
+                        dbtx,
                         federation_id,
                         &config,
                         session_index,
@@ -987,7 +986,7 @@ impl FederationObserver {
                     .expect("Failed to build esplora client");
 
                 let fetched_tx = retry(
-                    format!("fetching tx from esplora"),
+                    "fetching tx from esplora".to_string(),
                     FibonacciBuilder::default()
                         .with_min_delay(Duration::from_secs(30))
                         .with_max_delay(Duration::from_secs(60 * 30))

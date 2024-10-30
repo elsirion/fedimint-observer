@@ -25,7 +25,7 @@ pub trait AsBitcoin {
 impl AsBitcoin for Amount {
     fn as_bitcoin(&self, precision: usize) -> FmtBitcoin {
         FmtBitcoin {
-            amount: self.clone(),
+            amount: *self,
             precision,
         }
     }

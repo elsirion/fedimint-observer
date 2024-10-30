@@ -1,4 +1,4 @@
-use leptos::{component, create_signal, view, IntoView, Signal, SignalGet, SignalSet};
+use leptos::{component, create_signal, view, IntoView, SignalGet, SignalSet};
 
 #[component]
 pub fn StarsSelector(

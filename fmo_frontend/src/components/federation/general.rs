@@ -1,8 +1,5 @@
 use fedimint_core::config::JsonClientConfig;
-use leptos::{component, create_signal, view, IntoView};
-
-use crate::components::federation::nostr_vote::NostrVote;
-use crate::components::federation::stars_seletor::StarsSelector;
+use leptos::{component, view, IntoView};
 
 #[component]
 pub fn General(config: JsonClientConfig) -> impl IntoView {
@@ -13,8 +10,6 @@ pub fn General(config: JsonClientConfig) -> impl IntoView {
             </span>
         }
     }).collect::<Vec<_>>();
-
-    let (stars, set_stars) = create_signal(0);
 
     view! {
         <div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-8 dark:bg-gray-800 dark:border-gray-700">
@@ -85,8 +80,8 @@ fn get_network(cfg: &JsonClientConfig) -> String {
 
 fn get_modules(cfg: &JsonClientConfig) -> Vec<String> {
     cfg.modules
-        .iter()
-        .map(|(_, m)| m.kind().as_str().to_owned())
+        .values()
+        .map(|m| m.kind().as_str().to_owned())
         .collect()
 }
 

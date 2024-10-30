@@ -43,8 +43,8 @@ pub fn ActivityChart(id: FederationId) -> impl IntoView {
 pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoView {
     let (total_volume, volumes_btc) = {
         let total = Amount::from_msats(
-            data.iter()
-                .map(|(_, data)| data.amount_transferred.msats)
+            data.values()
+                .map(|data| data.amount_transferred.msats)
                 .sum::<u64>(),
         );
         let volumes_btc = data
@@ -61,10 +61,7 @@ pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoVie
     };
 
     let (total_transactions, transactions) = {
-        let total = data
-            .iter()
-            .map(|(_, data)| data.num_transactions)
-            .sum::<u64>();
+        let total = data.values().map(|data| data.num_transactions).sum::<u64>();
         let transactions = data
             .iter()
             .map(|(date, data)| {

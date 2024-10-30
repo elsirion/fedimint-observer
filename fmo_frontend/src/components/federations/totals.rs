@@ -1,15 +1,8 @@
-use std::time::Duration;
-
-use fedimint_core::runtime::sleep;
 use fedimint_core::util::backon::FibonacciBuilder;
 use fedimint_core::util::retry;
-use fedimint_core::Amount;
 use fmo_api_types::FedimintTotals;
 use leptos::{component, create_resource, view, IntoView, SignalGet};
 use num_format::{Locale, ToFormattedString};
-use tracing::error;
-
-use crate::util::{AsBitcoin, FmtBitcoin};
 
 #[component]
 pub fn Totals() -> impl IntoView {
@@ -19,7 +12,7 @@ pub fn Totals() -> impl IntoView {
             retry(
                 "fetching federation totals",
                 FibonacciBuilder::default().with_max_times(usize::MAX),
-                || fetch_federation_totals(),
+                fetch_federation_totals,
             )
             .await
             .expect("Will never return Err")

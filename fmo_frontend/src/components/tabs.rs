@@ -1,9 +1,8 @@
 use leptos::leptos_dom::Transparent;
 use leptos::{
     component, create_signal, view, Children, ChildrenFn, CollectView, IntoView, SignalGet,
-    SignalSet, ToChildren, View,
+    SignalSet, View,
 };
-use reqwest::header::WARNING;
 use tracing::warn;
 
 #[component]

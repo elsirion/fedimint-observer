@@ -1,19 +1,14 @@
-use std::time::Duration;
-
 use anyhow::ensure;
 use fedimint_core::config::{FederationId, JsonClientConfig};
-use fedimint_core::task::sleep;
 use leptos::{
     component, create_action, create_signal, event_target_value, view, IntoView, SignalGet,
     SignalSet,
 };
-use leptos_router::Method;
 use nostr_sdk::{EventBuilder, Kind, SingleLetterTag, Tag, TagKind};
 use reqwest::StatusCode;
 
 use crate::components::alert::{Alert, AlertLevel};
 use crate::components::federation::stars_seletor::StarsSelector;
-use crate::components::federations::rating::Rating;
 use crate::BASE_URL;
 
 #[component]

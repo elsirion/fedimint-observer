@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 fedimint-api-client = { workspace = true }
 fedimint-core = { workspace = true }
+fedimint-core-v3 = { version = "0.3", package = "fedimint-core" }
 fedimint-ln-common = { workspace = true }
 fedimint-mint-common = { workspace = true }
 fedimint-wallet-common = { workspace = true }

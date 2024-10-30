@@ -34,7 +34,7 @@ use tokio_postgres::NoTls;
 use tracing::log::info;
 use tracing::{debug, error, warn};
 
-use crate::federation::db::Federation;
+use crate::federation::db::{Federation, FederationV0};
 use crate::federation::{db, decoders_from_config, instance_to_kind};
 use crate::util::{execute, query, query_one, query_opt, query_value};
 
@@ -175,6 +175,7 @@ impl FederationObserver {
                 5,
                 include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v5.sql")),
             ),
+            (6, ""),
         ];
 
         for (version, migration) in migration_map.iter() {
@@ -270,9 +271,32 @@ impl FederationObserver {
         Ok(())
     }
 
+    async fn backfill_v6_migrate_configs(&self, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
+        let federations =
+            query::<FederationV0>(&self.connection().await?, "SELECT * FROM federations", &[])
+                .await?;
+        for fed in federations {
+            let config = serde_json::from_value::<ClientConfig>(
+                serde_json::to_value(fed.config).expect("serializabke"),
+            )
+            .expect("Invalid JSON");
+
+            dbtx.execute(
+                "UPDATE federations SET config = $1 WHERE federation_id = $2",
+                &[
+                    &config.consensus_encode_to_vec(),
+                    &fed.federation_id.consensus_encode_to_vec(),
+                ],
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
     async fn handle_backfill(&self, version: i32, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
         match version {
             2 => Ok(self.backfill_v2_migration_wallet_data(dbtx).await?),
+            6 => Ok(self.backfill_v6_migrate_configs(dbtx).await?),
             _ => Ok(()),
         }
     }

@@ -149,7 +149,7 @@
             echo "Type 'just pg_start' to start the $PGDATABASE database, use 'pg' to connect to it"
           '';
 
-          RUSTFLAGS = "--cfg=web_sys_unstable_apis";
+          RUSTFLAGS = "--cfg=web_sys_unstable_apis --cfg=tokio_unstable";
         };
 
         legacyPackages = nativePackages // wasmPackages;

@@ -38,3 +38,18 @@ pub struct FederationUtxo {
     pub out_point: bitcoin::OutPoint,
     pub amount: Amount,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuardianHealth {
+    pub avg_uptime: f32,
+    pub avg_latency: f32,
+    pub latest: Option<GuardianHealthLatest>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuardianHealthLatest {
+    pub block_height: u32,
+    pub block_outdated: bool,
+    pub session_count: u32,
+    pub session_outdated: bool,
+}

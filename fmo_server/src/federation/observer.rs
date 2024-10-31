@@ -1187,6 +1187,15 @@ impl FederationObserver {
             tx_volume: Amount::from_msats(totals.tx_volume as u64),
         })
     }
+
+    pub async fn get_block_height(&self) -> anyhow::Result<u32> {
+        Ok(query_value::<i32>(
+            &self.connection().await?,
+            "SELECT MAX(block_height) FROM block_times",
+            &[],
+        )
+        .await? as u32)
+    }
 }
 
 fn last_n_day_iter(now: NaiveDate, days: u32) -> impl Iterator<Item = NaiveDate> {

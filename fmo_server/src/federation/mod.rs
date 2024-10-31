@@ -18,6 +18,7 @@ use fedimint_core::module::registry::ModuleDecoderRegistry;
 use fmo_api_types::{FederationSummary, FedimintTotals};
 use serde_json::json;
 
+use crate::federation::guardians::get_federation_health;
 use crate::federation::meta::get_federation_meta;
 use crate::federation::session::{count_sessions, list_sessions};
 use crate::federation::transaction::{
@@ -38,6 +39,7 @@ pub fn get_federations_routes() -> Router<AppState> {
             get(federation::get_federation_config),
         )
         .route("/:federation_id/meta", get(get_federation_meta))
+        .route("/:federation_id/health", get(get_federation_health))
         .route("/:federation_id/transactions", get(list_transactions))
         .route(
             "/:federation_id/transactions/:transaction_id",

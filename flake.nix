@@ -69,6 +69,7 @@
                 version = "0.1.0";
                 src = rustSrc;
                 cargoExtraArgs = "--package=fmo_server";
+                RUSTFLAGS = "--cfg tokio_unstable";
               });
             in
             rec {

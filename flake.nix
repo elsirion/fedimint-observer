@@ -69,6 +69,7 @@
                 version = "0.1.0";
                 src = rustSrc;
                 cargoExtraArgs = "--package=fmo_server";
+                RUSTFLAGS = "--cfg tokio_unstable";
               });
             in
             rec {
@@ -149,7 +150,7 @@
             echo "Type 'just pg_start' to start the $PGDATABASE database, use 'pg' to connect to it"
           '';
 
-          RUSTFLAGS = "--cfg=web_sys_unstable_apis";
+          RUSTFLAGS = "--cfg=web_sys_unstable_apis --cfg=tokio_unstable";
         };
 
         legacyPackages = nativePackages // wasmPackages;

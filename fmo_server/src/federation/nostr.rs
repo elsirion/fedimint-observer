@@ -212,7 +212,7 @@ async fn insert_parsed_event(
 ) -> anyhow::Result<()> {
     debug!(
         "Inserting event {} for federation {}",
-        hex::encode(&parsed_event.event_id),
+        hex::encode(parsed_event.event_id),
         parsed_event.federation_id
     );
 
@@ -236,7 +236,7 @@ fn extract_star_rating(comment: &str) -> Option<u8> {
     let re = Regex::new(r"^\[([0-9]+)/5]").expect("valid regex");
     let rating = re.captures(comment)?.get(1)?.as_str().parse::<u8>().ok()?;
 
-    if rating >= 1 && rating <= 5 {
+    if (1..=5).contains(&rating) {
         Some(rating)
     } else {
         None

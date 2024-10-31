@@ -5,8 +5,8 @@ use std::time::{Duration, SystemTime};
 use anyhow::anyhow;
 use axum::extract::{Path, State};
 use axum::Json;
-use fedimint_core::api::InviteCode;
 use fedimint_core::config::FederationId;
+use fedimint_core::invite_code::InviteCode;
 
 use crate::meta::federation_meta;
 use crate::AppState;
@@ -58,7 +58,7 @@ impl MetaOverrideCache {
         };
 
         let federation_meta = parse_meta_lenient(serde_json::from_value::<MetaFields>(
-            meta.get(&federation_id.to_string())
+            meta.get(federation_id.to_string())
                 .ok_or_else(|| anyhow!("No entry for federation {federation_id} in {url}"))?
                 .clone(),
         )?);

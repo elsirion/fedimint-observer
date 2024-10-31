@@ -85,11 +85,11 @@ impl FederationObserver {
             .await
             .context("Federation doesn't exist")?;
 
-        Ok(query::<db::Transaction>(
+        query::<db::Transaction>(
             &self.connection().await?,
             "SELECT txid, session_index, item_index, data FROM transactions WHERE federation_id = $1",
             &[&federation_id.consensus_encode_to_vec()]
-        ).await?)
+        ).await
     }
 
     pub async fn federation_transaction_count(
@@ -141,8 +141,9 @@ impl FederationObserver {
                     .get(module_instance_id)
                     .map(|decoder| {
                         decoder
-                            .decode::<DynInput>(
+                            .decode_complete::<DynInput>(
                                 &mut Cursor::new(&undecoded.0),
+                                undecoded.0.len() as u64,
                                 module_instance_id,
                                 &Default::default(),
                             )
@@ -167,8 +168,9 @@ impl FederationObserver {
                     .get(module_instance_id)
                     .map(|decoder| {
                         decoder
-                            .decode::<DynOutput>(
+                            .decode_complete::<DynOutput>(
                                 &mut Cursor::new(&undecoded.0),
+                                undecoded.0.len() as u64,
                                 module_instance_id,
                                 &Default::default(),
                             )

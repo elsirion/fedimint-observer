@@ -11,9 +11,9 @@ use axum::extract::{Path, State};
 use axum::routing::{get, put};
 use axum::{Json, Router};
 use axum_auth::AuthBearer;
-use fedimint_core::api::InviteCode;
 use fedimint_core::config::{ClientConfig, FederationId, JsonClientConfig};
 use fedimint_core::core::ModuleInstanceId;
+use fedimint_core::invite_code::InviteCode;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
 use fmo_api_types::{FederationSummary, FedimintTotals};
 use serde_json::json;
@@ -142,7 +142,7 @@ async fn publish_rating_event(
     State(state): State<AppState>,
     Json(event): Json<nostr_sdk::Event>,
 ) -> crate::error::Result<()> {
-    Ok(state.federation_observer.submit_rating(event).await?.into())
+    Ok(state.federation_observer.submit_rating(event).await?)
 }
 
 fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {

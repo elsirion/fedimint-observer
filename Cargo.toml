@@ -6,3 +6,10 @@ members = [
 ]
 
 resolver = "2"
+
+[workspace.dependencies]
+fedimint-api-client = { version = "0.4", git = "https://github.com/elsirion/fedimint", branch = "v0.4.4-patch-xyz" }
+fedimint-core = { version = "0.4", git = "https://github.com/elsirion/fedimint", branch = "v0.4.4-patch-xyz" }
+fedimint-ln-common = { version = "0.4", git = "https://github.com/elsirion/fedimint", branch = "v0.4.4-patch-xyz" }
+fedimint-mint-common = { version = "0.4", git = "https://github.com/elsirion/fedimint", branch = "v0.4.4-patch-xyz" }
+fedimint-wallet-common = { version = "0.4", git = "https://github.com/elsirion/fedimint", branch = "v0.4.4-patch-xyz" }

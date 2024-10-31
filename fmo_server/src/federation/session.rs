@@ -57,7 +57,7 @@ impl FederationObserver {
             .await
             .context("Federation doesn't exist")?;
 
-        Ok(query::<SessionData>(&self.connection().await?, "
+        query::<SessionData>(&self.connection().await?, "
             SELECT s.session_index, COUNT(t.txid) AS transaction_count
             FROM sessions AS s
             LEFT JOIN transactions AS t ON s.federation_id = t.federation_id AND s.session_index = t.session_index
@@ -65,7 +65,7 @@ impl FederationObserver {
             GROUP BY s.session_index
             ORDER BY s.session_index ASC
         ", &[&federation_id.consensus_encode_to_vec()])
-        .await?)
+        .await
     }
 
     pub async fn federation_session_count(

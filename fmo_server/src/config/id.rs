@@ -1,7 +1,7 @@
 use axum::extract::Path;
 use axum::Json;
-use fedimint_core::api::InviteCode;
 use fedimint_core::config::FederationId;
+use fedimint_core::invite_code::InviteCode;
 
 pub async fn fetch_federation_id(
     Path(invite): Path<InviteCode>,

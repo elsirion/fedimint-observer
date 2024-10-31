@@ -1,4 +1,4 @@
-use fedimint_core::{NumPeers, NumPeersExt};
+use fedimint_core::NumPeers;
 use leptos::{component, view, IntoView};
 
 #[component]

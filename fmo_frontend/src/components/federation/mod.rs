@@ -73,9 +73,7 @@ pub fn Federation() -> impl IntoView {
                                     <div class="flex-1 min-w-[400px]">
                                         <Guardians guardians=config
                                             .global
-                                            .api_endpoints
-                                            .iter()
-                                            .map(|(_, guardian)| Guardian {
+                                            .api_endpoints.values().map(|guardian| Guardian {
                                                 name: guardian.name.clone(),
                                                 url: guardian.url.to_string(),
                                             })

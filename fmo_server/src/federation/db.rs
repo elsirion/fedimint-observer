@@ -2,8 +2,40 @@ use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::encoding::Decodable;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
 use fedimint_core::TransactionId;
+use fedimint_core_v3::encoding::Decodable as Decodable3;
 use postgres_from_row::FromRow;
 use tokio_postgres::{Error, Row};
+
+#[derive(Debug, Clone)]
+pub struct FederationV0 {
+    pub federation_id: FederationId,
+    pub config: fedimint_core_v3::config::ClientConfig,
+}
+
+impl FromRow for crate::federation::db::FederationV0 {
+    fn from_row(row: &Row) -> Self {
+        Self::try_from_row(row).expect("Decoding row failed")
+    }
+
+    fn try_from_row(row: &Row) -> Result<Self, Error> {
+        let federation_id_bytes: Vec<u8> = row.try_get("federation_id")?;
+        let federation_id =
+            FederationId::consensus_decode_vec(federation_id_bytes, &Default::default())
+                .expect("Invalid data in DB");
+
+        let config_bytes: Vec<u8> = row.try_get("config")?;
+        let config = fedimint_core_v3::config::ClientConfig::consensus_decode_vec(
+            config_bytes,
+            &Default::default(),
+        )
+        .expect("Invalid data in DB");
+
+        Ok(crate::federation::db::FederationV0 {
+            federation_id,
+            config,
+        })
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Federation {
@@ -35,7 +67,9 @@ impl FromRow for Federation {
 
 pub struct Transaction {
     pub txid: TransactionId,
+    #[allow(dead_code)]
     pub session_index: i32,
+    #[allow(dead_code)]
     pub item_index: i32,
     pub data: fedimint_core::transaction::Transaction,
 }
@@ -112,7 +146,7 @@ impl SessionOutcome {
         let session_data_bytes: Vec<u8> = row.try_get("session")?;
         let data = fedimint_core::session_outcome::SessionOutcome::consensus_decode_vec(
             session_data_bytes,
-            &decoders,
+            decoders,
         )
         .expect("Invalid data in DB");
 

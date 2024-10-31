@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 bitcoin = { version = "0.30.2", features = ["serde"] }
-fedimint-core = "0.3.2-rc.0"
+fedimint-core = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }

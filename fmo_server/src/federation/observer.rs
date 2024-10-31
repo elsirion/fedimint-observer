@@ -6,16 +6,18 @@ use bitcoin::hashes::Hash;
 use bitcoin::{Address, OutPoint, Txid};
 use chrono::{DateTime, NaiveDate};
 use deadpool_postgres::{GenericClient, Runtime, Transaction};
-use fedimint_core::api::{DynGlobalApi, InviteCode};
+use fedimint_api_client::api::DynGlobalApi;
+use fedimint_api_client::download_from_invite_code;
 use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::core::DynModuleConsensusItem;
 use fedimint_core::encoding::Encodable;
 use fedimint_core::epoch::ConsensusItem;
+use fedimint_core::invite_code::InviteCode;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
-use fedimint_core::util::{retry, ConstantBackoff, FibonacciBackoff};
+use fedimint_core::util::backon::{ConstantBuilder, FibonacciBuilder};
+use fedimint_core::util::retry;
 use fedimint_core::{Amount, PeerId};
-use fedimint_ln_common::bitcoin::hashes::hex::{FromHex, ToHex};
 use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
@@ -29,7 +31,7 @@ use tokio_postgres::NoTls;
 use tracing::log::info;
 use tracing::{debug, error, warn};
 
-use crate::federation::db::Federation;
+use crate::federation::db::{Federation, FederationV0};
 use crate::federation::{db, decoders_from_config, instance_to_kind};
 use crate::util::{execute, query, query_one, query_opt, query_value};
 
@@ -43,8 +45,10 @@ pub struct FederationObserver {
 impl FederationObserver {
     pub async fn new(database: &str, admin_auth: &str) -> anyhow::Result<FederationObserver> {
         let connection_pool = {
-            let mut pool_config = deadpool_postgres::Config::default();
-            pool_config.url = Some(database.to_owned());
+            let pool_config = deadpool_postgres::Config {
+                url: Some(database.to_owned()),
+                ..Default::default()
+            };
             pool_config.create_pool(Some(Runtime::Tokio1), NoTls)
         }?;
 
@@ -170,6 +174,7 @@ impl FederationObserver {
                 5,
                 include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v5.sql")),
             ),
+            (6, ""),
         ];
 
         for (version, migration) in migration_map.iter() {
@@ -257,7 +262,7 @@ impl FederationObserver {
                     fed.config.clone(),
                     outcome.session_index as u64,
                     outcome.data,
-                    &dbtx,
+                    dbtx,
                 )
                 .await?;
             }
@@ -265,9 +270,32 @@ impl FederationObserver {
         Ok(())
     }
 
+    async fn backfill_v6_migrate_configs(&self, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
+        let federations =
+            query::<FederationV0>(&self.connection().await?, "SELECT * FROM federations", &[])
+                .await?;
+        for fed in federations {
+            let config = serde_json::from_value::<ClientConfig>(
+                serde_json::to_value(fed.config).expect("serializabke"),
+            )
+            .expect("Invalid JSON");
+
+            dbtx.execute(
+                "UPDATE federations SET config = $1 WHERE federation_id = $2",
+                &[
+                    &config.consensus_encode_to_vec(),
+                    &fed.federation_id.consensus_encode_to_vec(),
+                ],
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
     async fn handle_backfill(&self, version: i32, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
         match version {
             2 => Ok(self.backfill_v2_migration_wallet_data(dbtx).await?),
+            6 => Ok(self.backfill_v6_migrate_configs(dbtx).await?),
             _ => Ok(()),
         }
     }
@@ -277,7 +305,7 @@ impl FederationObserver {
     }
 
     pub async fn list_federations(&self) -> anyhow::Result<Vec<db::Federation>> {
-        Ok(query(&self.connection().await?, "SELECT * FROM federations", &[]).await?)
+        query(&self.connection().await?, "SELECT * FROM federations", &[]).await
     }
 
     pub async fn list_federation_summaries(&self) -> anyhow::Result<Vec<FederationSummary>> {
@@ -298,11 +326,19 @@ impl FederationObserver {
                 .federation_activity(federation.federation_id, 7)
                 .await?;
 
-            let invite = federation
+            let (first_peer_id, first_peer_url) = federation
                 .config
-                .invite_code(&PeerId::from(0))
-                .expect("There should always be a peer 0")
-                .to_string();
+                .global
+                .api_endpoints
+                .first_key_value()
+                .expect("At least one peer");
+            let invite = InviteCode::new(
+                first_peer_url.url.clone(),
+                *first_peer_id,
+                federation.federation_id,
+                None,
+            )
+            .to_string();
 
             Ok(FederationSummary {
                 id: federation.federation_id,
@@ -366,12 +402,12 @@ impl FederationObserver {
         &self,
         federation_id: FederationId,
     ) -> anyhow::Result<Option<Federation>> {
-        Ok(query_opt(
+        query_opt(
             &self.connection().await?,
             "SELECT * FROM federations WHERE federation_id = $1",
             &[&federation_id.consensus_encode_to_vec()],
         )
-        .await?)
+        .await
     }
 
     pub async fn add_federation(&self, invite: &InviteCode) -> anyhow::Result<FederationId> {
@@ -381,7 +417,7 @@ impl FederationObserver {
             return Ok(federation_id);
         }
 
-        let config = ClientConfig::download_from_invite_code(invite).await?;
+        let config = download_from_invite_code(invite).await?;
 
         self.connection()
             .await?
@@ -490,7 +526,14 @@ impl FederationObserver {
         federation_id: FederationId,
         config: ClientConfig,
     ) -> anyhow::Result<()> {
-        let api = DynGlobalApi::from_config(&config);
+        let api = DynGlobalApi::from_endpoints(
+            config
+                .global
+                .api_endpoints
+                .iter()
+                .map(|(&peer_id, peer_url)| (peer_id, peer_url.url.clone())),
+            &None,
+        );
         let decoders = decoders_from_config(&config);
 
         info!("Starting background job for {federation_id}");
@@ -505,7 +548,7 @@ impl FederationObserver {
                 async move {
                     let signed_session_outcome = retry(
                         format!("Waiting for session {session_index}"),
-                        ConstantBackoff::default()
+                        ConstantBuilder::default()
                             .with_delay(Duration::from_secs(1))
                             .with_max_times(usize::MAX),
                         || async {
@@ -572,7 +615,7 @@ impl FederationObserver {
             match item.item {
                 ConsensusItem::Transaction(transaction) => {
                     Self::process_transaction(
-                        &dbtx,
+                        dbtx,
                         federation_id,
                         &config,
                         session_index,
@@ -583,7 +626,7 @@ impl FederationObserver {
                 }
                 ConsensusItem::Module(module_ci) => {
                     Self::process_ci(
-                        &dbtx,
+                        dbtx,
                         federation_id,
                         &config,
                         session_index,
@@ -689,9 +732,6 @@ impl FederationObserver {
                     .0;
 
                 let outpoint = peg_in_proof.outpoint();
-                let on_chain_txid = fedimint_core::TransactionId::from_hex(&outpoint.txid.to_hex())
-                    .expect("Invalid data in DB")
-                    .consensus_encode_to_vec();
 
                 let address = bitcoin::Address::from_script(
                     bitcoin::Script::from_bytes(peg_in_proof.tx_output().script_pubkey.as_bytes()),
@@ -702,7 +742,7 @@ impl FederationObserver {
                 dbtx.execute(
                         "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
                         &[
-                            &on_chain_txid,
+                            &outpoint.txid[..].to_owned(),
                             &(outpoint.vout as i32),
                             &address.to_string(),
                             &maybe_amount_msat.map(|amt| amt as i64).expect("Wallet input must have amount"),
@@ -810,7 +850,7 @@ impl FederationObserver {
 
                 match wallet_v0_output {
                     WalletOutputV0::PegOut(peg_out) => {
-                        let withdrawal_address = peg_out.recipient.clone();
+                        let withdrawal_address = peg_out.recipient.clone().assume_checked();
                         dbtx.execute(
                             "INSERT INTO wallet_withdrawal_addresses VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
                             &[
@@ -946,8 +986,8 @@ impl FederationObserver {
                     .expect("Failed to build esplora client");
 
                 let fetched_tx = retry(
-                    format!("fetching tx from esplora"),
-                    FibonacciBackoff::default()
+                    "fetching tx from esplora".to_string(),
+                    FibonacciBuilder::default()
                         .with_min_delay(Duration::from_secs(30))
                         .with_max_delay(Duration::from_secs(60 * 30))
                         .with_max_times(usize::MAX),

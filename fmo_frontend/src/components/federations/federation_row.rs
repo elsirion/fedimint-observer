@@ -19,7 +19,7 @@ pub fn FederationRow(
     avg_txs: f64,
     avg_volume: Amount,
 ) -> impl IntoView {
-    let degraded_federations = vec![FederationId::from_str(
+    let degraded_federations = [FederationId::from_str(
         "4b13a146ee4ba732b2b8914a72a0a2e5873e3e942da2d4eeefd85a5fe41f27ba",
     )
     .expect("can be parsed")];

@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use axum::extract::{Path, State};
 use axum::Json;
 use fedimint_api_client::api::{DynGlobalApi, FederationApiExt, StatusResponse};
@@ -9,9 +9,9 @@ use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::encoding::Encodable;
 use fedimint_core::endpoint_constants::STATUS_ENDPOINT;
 use fedimint_core::module::ApiRequestErased;
-use fedimint_core::PeerId;
+use fedimint_core::{NumPeers, PeerId};
 use fedimint_wallet_common::endpoint_constants::BLOCK_COUNT_LOCAL_ENDPOINT;
-use fmo_api_types::{GuardianHealth, GuardianHealthLatest};
+use fmo_api_types::{FederationHealth, GuardianHealth, GuardianHealthLatest};
 use futures::future::join_all;
 use postgres_from_row::FromRow;
 
@@ -124,6 +124,7 @@ impl FederationObserver {
 
         let health_rows = query::<GuardianHealthRow>(
             &self.connection().await?,
+            // language=postgresql
             "WITH RankedRows AS (
                     SELECT
                         *,
@@ -193,6 +194,78 @@ impl FederationObserver {
                 (PeerId::new(row.guardian_id as u16), health)
             })
             .collect())
+    }
+
+    pub async fn get_guardian_health_summary(
+        &self,
+    ) -> anyhow::Result<BTreeMap<FederationId, FederationHealth>> {
+        #[derive(FromRow)]
+        struct FederationHealthRow {
+            federation_id: Vec<u8>,
+            guardians: i32,
+            online_guardians: i32,
+        }
+
+        let federations = query::<FederationHealthRow>(
+            &self.connection().await?,
+            // language=postgresql
+            "WITH RankedRows AS (
+                    SELECT
+                        *,
+                        ROW_NUMBER() OVER (PARTITION BY federation_id, guardian_id ORDER BY time DESC) AS rn
+                    FROM
+                        guardian_health
+                    ),
+                    GuardianHealth as (
+                    SELECT
+                        RankedRows.federation_id,
+                        RankedRows.guardian_id,
+                        RankedRows.status -> 'federation'  ->> 'session_count' AS session_count
+                    FROM
+                        RankedRows
+                    WHERE
+                        rn = 1
+                    )
+                SELECT
+                    federation_id,
+                    count(*)::int as guardians,
+                    count(session_count)::int as online_guardians
+                FROM
+                    GuardianHealth
+                GROUP BY
+                    federation_id
+            ",
+            &[],
+        ).await?;
+
+        federations
+            .into_iter()
+            .map(|federation| {
+                let federation_id = FederationId(bitcoin::hashes::Hash::from_byte_array(
+                    federation
+                        .federation_id
+                        .try_into()
+                        .map_err(|_| anyhow!("Invalid federation id in DB"))?,
+                ));
+
+                // Special case single guardian federations to not show them as degraded
+                if federation.guardians == 1 {
+                    return Ok((federation_id, FederationHealth::Online));
+                }
+
+                let threshold = NumPeers::from(federation.guardians as usize).threshold();
+                let online = federation.online_guardians as usize;
+
+                #[allow(clippy::comparison_chain)]
+                if online > threshold {
+                    Ok((federation_id, FederationHealth::Online))
+                } else if online == threshold {
+                    Ok((federation_id, FederationHealth::Degraded))
+                } else {
+                    Ok((federation_id, FederationHealth::Offline))
+                }
+            })
+            .collect()
     }
 }
 

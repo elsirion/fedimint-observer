@@ -18,6 +18,7 @@ pub struct FederationSummary {
     pub deposits: Amount,
     pub invite: String,
     pub nostr_votes: FederationRating,
+    pub health: FederationHealth,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -52,4 +53,12 @@ pub struct GuardianHealthLatest {
     pub block_outdated: bool,
     pub session_count: u32,
     pub session_outdated: bool,
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FederationHealth {
+    Online,
+    Degraded,
+    Offline,
 }

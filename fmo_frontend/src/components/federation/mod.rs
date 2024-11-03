@@ -71,13 +71,15 @@ pub fn Federation() -> impl IntoView {
                             view! {
                                 <div class="flex flex-wrap items-stretch gap-4 ">
                                     <div class="flex-1 min-w-[400px]">
-                                        <Guardians guardians=config
-                                            .global
-                                            .api_endpoints.values().map(|guardian| Guardian {
-                                                name: guardian.name.clone(),
-                                                url: guardian.url.to_string(),
-                                            })
-                                            .collect()
+                                        <Guardians
+                                            federation_id=id().unwrap()
+                                            guardians=config
+                                                .global
+                                                .api_endpoints.values().map(|guardian| Guardian {
+                                                    name: guardian.name.clone(),
+                                                    url: guardian.url.to_string(),
+                                                })
+                                                .collect()
                                         />
                                     </div>
                                     <div class="flex-1 min-w-[400px]">

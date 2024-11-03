@@ -22,7 +22,9 @@ use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
 use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
 use fedimint_mint_common::{MintInput, MintOutput};
 use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput, WalletOutputV0};
-use fmo_api_types::{FederationActivity, FederationSummary, FederationUtxo, FedimintTotals};
+use fmo_api_types::{
+    FederationActivity, FederationHealth, FederationSummary, FederationUtxo, FedimintTotals,
+};
 use futures::future::join_all;
 use futures::StreamExt;
 use postgres_from_row::FromRow;
@@ -312,45 +314,57 @@ impl FederationObserver {
     }
 
     pub async fn list_federation_summaries(&self) -> anyhow::Result<Vec<FederationSummary>> {
+        // TODO: possibly combine list and health query
         let federations =
             query::<Federation>(&self.connection().await?, "SELECT * FROM federations", &[])
                 .await?;
 
-        join_all(federations.into_iter().map(|federation| async move {
-            let deposits = self.get_federation_assets(federation.federation_id).await?;
-            let name = federation
-                .config
-                .global
-                .meta
-                .get("federation_name")
-                .cloned();
+        let federation_health = self.get_guardian_health_summary().await?;
 
-            let last_7d_activity = self
-                .federation_activity(federation.federation_id, 7)
-                .await?;
+        join_all(federations.into_iter().map(|federation| {
+            let federation_health_ref = &federation_health;
+            async move {
+                let deposits = self.get_federation_assets(federation.federation_id).await?;
+                let name = federation
+                    .config
+                    .global
+                    .meta
+                    .get("federation_name")
+                    .cloned();
 
-            let (first_peer_id, first_peer_url) = federation
-                .config
-                .global
-                .api_endpoints
-                .first_key_value()
-                .expect("At least one peer");
-            let invite = InviteCode::new(
-                first_peer_url.url.clone(),
-                *first_peer_id,
-                federation.federation_id,
-                None,
-            )
-            .to_string();
+                let health = federation_health_ref
+                    .get(&federation.federation_id)
+                    .copied()
+                    .unwrap_or(FederationHealth::Offline);
 
-            Ok(FederationSummary {
-                id: federation.federation_id,
-                name,
-                last_7d_activity,
-                deposits,
-                invite,
-                nostr_votes: self.federation_rating(federation.federation_id).await?,
-            })
+                let last_7d_activity = self
+                    .federation_activity(federation.federation_id, 7)
+                    .await?;
+
+                let (first_peer_id, first_peer_url) = federation
+                    .config
+                    .global
+                    .api_endpoints
+                    .first_key_value()
+                    .expect("At least one peer");
+                let invite = InviteCode::new(
+                    first_peer_url.url.clone(),
+                    *first_peer_id,
+                    federation.federation_id,
+                    None,
+                )
+                .to_string();
+
+                Ok(FederationSummary {
+                    id: federation.federation_id,
+                    name,
+                    last_7d_activity,
+                    deposits,
+                    invite,
+                    nostr_votes: self.federation_rating(federation.federation_id).await?,
+                    health,
+                })
+            }
         }))
         .await
         .into_iter()
@@ -1169,6 +1183,13 @@ impl FederationObserver {
             tx_volume: i64,
         }
 
+        let offline_federations = self
+            .get_guardian_health_summary()
+            .await?
+            .values()
+            .filter(|&health| *health == FederationHealth::Offline)
+            .count() as u64;
+
         let totals = query_one::<FedimintTotalsResult>(
             &self.connection().await?,
             // language=postgresql
@@ -1182,10 +1203,19 @@ impl FederationObserver {
         .await?;
 
         Ok(FedimintTotals {
-            federations: totals.federations as u64,
+            federations: (totals.federations as u64) - offline_federations,
             tx_count: totals.tx_count as u64,
             tx_volume: Amount::from_msats(totals.tx_volume as u64),
         })
+    }
+
+    pub async fn get_block_height(&self) -> anyhow::Result<u32> {
+        Ok(query_value::<i32>(
+            &self.connection().await?,
+            "SELECT MAX(block_height) FROM block_times",
+            &[],
+        )
+        .await? as u32)
     }
 }
 

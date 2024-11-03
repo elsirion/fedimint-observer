@@ -1,14 +1,28 @@
-use fedimint_core::NumPeers;
-use leptos::{component, view, IntoView};
+use std::collections::BTreeMap;
+
+use fedimint_core::config::FederationId;
+use fedimint_core::util::backon::FibonacciBuilder;
+use fedimint_core::util::retry;
+use fedimint_core::{NumPeers, PeerId};
+use fmo_api_types::GuardianHealth;
+use leptos::{component, create_resource, view, IntoView, SignalGet};
+
+use crate::BASE_URL;
 
 #[component]
-pub fn Guardians(guardians: Vec<Guardian>) -> impl IntoView {
+pub fn Guardians(federation_id: FederationId, guardians: Vec<Guardian>) -> impl IntoView {
     let n = guardians.len();
     let t = NumPeers::from(n).threshold();
 
+    let health_resource = create_resource(
+        || (),
+        move |()| async move { fetch_guardian_health(federation_id).await },
+    );
+
     let guardians = guardians
         .into_iter()
-        .map(|guardian| {
+        .enumerate()
+        .map(|(guardian_idx, guardian)| {
             view! {
                 <li class="py-3 sm:py-4">
                     <div class="flex items-center">
@@ -18,6 +32,69 @@ pub fn Guardians(guardians: Vec<Guardian>) -> impl IntoView {
                             </p>
                             <p class="text-sm text-gray-500 truncate dark:text-gray-400">
                                 {guardian.url}
+                            </p>
+                            <p>
+                                { move || match health_resource.get() {
+                                    Some(health) => {
+                                        let health = health.get(&PeerId::from(guardian_idx as u16)).expect("Guardian exists");
+
+                                        let mut badges = vec![];
+                                        if let Some(latest) = &health.latest {
+                                            badges.push(view! {
+                                                <span class="bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
+                                                    Online
+                                                </span>
+                                            }.into_view());
+
+                                            if latest.session_outdated {
+                                                badges.push(view!{
+                                                   <span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
+                                                        <abbr title="Guardian is lacking behind others" >
+                                                            "Session " { latest.session_count.to_string() }
+                                                        </abbr>
+                                                    </span>
+                                                }.into_view());
+                                            } else {
+                                                badges.push(view!{
+                                                   <span class="bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
+                                                        "Session " { latest.session_count.to_string() }
+                                                    </span>
+                                                }.into_view());
+                                            }
+
+                                            if latest.block_outdated {
+                                                badges.push(view!{
+                                                   <span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
+                                                        <abbr title="Guardian's bitcoind is out of sync" >
+                                                            "Block " { (latest.block_height - 1).to_string() }
+                                                        </abbr>
+                                                    </span>
+                                                }.into_view());
+                                            } else {
+                                                badges.push(view!{
+                                                   <span class="bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
+                                                        "Block " { (latest.block_height - 1).to_string() }
+                                                    </span>
+                                                }.into_view());
+                                            }
+                                        } else {
+                                            badges.push(view! {
+                                                <span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
+                                                    Offline
+                                                </span>
+                                            }.into_view());
+                                        }
+
+                                        badges.into_view()
+                                    }
+                                    None => {
+                                        view! {
+                                            <span class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                                "Loading"
+                                            </span>
+                                        }.into_view()
+                                    }
+                                }}
                             </p>
                         </div>
                     </div>
@@ -48,4 +125,20 @@ pub fn Guardians(guardians: Vec<Guardian>) -> impl IntoView {
 pub struct Guardian {
     pub name: String,
     pub url: String,
+}
+
+async fn fetch_guardian_health(id: FederationId) -> BTreeMap<PeerId, GuardianHealth> {
+    retry(
+        "fetching guardian health",
+        FibonacciBuilder::default().with_max_times(usize::MAX),
+        || async move {
+            reqwest::get(format!("{}/federations/{}/health", BASE_URL, id))
+                .await?
+                .json::<BTreeMap<PeerId, GuardianHealth>>()
+                .await
+                .map_err(Into::into)
+        },
+    )
+    .await
+    .expect("Will never return Err")
 }

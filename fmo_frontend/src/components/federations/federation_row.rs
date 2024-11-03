@@ -1,8 +1,6 @@
-use std::str::FromStr;
-
 use fedimint_core::config::FederationId;
 use fedimint_core::Amount;
-use fmo_api_types::FederationRating;
+use fmo_api_types::{FederationHealth, FederationRating};
 use leptos::{component, view, IntoView};
 
 use crate::components::federations::rating::Rating;
@@ -18,16 +16,8 @@ pub fn FederationRow(
     total_assets: Amount,
     avg_txs: f64,
     avg_volume: Amount,
+    health: FederationHealth,
 ) -> impl IntoView {
-    let degraded_federations = [FederationId::from_str(
-        "4b13a146ee4ba732b2b8914a72a0a2e5873e3e942da2d4eeefd85a5fe41f27ba",
-    )
-    .expect("can be parsed")];
-
-    if degraded_federations.contains(&id) {
-        return view! {}.into_view();
-    }
-
     view! {
         <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
             <th
@@ -48,7 +38,25 @@ pub fn FederationRow(
                 />
             </td>
             <td class="px-6 py-4">
-                <Copyable text=invite/>
+                { match health {
+                    FederationHealth::Online => {
+                        view! { <Copyable text=invite/> }.into_view()
+                    },
+                    FederationHealth::Degraded => {
+                        view! {
+                            <span class="bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">
+                                "Degraded"
+                            </span>
+                        }.into_view()
+                    }
+                    FederationHealth::Offline => {
+                        view! {
+                            <span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
+                                "Offline"
+                            </span>
+                        }.into_view()
+                    },
+                }}
             </td>
             <td class="px-6 py-4">{total_assets.as_bitcoin(6).to_string()}</td>
             <td class="px-6 py-4">

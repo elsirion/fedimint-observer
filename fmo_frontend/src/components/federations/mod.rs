@@ -3,7 +3,7 @@ pub mod rating;
 mod totals;
 
 use fedimint_core::Amount;
-use fmo_api_types::FederationSummary;
+use fmo_api_types::{FederationHealth, FederationSummary};
 use leptos::{component, create_resource, view, IntoView, SignalGet};
 
 use crate::components::federations::federation_row::FederationRow;
@@ -33,6 +33,7 @@ pub fn Federations() -> impl IntoView {
                             total_assets=summary.deposits
                             avg_txs=avg_txs
                             avg_volume=avg_volume
+                            health=summary.health
                         />
                     }
                 })
@@ -89,7 +90,13 @@ async fn fetch_federations() -> anyhow::Result<Vec<(FederationSummary, f64, Amou
 
     let federations = federations
         .into_iter()
-        .map(|federation_summary| {
+        .filter_map(|federation_summary| {
+            // Don't show offline federations for now. Eventually I'd like to only not show
+            // them if they have been offline for a long time.
+            if federation_summary.health == FederationHealth::Offline {
+                return None;
+            }
+
             let avg_txs = federation_summary
                 .last_7d_activity
                 .iter()
@@ -104,7 +111,7 @@ async fn fetch_federations() -> anyhow::Result<Vec<(FederationSummary, f64, Amou
                     .sum::<u64>()
                     / federation_summary.last_7d_activity.len() as u64,
             );
-            (federation_summary, avg_txs, avg_volume)
+            Some((federation_summary, avg_txs, avg_volume))
         })
         .collect::<Vec<_>>();
 

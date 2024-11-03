@@ -1183,6 +1183,13 @@ impl FederationObserver {
             tx_volume: i64,
         }
 
+        let offline_federations = self
+            .get_guardian_health_summary()
+            .await?
+            .values()
+            .filter(|&health| *health == FederationHealth::Offline)
+            .count() as u64;
+
         let totals = query_one::<FedimintTotalsResult>(
             &self.connection().await?,
             // language=postgresql
@@ -1196,7 +1203,7 @@ impl FederationObserver {
         .await?;
 
         Ok(FedimintTotals {
-            federations: totals.federations as u64,
+            federations: (totals.federations as u64) - offline_federations,
             tx_count: totals.tx_count as u64,
             tx_volume: Amount::from_msats(totals.tx_volume as u64),
         })

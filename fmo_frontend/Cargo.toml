@@ -12,6 +12,7 @@ fmo_api_types = { path = "../fmo_api_types" }
 futures = "0.3.30"
 leptos = { version = "0.6", features = ["csr"] }
 leptos-chartistry = "0.1.6"
+leptos_meta = { version = "=0.6.1", features = ["csr"] }
 leptos_router = { version = "0.6.13", features = ["csr"] }
 nostr-sdk = {version = "0.34.0", features = ["nip07"]}
 num-format = "0.4.4"

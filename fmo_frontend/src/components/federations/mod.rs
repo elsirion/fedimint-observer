@@ -5,6 +5,7 @@ mod totals;
 use fedimint_core::Amount;
 use fmo_api_types::{FederationHealth, FederationSummary};
 use leptos::{component, create_resource, view, IntoView, SignalGet};
+use leptos_meta::Title;
 
 use crate::components::federations::federation_row::FederationRow;
 use crate::components::federations::totals::Totals;
@@ -42,6 +43,9 @@ pub fn Federations() -> impl IntoView {
     };
 
     view! {
+        <Title
+            text="Fedimint Observer"
+        />
         <div class="my-16">
             <Totals/>
         </div>

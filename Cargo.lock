@@ -1554,6 +1554,7 @@ dependencies = [
  "itertools 0.12.1",
  "leptos",
  "leptos-chartistry",
+ "leptos_meta",
  "leptos_router",
  "nostr-sdk",
  "num-format",
@@ -2660,6 +2661,20 @@ dependencies = [
  "syn 2.0.85",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "leptos_meta"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41631f5793f6e8e1f76b126f3bbfde586e9224483f25a58ad0709d3d36da1412"
+dependencies = [
+ "cfg-if",
+ "indexmap",
+ "leptos",
+ "tracing",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

@@ -10,6 +10,7 @@ use std::str::FromStr;
 
 use fedimint_core::config::{FederationId, JsonClientConfig};
 use leptos::{component, create_resource, view, IntoView, Show, SignalGet, SignalWith};
+use leptos_meta::Title;
 use leptos_router::{use_params, Params, ParamsError, ParamsMap};
 use utxos::Utxos;
 
@@ -48,7 +49,19 @@ pub fn Federation() -> impl IntoView {
                 view! { <p>Invalid federation id</p> }
             }
         >
-
+            <Title
+                text=move || {
+                        match meta_resource.get() {
+                            Some(Ok(meta)) => {
+                                meta.get("federation_name")
+                                    .and_then(|name| name.as_str())
+                                    .map(|name| name.to_owned())
+                                    .unwrap_or_else(|| id().unwrap().to_string())
+                            }
+                            _ => "Fedimint Observer".to_owned(),
+                        }
+                    }
+            />
             <div>
                 <h2 class="text-4xl my-8 font-extrabold dark:text-white truncate">
                     {move || {
@@ -63,7 +76,6 @@ pub fn Federation() -> impl IntoView {
                             None => "Loading ...".to_owned(),
                         }
                     }}
-
                 </h2>
                 {move || {
                     match config_resource.get() {

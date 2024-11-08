@@ -123,17 +123,22 @@ pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoVie
                         </label>
                     </div>
                 </Show>
-                <select
-                    on:change=move |ev| {
-                        let new_value = event_target_value(&ev);
-                        set_chart_type.set(new_value.parse().unwrap());
-                    }
-
-                    prop:value=move || chart_type.get().to_string()
+                <div
+                    class="max-w-sm"
                 >
-                    <option value="Volume">"Volume"</option>
-                    <option value="Transactions">"Transactions"</option>
-                </select>
+                    <select
+                        class="bg-gray-50 border border-gray-300 text-gray-900 mb-6 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                        on:change=move |ev| {
+                            let new_value = event_target_value(&ev);
+                            set_chart_type.set(new_value.parse().unwrap());
+                        }
+
+                        prop:value=move || chart_type.get().to_string()
+                    >
+                        <option value="Volume">"Volume"</option>
+                        <option value="Transactions">"Transactions"</option>
+                    </select>
+                </div>
             </div>
 
             {move || {

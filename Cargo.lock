@@ -741,6 +741,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "codee"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af40247be877a1e3353fb406aa27ab3ef4bd3ff18cef91e75e667bfa3fde701d"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "collection_literals"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1554,6 +1563,7 @@ dependencies = [
  "itertools 0.12.1",
  "leptos",
  "leptos-chartistry",
+ "leptos-use 0.11.4",
  "leptos_meta",
  "leptos_router",
  "nostr-sdk",
@@ -2551,7 +2561,7 @@ checksum = "b52022d33b753a78de85db8a7a8ac41a03706fc4624445f0c20a1007510dc9a2"
 dependencies = [
  "chrono",
  "leptos",
- "leptos-use",
+ "leptos-use 0.10.10",
  "log",
  "web-sys",
 ]
@@ -2564,6 +2574,30 @@ checksum = "3272d90b77cdbb99e9060f90eb6f5738e56128b2f912db57a50efb006a26e262"
 dependencies = [
  "async-trait",
  "cfg-if",
+ "cookie",
+ "default-struct-builder",
+ "futures-util",
+ "gloo-timers 0.3.0",
+ "gloo-utils",
+ "js-sys",
+ "lazy_static",
+ "leptos",
+ "paste",
+ "thiserror",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "leptos-use"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5dee762dddb74278ff09b3242e27a4eddbf0b614b3918bc538634fc0fca117bb"
+dependencies = [
+ "async-trait",
+ "cfg-if",
+ "codee",
  "cookie",
  "default-struct-builder",
  "futures-util",

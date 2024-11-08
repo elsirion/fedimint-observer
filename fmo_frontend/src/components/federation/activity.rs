@@ -13,6 +13,7 @@ use leptos::{
     SignalSet, SignalUpdate,
 };
 use leptos_chartistry::*;
+use leptos_use::use_preferred_dark;
 
 use crate::components::alert::{Alert, AlertLevel};
 use crate::util::AsBitcoin;
@@ -123,17 +124,22 @@ pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoVie
                         </label>
                     </div>
                 </Show>
-                <select
-                    on:change=move |ev| {
-                        let new_value = event_target_value(&ev);
-                        set_chart_type.set(new_value.parse().unwrap());
-                    }
-
-                    prop:value=move || chart_type.get().to_string()
+                <div
+                    class="max-w-sm"
                 >
-                    <option value="Volume">"Volume"</option>
-                    <option value="Transactions">"Transactions"</option>
-                </select>
+                    <select
+                        class="bg-gray-50 border border-gray-300 text-gray-900 mb-6 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                        on:change=move |ev| {
+                            let new_value = event_target_value(&ev);
+                            set_chart_type.set(new_value.parse().unwrap());
+                        }
+
+                        prop:value=move || chart_type.get().to_string()
+                    >
+                        <option value="Volume">"Volume"</option>
+                        <option value="Transactions">"Transactions"</option>
+                    </select>
+                </div>
             </div>
 
             {move || {
@@ -157,65 +163,83 @@ pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoVie
 
 #[component]
 fn VolumeChart(data: Vec<(DateTime<Utc>, f64)>) -> impl IntoView {
+    let prefers_dark = use_preferred_dark();
     view! {
-        <Chart
-            // Sets the width and height
-            aspect_ratio=AspectRatio::from_env_width(300.0)
+        <div style=move || {
+            if prefers_dark.get() {
+                "fill: white"
+            } else {
+                "fill: black"
+            }
+        }>
+            <Chart
+                // Sets the width and height
+                aspect_ratio=AspectRatio::from_env_width(300.0)
 
-            // Decorate our chart
-            top=RotatedLabel::middle("Federation Activity")
-            left=TickLabels::aligned_floats()
-            bottom=TickLabels::from_generator(Timestamps::from_period(Period::Month))
-            inner=[
-                AxisMarker::left_edge().into_inner(),
-                AxisMarker::bottom_edge().into_inner(),
-                XGridLine::default().into_inner(),
-                YGridLine::default().into_inner(),
-            ]
+                // Decorate our chart
+                top=RotatedLabel::middle("Federation Activity")
+                left=TickLabels::aligned_floats()
+                bottom=TickLabels::from_generator(Timestamps::from_period(Period::Month))
+                inner=[
+                    AxisMarker::left_edge().into_inner(),
+                    AxisMarker::bottom_edge().into_inner(),
+                    XGridLine::default().into_inner(),
+                    YGridLine::default().into_inner(),
+                ]
 
-            // Describe the data
-            series=Series::new(|data: &(DateTime<Utc>, f64)| data.0)
-                .line(
-                    Line::new(|data: &(DateTime<Utc>, f64)| data.1)
-                        .with_name("Volume")
-                        .with_interpolation(Interpolation::Linear),
-                )
+                // Describe the data
+                series=Series::new(|data: &(DateTime<Utc>, f64)| data.0)
+                    .line(
+                        Line::new(|data: &(DateTime<Utc>, f64)| data.1)
+                            .with_name("Volume")
+                            .with_interpolation(Interpolation::Linear),
+                    )
 
-            data=move || data.clone()
-        />
+                data=move || data.clone()
+            />
+        </div>
     }
 }
 
 #[component]
 fn TransactionsChart(data: Vec<(DateTime<Utc>, f64)>) -> impl IntoView {
+    let prefers_dark = use_preferred_dark();
     view! {
-        <Chart
-            // Sets the width and height
-            aspect_ratio=AspectRatio::from_env_width(300.0)
+        <div style=move || {
+            if prefers_dark.get() {
+                "fill: white"
+            } else {
+                "fill: black"
+            }
+        }>
+            <Chart
+                // Sets the width and height
+                aspect_ratio=AspectRatio::from_env_width(300.0)
 
-            // Decorate our chart
-            top=RotatedLabel::middle("Federation Activity")
-            left=TickLabels::aligned_floats()
-            bottom=TickLabels::from_generator(Timestamps::from_period(Period::Month))
-            inner=[
-                AxisMarker::left_edge().into_inner(),
-                AxisMarker::bottom_edge().into_inner(),
-                XGridLine::default().into_inner(),
-                YGridLine::default().into_inner(),
-                XGuideLine::over_data().into_inner(),
-                YGuideLine::over_mouse().into_inner(),
-            ]
+                // Decorate our chart
+                top=RotatedLabel::middle("Federation Activity")
+                left=TickLabels::aligned_floats()
+                bottom=TickLabels::from_generator(Timestamps::from_period(Period::Month))
+                inner=[
+                    AxisMarker::left_edge().into_inner(),
+                    AxisMarker::bottom_edge().into_inner(),
+                    XGridLine::default().into_inner(),
+                    YGridLine::default().into_inner(),
+                    XGuideLine::over_data().into_inner(),
+                    YGuideLine::over_mouse().into_inner(),
+                ]
 
-            // Describe the data
-            series=Series::new(|data: &(DateTime<Utc>, f64)| data.0)
-                .line(
-                    Line::new(|data: &(DateTime<Utc>, f64)| data.1)
-                        .with_name("Transactions")
-                        .with_interpolation(Interpolation::Linear),
-                )
+                // Describe the data
+                series=Series::new(|data: &(DateTime<Utc>, f64)| data.0)
+                    .line(
+                        Line::new(|data: &(DateTime<Utc>, f64)| data.1)
+                            .with_name("Transactions")
+                            .with_interpolation(Interpolation::Linear),
+                    )
 
-            data=move || data.clone()
-        />
+                data=move || data.clone()
+            />
+        </div>
     }
 }
 

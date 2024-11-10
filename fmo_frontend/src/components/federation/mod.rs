@@ -1,4 +1,5 @@
 mod activity;
+mod chart;
 mod general;
 mod guardians;
 pub mod nostr_vote;

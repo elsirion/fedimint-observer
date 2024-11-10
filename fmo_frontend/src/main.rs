@@ -18,7 +18,7 @@ fn main() {
             />
             <body class="dark:bg-gray-900">
                 <Router>
-                    <main class="container mx-auto max-w-6xl px-4 min-h-screen">
+                    <main class="container mx-auto max-w-6xl px-4 min-h-screen pb-4">
                         <NavBar items=vec![
                             NavItem {
                                 name: "Home".to_owned(),

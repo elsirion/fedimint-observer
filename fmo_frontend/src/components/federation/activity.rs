@@ -9,12 +9,11 @@ use fedimint_core::Amount;
 use fmo_api_types::FederationActivity;
 use itertools::Itertools;
 use leptos::{
-    component, create_resource, create_signal, event_target_value, view, IntoView, Show, SignalGet,
-    SignalSet, SignalUpdate,
+    component, create_effect, create_resource, create_signal, event_target_value, view, IntoView,
+    RwSignal, Show, SignalGet, SignalSet, SignalUpdate,
 };
-use leptos_chartistry::*;
-use leptos_use::use_preferred_dark;
 
+use super::chart::TimeLineChart;
 use crate::components::alert::{Alert, AlertLevel};
 use crate::util::AsBitcoin;
 
@@ -77,6 +76,23 @@ pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoVie
 
     let (chart_type, set_chart_type) = create_signal(ChartType::Volume);
     let (filter_outliers, set_filter_outliers) = create_signal(true);
+
+    let chart_name_signal = RwSignal::new("".to_owned());
+    create_effect(move |_| {
+        let chart_name = match chart_type.get() {
+            ChartType::Volume => "Daily Volume",
+            ChartType::Transactions => "Daily Transactions",
+        }
+        .to_owned();
+
+        chart_name_signal.set(chart_name);
+    });
+
+    let chart_data = move || match chart_type.get() {
+        ChartType::Volume if filter_outliers.get() => remove_outliers(volumes_btc.clone()),
+        ChartType::Volume => volumes_btc.clone(),
+        ChartType::Transactions => transactions.clone(),
+    };
 
     view! {
         <Alert
@@ -142,103 +158,8 @@ pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoVie
                 </div>
             </div>
 
-            {move || {
-                match chart_type.get() {
-                    ChartType::Volume => {
-                        if filter_outliers.get() {
-                            view! { <VolumeChart data=remove_outliers(volumes_btc.clone())/> }
-                        } else {
-                            view! { <VolumeChart data=volumes_btc.clone()/> }
-                        }
-                    }
-                    ChartType::Transactions => {
-                        view! { <TransactionsChart data=transactions.clone()/> }
-                    }
-                }
-            }}
+            <TimeLineChart name=chart_name_signal data=chart_data />
 
-        </div>
-    }
-}
-
-#[component]
-fn VolumeChart(data: Vec<(DateTime<Utc>, f64)>) -> impl IntoView {
-    let prefers_dark = use_preferred_dark();
-    view! {
-        <div style=move || {
-            if prefers_dark.get() {
-                "fill: white"
-            } else {
-                "fill: black"
-            }
-        }>
-            <Chart
-                // Sets the width and height
-                aspect_ratio=AspectRatio::from_env_width(300.0)
-
-                // Decorate our chart
-                top=RotatedLabel::middle("Federation Activity")
-                left=TickLabels::aligned_floats()
-                bottom=TickLabels::from_generator(Timestamps::from_period(Period::Month))
-                inner=[
-                    AxisMarker::left_edge().into_inner(),
-                    AxisMarker::bottom_edge().into_inner(),
-                    XGridLine::default().into_inner(),
-                    YGridLine::default().into_inner(),
-                ]
-
-                // Describe the data
-                series=Series::new(|data: &(DateTime<Utc>, f64)| data.0)
-                    .line(
-                        Line::new(|data: &(DateTime<Utc>, f64)| data.1)
-                            .with_name("Volume")
-                            .with_interpolation(Interpolation::Linear),
-                    )
-
-                data=move || data.clone()
-            />
-        </div>
-    }
-}
-
-#[component]
-fn TransactionsChart(data: Vec<(DateTime<Utc>, f64)>) -> impl IntoView {
-    let prefers_dark = use_preferred_dark();
-    view! {
-        <div style=move || {
-            if prefers_dark.get() {
-                "fill: white"
-            } else {
-                "fill: black"
-            }
-        }>
-            <Chart
-                // Sets the width and height
-                aspect_ratio=AspectRatio::from_env_width(300.0)
-
-                // Decorate our chart
-                top=RotatedLabel::middle("Federation Activity")
-                left=TickLabels::aligned_floats()
-                bottom=TickLabels::from_generator(Timestamps::from_period(Period::Month))
-                inner=[
-                    AxisMarker::left_edge().into_inner(),
-                    AxisMarker::bottom_edge().into_inner(),
-                    XGridLine::default().into_inner(),
-                    YGridLine::default().into_inner(),
-                    XGuideLine::over_data().into_inner(),
-                    YGuideLine::over_mouse().into_inner(),
-                ]
-
-                // Describe the data
-                series=Series::new(|data: &(DateTime<Utc>, f64)| data.0)
-                    .line(
-                        Line::new(|data: &(DateTime<Utc>, f64)| data.1)
-                            .with_name("Transactions")
-                            .with_interpolation(Interpolation::Linear),
-                    )
-
-                data=move || data.clone()
-            />
         </div>
     }
 }

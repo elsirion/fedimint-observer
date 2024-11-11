@@ -3,6 +3,7 @@ use fedimint_core::Amount;
 use fmo_api_types::{FederationHealth, FederationRating};
 use leptos::{component, view, IntoView};
 
+use crate::components::badge::{Badge, BadgeLevel};
 use crate::components::federations::rating::Rating;
 use crate::components::Copyable;
 use crate::util::AsBitcoin;
@@ -44,16 +45,16 @@ pub fn FederationRow(
                     },
                     FederationHealth::Degraded => {
                         view! {
-                            <span class="bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-yellow-300 border border-yellow-300">
+                            <Badge level=BadgeLevel::Warning>
                                 "Degraded"
-                            </span>
+                            </Badge>
                         }.into_view()
                     }
                     FederationHealth::Offline => {
                         view! {
-                            <span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
+                            <Badge level=BadgeLevel::Error>
                                 "Offline"
-                            </span>
+                            </Badge>
                         }.into_view()
                     },
                 }}

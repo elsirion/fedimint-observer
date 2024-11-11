@@ -7,6 +7,7 @@ use fedimint_core::{NumPeers, PeerId};
 use fmo_api_types::GuardianHealth;
 use leptos::{component, create_resource, view, IntoView, SignalGet};
 
+use crate::components::badge::{Badge, BadgeLevel};
 use crate::BASE_URL;
 
 #[component]
@@ -18,6 +19,14 @@ pub fn Guardians(federation_id: FederationId, guardians: Vec<Guardian>) -> impl 
         || (),
         move |()| async move { fetch_guardian_health(federation_id).await },
     );
+
+    let warn_if_true = |warn| {
+        if warn {
+            BadgeLevel::Warning
+        } else {
+            BadgeLevel::Success
+        }
+    };
 
     let guardians = guardians
         .into_iter()
@@ -36,52 +45,38 @@ pub fn Guardians(federation_id: FederationId, guardians: Vec<Guardian>) -> impl 
                             <p>
                                 { move || match health_resource.get() {
                                     Some(health) => {
-                                        let health = health.get(&PeerId::from(guardian_idx as u16)).expect("Guardian exists");
+                                        let health = health.get(&PeerId::from(guardian_idx as u16)).expect("Guardian exists").clone();
 
                                         let mut badges = vec![];
-                                        if let Some(latest) = &health.latest {
+                                        if let Some(latest) = health.latest {
                                             badges.push(view! {
-                                                <span class="bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
+                                                <Badge level=BadgeLevel::Success>
                                                     Online
-                                                </span>
+                                                </Badge>
                                             }.into_view());
 
-                                            if latest.session_outdated {
-                                                badges.push(view!{
-                                                   <span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
-                                                        <abbr title="Guardian is lacking behind others" >
-                                                            "Session " { latest.session_count.to_string() }
-                                                        </abbr>
-                                                    </span>
-                                                }.into_view());
-                                            } else {
-                                                badges.push(view!{
-                                                   <span class="bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
-                                                        "Session " { latest.session_count.to_string() }
-                                                    </span>
-                                                }.into_view());
-                                            }
+                                            badges.push(view! {
+                                                <Badge
+                                                    level=warn_if_true(latest.session_outdated)
+                                                    tooltip=latest.session_outdated.then_some("Guardian is lacking behind others".to_owned())
+                                                >
+                                                    {format!("Session {}", latest.session_count)}
+                                                </Badge>
+                                            }.into_view());
 
-                                            if latest.block_outdated {
-                                                badges.push(view!{
-                                                   <span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
-                                                        <abbr title="Guardian's bitcoind is out of sync" >
-                                                            "Block " { (latest.block_height - 1).to_string() }
-                                                        </abbr>
-                                                    </span>
-                                                }.into_view());
-                                            } else {
-                                                badges.push(view!{
-                                                   <span class="bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
-                                                        "Block " { (latest.block_height - 1).to_string() }
-                                                    </span>
-                                                }.into_view());
-                                            }
+                                            badges.push(view! {
+                                                <Badge
+                                                    level=warn_if_true(latest.block_outdated)
+                                                    tooltip=latest.block_outdated.then_some("Guardian's bitcoind is out of sync".to_owned())
+                                                >
+                                                    {format!("Block {}", latest.block_height - 1)}
+                                                </Badge>
+                                            }.into_view());
                                         } else {
                                             badges.push(view! {
-                                                <span class="bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-red-900 dark:text-red-300">
+                                                <Badge level=BadgeLevel::Error>
                                                     Offline
-                                                </span>
+                                                </Badge>
                                             }.into_view());
                                         }
 

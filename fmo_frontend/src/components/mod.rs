@@ -1,4 +1,5 @@
 mod alert;
+mod badge;
 mod copyable;
 mod federation;
 mod federations;

@@ -2,6 +2,9 @@ mod federation_row;
 pub mod rating;
 mod totals;
 
+use std::str::FromStr;
+
+use fedimint_core::config::FederationId;
 use fedimint_core::Amount;
 use fmo_api_types::{FederationHealth, FederationSummary};
 use leptos::{component, create_resource, view, IntoView, SignalGet};
@@ -97,7 +100,12 @@ async fn fetch_federations() -> anyhow::Result<Vec<(FederationSummary, f64, Amou
         .filter_map(|federation_summary| {
             // Don't show offline federations for now. Eventually I'd like to only not show
             // them if they have been offline for a long time.
-            if federation_summary.health == FederationHealth::Offline {
+            if federation_summary.id
+                == FederationId::from_str(
+                    "4b13a146ee4ba732b2b8914a72a0a2e5873e3e942da2d4eeefd85a5fe41f27ba",
+                )
+                .unwrap()
+            {
                 return None;
             }
 

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use anyhow::{ensure, Context};
@@ -69,49 +69,39 @@ impl FederationObserver {
             interval.tick().await;
 
             let federations = self.list_federations().await?;
-            let federation_tag = SingleLetterTag::from_char('d').expect("Tag is valid");
+            self.sync_federation_votes(
+                &client,
+                federations.iter().map(|f| f.federation_id).collect(),
+            )
+            .await?;
+        }
+    }
 
-            // TODO: fetch multiple pages till synced up, ok enough for now since new events
-            // will always be at the top and old ones will be ignored by us
-            let events = client
-                .get_events_of(
-                    vec![Filter {
-                        ids: None,
-                        authors: None,
-                        kinds: Some(vec![Kind::Custom(38000)].into_iter().collect()),
-                        search: None,
-                        since: None,
-                        until: None,
-                        limit: None,
-                        generic_tags: HashMap::from([(
-                            federation_tag,
-                            federations
-                                .iter()
-                                .map(|federation| federation.federation_id.to_string())
-                                .collect(),
-                        )]),
-                    }],
-                    Duration::from_secs(30),
-                    FilterOptions::default(),
-                )
-                .await?;
+    async fn sync_federation_votes(
+        &self,
+        client: &RelayPool,
+        federations: Vec<FederationId>,
+    ) -> anyhow::Result<()> {
+        for federation_id in federations {
+            let events = fetch_federation_votes(client, federation_id).await?;
 
-            info!("Fetched {} nostr events", events.len());
-
-            let mut connection = self.connection().await?;
-            let dbtx = connection.transaction().await?;
-
-            let parsed_events = events.into_iter().filter_map(|event| {
-                let parsed = ParsedEvent::try_from(event.clone()).ok()?;
-                Some((parsed, event))
-            });
-
-            for (parsed_event, event) in parsed_events {
-                insert_parsed_event(&dbtx, parsed_event, event).await?;
+            debug!(
+                "Fetched {} votes for federation {}",
+                events.len(),
+                federation_id
+            );
+            let mut conn = self.connection().await?;
+            let dbtx = conn.transaction().await?;
+            for event in events {
+                let event_id = event.id;
+                if let Err(e) = insert_federation_votes(&dbtx, event).await {
+                    warn!(?e, "Failed to insert federation vote {}", event_id);
+                }
             }
-
             dbtx.commit().await?;
         }
+
+        Ok(())
     }
 
     pub async fn federation_rating(
@@ -139,7 +129,6 @@ impl FederationObserver {
     }
 
     pub async fn submit_rating(&self, nostr_event: Event) -> anyhow::Result<()> {
-        let parsed = ParsedEvent::try_from(nostr_event.clone())?;
         let client = self.nostr_relay_client().await?;
 
         client
@@ -151,7 +140,7 @@ impl FederationObserver {
 
         let mut conn = self.connection().await?;
         let dbtx = conn.transaction().await?;
-        insert_parsed_event(&dbtx, parsed, nostr_event).await?;
+        insert_federation_votes(&dbtx, nostr_event).await?;
         dbtx.commit().await?;
 
         Ok(())
@@ -159,13 +148,13 @@ impl FederationObserver {
 }
 
 #[derive(Debug, Clone)]
-struct ParsedEvent {
+struct ParsedRecommendationEvent {
     event_id: [u8; 32],
     federation_id: FederationId,
     star_vote: Option<u8>,
 }
 
-impl TryFrom<Event> for ParsedEvent {
+impl TryFrom<Event> for ParsedRecommendationEvent {
     type Error = anyhow::Error;
 
     fn try_from(event: Event) -> Result<Self, Self::Error> {
@@ -197,7 +186,7 @@ impl TryFrom<Event> for ParsedEvent {
             ensure!(star_vote <= 5, "Vote above 5 is invalid");
         }
 
-        Ok(ParsedEvent {
+        Ok(ParsedRecommendationEvent {
             event_id,
             federation_id,
             star_vote,
@@ -205,11 +194,36 @@ impl TryFrom<Event> for ParsedEvent {
     }
 }
 
-async fn insert_parsed_event(
+async fn fetch_federation_votes(
+    client: &RelayPool,
+    federation_id: FederationId,
+) -> anyhow::Result<Vec<Event>> {
+    let federation_tag = SingleLetterTag::from_char('d').expect("Tag is valid");
+
+    let events = client
+        .get_events_of(
+            vec![Filter {
+                kinds: Some(vec![Kind::Custom(38000)].into_iter().collect()),
+                generic_tags: HashMap::from([(
+                    federation_tag,
+                    HashSet::from([federation_id.to_string()]),
+                )]),
+                ..Filter::new()
+            }],
+            Duration::from_secs(30),
+            FilterOptions::default(),
+        )
+        .await?;
+
+    Ok(events)
+}
+
+async fn insert_federation_votes(
     dbtx: &deadpool_postgres::Transaction<'_>,
-    parsed_event: ParsedEvent,
     event: Event,
 ) -> anyhow::Result<()> {
+    let parsed_event = ParsedRecommendationEvent::try_from(event.clone())?;
+
     debug!(
         "Inserting event {} for federation {}",
         hex::encode(parsed_event.event_id),

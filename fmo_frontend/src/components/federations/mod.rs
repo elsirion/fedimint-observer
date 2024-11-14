@@ -1,11 +1,19 @@
 mod federation_row;
+mod nostr_federation_row;
 pub mod rating;
 mod totals;
 
+use std::collections::BTreeMap;
+
+use fedimint_core::config::FederationId;
+use fedimint_core::invite_code::InviteCode;
+use fedimint_core::util::backon::FibonacciBuilder;
+use fedimint_core::util::retry;
 use fedimint_core::Amount;
 use fmo_api_types::{FederationHealth, FederationSummary};
 use leptos::{component, create_resource, view, IntoView, SignalGet};
 use leptos_meta::Title;
+use nostr_federation_row::NostrFederationRow;
 
 use crate::components::federations::federation_row::FederationRow;
 use crate::components::federations::totals::Totals;
@@ -17,6 +25,25 @@ pub fn Federations() -> impl IntoView {
         || (),
         |_| async { fetch_federations().await.map_err(|e| e.to_string()) },
     );
+
+    let nostr_federations_res = create_resource(|| (), |_| fetch_nostr_federations());
+
+    let other_federations = move || {
+        let observed_federations = federations_res.get()?.ok()?;
+        let nostr_federations = nostr_federations_res.get()?;
+
+        let other_federations = nostr_federations
+            .into_iter()
+            .filter(|(federation_id, _)| {
+                observed_federations
+                    .iter()
+                    .find(|(f, _, _)| f.id == *federation_id)
+                    .is_none()
+            })
+            .collect::<Vec<_>>();
+
+        Some(other_federations)
+    };
 
     let rows = move || {
         Some(
@@ -52,9 +79,9 @@ pub fn Federations() -> impl IntoView {
         <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
                 <caption class="p-5 text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
-                    "Federations"
+                    "Observed Federations"
                     <p class="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">
-                        "All federations known to this instance of Fedimint Observer"
+                        "All federations being observed"
                     </p>
                 </caption>
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -82,6 +109,44 @@ pub fn Federations() -> impl IntoView {
                     </tr>
                 </thead>
                 <tbody>{rows}</tbody>
+            </table>
+        </div>
+
+
+        <div class="relative overflow-x-auto shadow-md sm:rounded-lg mt-8">
+            <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+                <caption class="p-5 text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
+                    "Nostr Federations"
+                    <p class="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">
+                        "Other federations announced via Nostr"
+                    </p>
+                </caption>
+                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                    <tr>
+                        <th scope="col" class="px-6 py-3">
+                            "Name"
+                        </th>
+                        <th scope="col" class="px-6 py-3">
+                            "Invite Code"
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    { move || {
+                        other_federations()
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|(federation_id, invite_code)| {
+                                view! {
+                                    <NostrFederationRow
+                                        federation_id=federation_id
+                                        invite_code=invite_code
+                                    />
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    }}
+                </tbody>
             </table>
         </div>
     }
@@ -120,4 +185,25 @@ async fn fetch_federations() -> anyhow::Result<Vec<(FederationSummary, f64, Amou
         .collect::<Vec<_>>();
 
     Ok(federations)
+}
+
+async fn fetch_nostr_federations() -> BTreeMap<FederationId, InviteCode> {
+    let url = format!("{}/nostr/federations", BASE_URL);
+
+    let fetch_nostr_federations_impl = || {
+        let url_inner = url.clone();
+        async move {
+            let response = reqwest::get(&url_inner).await?;
+            let federations: BTreeMap<FederationId, InviteCode> = response.json().await?;
+            Ok(federations)
+        }
+    };
+
+    retry(
+        "Fetching Nostr federations",
+        FibonacciBuilder::default().with_max_times(usize::MAX),
+        fetch_nostr_federations_impl,
+    )
+    .await
+    .expect("Will never return Err")
 }

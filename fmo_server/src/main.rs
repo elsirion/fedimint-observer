@@ -10,6 +10,7 @@ use tracing_subscriber::EnvFilter;
 use crate::config::meta::MetaOverrideCache;
 use crate::config::{get_config_routes, FederationConfigCache};
 use crate::federation::get_federations_routes;
+use crate::federation::nostr::get_nostr_federations;
 use crate::federation::observer::FederationObserver;
 
 /// Fedimint config fetching service implementation
@@ -46,6 +47,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/health", get(|| async { "Server is up and running!" }))
         .nest("/config", get_config_routes())
         .nest("/federations", get_federations_routes())
+        .route("/nostr/federations", get(get_nostr_federations))
         .layer(CorsLayer::permissive())
         .with_state(AppState {
             federation_config_cache: Default::default(),

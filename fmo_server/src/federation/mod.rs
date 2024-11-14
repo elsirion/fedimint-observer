@@ -1,7 +1,7 @@
 pub mod db;
 mod guardians;
 mod meta;
-mod nostr;
+pub(crate) mod nostr;
 pub mod observer;
 mod session;
 mod transaction;

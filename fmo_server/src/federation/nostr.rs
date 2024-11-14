@@ -1,8 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{anyhow, ensure, Context};
+use axum::extract::State;
+use axum::Json;
 use deadpool_postgres::GenericClient;
 use fedimint_core::config::FederationId;
 use fedimint_core::encoding::Encodable;
@@ -431,4 +433,18 @@ fn extract_star_rating(comment: &str) -> Option<u8> {
     } else {
         None
     }
+}
+
+pub(crate) async fn get_nostr_federations(
+    State(state): State<crate::AppState>,
+) -> crate::error::Result<Json<BTreeMap<FederationId, InviteCode>>> {
+    let federation_map = state
+        .federation_observer
+        .list_nostr_federations()
+        .await?
+        .into_iter()
+        .map(|federation| (federation.federation_id, federation.invite_code))
+        .collect();
+
+    Ok(Json(federation_map))
 }

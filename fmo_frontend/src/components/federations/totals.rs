@@ -38,7 +38,7 @@ pub fn Totals() -> impl IntoView {
                         }
                     }
                 }}
-                <div class="text-gray-500">Public Federations</div>
+                <div class="text-gray-500">Observed Federations</div>
             </div>
             <div class="border-l border-gray-300 h-12"></div>
             <div class="text-center">

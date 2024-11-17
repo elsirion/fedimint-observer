@@ -1,3 +1,4 @@
+mod check_federation;
 mod federation_row;
 mod nostr_federation_row;
 pub mod rating;
@@ -15,6 +16,7 @@ use leptos::{component, create_resource, view, IntoView, SignalGet};
 use leptos_meta::Title;
 use nostr_federation_row::NostrFederationRow;
 
+use crate::components::federations::check_federation::CheckFederation;
 use crate::components::federations::federation_row::FederationRow;
 use crate::components::federations::totals::Totals;
 use crate::BASE_URL;
@@ -35,10 +37,9 @@ pub fn Federations() -> impl IntoView {
         let other_federations = nostr_federations
             .into_iter()
             .filter(|(federation_id, _)| {
-                observed_federations
+                !observed_federations
                     .iter()
-                    .find(|(f, _, _)| f.id == *federation_id)
-                    .is_none()
+                    .any(|(f, _, _)| f.id == *federation_id)
             })
             .collect::<Vec<_>>();
 
@@ -112,6 +113,7 @@ pub fn Federations() -> impl IntoView {
             </table>
         </div>
 
+        <CheckFederation />
 
         <div class="relative overflow-x-auto shadow-md sm:rounded-lg mt-8">
             <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">

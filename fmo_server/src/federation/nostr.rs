@@ -124,7 +124,7 @@ impl FederationObserver {
     }
 
     async fn sync_federation_announcements(&self, client: &RelayPool) -> anyhow::Result<()> {
-        let events = fetch_federations(&client).await?;
+        let events = fetch_federations(client).await?;
 
         debug!("Fetched {} federation announcements", events.len());
 

@@ -1,6 +1,5 @@
 use bitcoin::address::NetworkUnchecked;
 use fedimint_core::config::FederationId;
-use fedimint_core::invite_code::InviteCode;
 use fedimint_core::Amount;
 use serde::{Deserialize, Serialize};
 

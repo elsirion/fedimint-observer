@@ -1,5 +1,5 @@
 use anyhow::Context;
-use axum::routing::get;
+use axum::routing::{get, put};
 use axum::Router;
 use tower_http::cors::CorsLayer;
 use tracing::info;
@@ -10,7 +10,7 @@ use tracing_subscriber::EnvFilter;
 use crate::config::meta::MetaOverrideCache;
 use crate::config::{get_config_routes, FederationConfigCache};
 use crate::federation::get_federations_routes;
-use crate::federation::nostr::get_nostr_federations;
+use crate::federation::nostr::{get_nostr_federations, publish_federation_event};
 use crate::federation::observer::FederationObserver;
 
 /// Fedimint config fetching service implementation
@@ -47,7 +47,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/health", get(|| async { "Server is up and running!" }))
         .nest("/config", get_config_routes())
         .nest("/federations", get_federations_routes())
+        // TODO: move into nostr service/module
         .route("/nostr/federations", get(get_nostr_federations))
+        .route("/nostr/federations", put(publish_federation_event))
         .layer(CorsLayer::permissive())
         .with_state(AppState {
             federation_config_cache: Default::default(),

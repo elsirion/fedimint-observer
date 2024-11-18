@@ -32,6 +32,7 @@ pub fn get_federations_routes() -> Router<AppState> {
         .route("/", get(list_observed_federations))
         .route("/", put(add_observed_federation))
         .route("/totals", get(get_federation_totals))
+        // TODO: move to nostr module
         .route("/nostr/rating", put(publish_rating_event))
         .route("/:federation_id", get(get_federation_overview))
         .route(

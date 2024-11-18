@@ -23,6 +23,7 @@ use tracing::{debug, info, warn};
 
 use crate::federation::observer::FederationObserver;
 use crate::util::{query, query_one};
+use crate::AppState;
 
 const FEDERATION_ANNOUNCEMENT_EVENT_KIND: Kind = Kind::Custom(38173);
 const RECOMMENDATION_EVENT_KIND: Kind = Kind::Custom(38000);
@@ -196,6 +197,8 @@ impl FederationObserver {
     }
 
     pub async fn submit_rating(&self, nostr_event: Event) -> anyhow::Result<()> {
+        ParsedRecommendationEvent::try_from(nostr_event.clone())?;
+
         let client = self.nostr_relay_client().await?;
 
         client
@@ -208,6 +211,27 @@ impl FederationObserver {
         let mut conn = self.connection().await?;
         let dbtx = conn.transaction().await?;
         insert_federation_votes(&dbtx, nostr_event).await?;
+        dbtx.commit().await?;
+
+        Ok(())
+    }
+
+    // TODO: deduplicate with submit_rating, make nostr stuff its own service
+    pub async fn submit_federation(&self, nostr_event: Event) -> anyhow::Result<()> {
+        ParsedFederationEvent::try_from(nostr_event.clone())?;
+
+        let client = self.nostr_relay_client().await?;
+
+        client
+            .send_event(
+                nostr_event.clone(),
+                RelaySendOptions::default().timeout(Some(Duration::from_secs(5))),
+            )
+            .await?;
+
+        let mut conn = self.connection().await?;
+        let dbtx = conn.transaction().await?;
+        insert_federation(&dbtx, nostr_event).await?;
         dbtx.commit().await?;
 
         Ok(())
@@ -447,4 +471,11 @@ pub(crate) async fn get_nostr_federations(
         .collect();
 
     Ok(Json(federation_map))
+}
+
+pub(crate) async fn publish_federation_event(
+    State(state): State<AppState>,
+    Json(event): Json<nostr_sdk::Event>,
+) -> crate::error::Result<()> {
+    Ok(state.federation_observer.submit_federation(event).await?)
 }

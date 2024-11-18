@@ -25,6 +25,7 @@ use crate::federation::observer::FederationObserver;
 use crate::util::{query, query_one};
 use crate::AppState;
 
+// TODO: move to common crate
 const FEDERATION_ANNOUNCEMENT_EVENT_KIND: Kind = Kind::Custom(38173);
 const RECOMMENDATION_EVENT_KIND: Kind = Kind::Custom(38000);
 

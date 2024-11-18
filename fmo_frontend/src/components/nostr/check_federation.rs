@@ -58,8 +58,7 @@ pub fn CheckFederation() -> impl IntoView {
             })
         };
 
-        let info = check_federation_inner().await.map_err(|e| e.to_string());
-        info
+        check_federation_inner().await.map_err(|e| e.to_string())
     });
 
     fn or_loading<I: IntoView>(maybe_value: Option<I>) -> impl IntoView {
@@ -320,8 +319,8 @@ async fn sign_and_publish_federation(config: &JsonClientConfig) -> anyhow::Resul
         config.global.calculate_federation_id(),
     )
     .to_string();
-    let network = get_network(&config);
-    let modules = get_modules(&config);
+    let network = get_network(config);
+    let modules = get_modules(config);
 
     let tags = vec![
         Tag::custom(

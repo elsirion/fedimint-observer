@@ -4,7 +4,10 @@ mod totals;
 
 use fedimint_core::Amount;
 use fmo_api_types::{FederationHealth, FederationSummary};
-use leptos::{component, create_resource, view, IntoView, SignalGet};
+use leptos::{
+    component, create_resource, create_signal, view, IntoView, SignalGet, SignalGetUntracked,
+    SignalSet,
+};
 use leptos_meta::Title;
 
 use crate::components::federations::federation_row::FederationRow;
@@ -18,29 +21,45 @@ pub fn Federations() -> impl IntoView {
         |_| async { fetch_federations().await.map_err(|e| e.to_string()) },
     );
 
-    let rows = move || {
+    fn to_row((summary, avg_txs, avg_volume): (FederationSummary, f64, Amount)) -> impl IntoView {
+        view! {
+            <FederationRow
+                id=summary.id
+                name=summary.name.clone().unwrap_or_else(|| "Unnamed".to_owned())
+                rating=summary.nostr_votes
+                invite=summary.invite.clone()
+                total_assets=summary.deposits
+                avg_txs=avg_txs
+                avg_volume=avg_volume
+                health=summary.health
+            />
+        }
+    }
+
+    let active_rows = move || {
         Some(
             federations_res
                 .get()?
                 .ok()?
                 .into_iter()
-                .map(|(summary, avg_txs, avg_volume)| {
-                    view! {
-                        <FederationRow
-                            id=summary.id
-                            name=summary.name.clone().unwrap_or_else(|| "Unnamed".to_owned())
-                            rating=summary.nostr_votes
-                            invite=summary.invite.clone()
-                            total_assets=summary.deposits
-                            avg_txs=avg_txs
-                            avg_volume=avg_volume
-                            health=summary.health
-                        />
-                    }
-                })
+                .filter(|(summary, _, _)| summary.health != FederationHealth::Offline)
+                .map(to_row)
                 .collect::<Vec<_>>(),
         )
     };
+    let inactive_rows = move || {
+        Some(
+            federations_res
+                .get()?
+                .ok()?
+                .into_iter()
+                .filter(|(summary, _, _)| summary.health == FederationHealth::Offline)
+                .map(to_row)
+                .collect::<Vec<_>>(),
+        )
+    };
+
+    let (collapse_offline, set_collapse_offline) = create_signal(true);
 
     view! {
         <Title
@@ -54,7 +73,7 @@ pub fn Federations() -> impl IntoView {
                 <caption class="p-5 text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
                     "Observed Federations"
                     <p class="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">
-                        "List of all federations this instance is collecting statistics on"
+                        "List of all active federations this instance is collecting statistics on"
                     </p>
                 </caption>
                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
@@ -81,7 +100,69 @@ pub fn Federations() -> impl IntoView {
                         </th>
                     </tr>
                 </thead>
-                <tbody>{rows}</tbody>
+                <tbody>{active_rows}</tbody>
+            </table>
+        </div>
+        <div class="relative overflow-x-auto shadow-md sm:rounded-lg mt-6">
+            <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+                <caption
+                    class="p-5 text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800"
+                    on:click=move |_| set_collapse_offline.set(!collapse_offline.get_untracked())
+                >
+                    <svg
+                        class=move || if collapse_offline.get() {
+                            "w-3 h-3 shrink-0 inline mr-2 rotate-180"
+                        } else {
+                            "w-3 h-3 shrink-0 inline mr-2"
+                        }
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 10 6"
+                    >
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5 5 1 1 5"/>
+                    </svg>
+                    <span>"Shut Down Federations"</span>
+                    <p class="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">
+                        "List of federations that have ceased operations but were observed in the past"
+                    </p>
+                </caption>
+                <thead
+                    class=move || if collapse_offline.get() {
+                        "hidden"
+                    } else {
+                        "text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400"
+                    }
+                >
+                    <tr>
+                        <th scope="col" class="px-6 py-3">
+                            "Name"
+                        </th>
+                        <th scope="col" class="px-6 py-3">
+                            <a
+                                href="https://github.com/nostr-protocol/nips/pull/1110"
+                                class="underline hover:no-underline"
+                            >
+                                "Recommendations"
+                            </a>
+                        </th>
+                        <th scope="col" class="px-6 py-3">
+                            "Invite Code"
+                        </th>
+                        <th scope="col" class="px-6 py-3">
+                            "Total Assets"
+                        </th>
+                        <th scope="col" class="px-6 py-3">
+                            "Average Activity (7d)"
+                        </th>
+                    </tr>
+                </thead>
+                <tbody
+                    class=move || if collapse_offline.get() {
+                        "hidden"
+                    } else {
+                        ""
+                    }
+                >{inactive_rows}</tbody>
             </table>
         </div>
     }
@@ -94,13 +175,7 @@ async fn fetch_federations() -> anyhow::Result<Vec<(FederationSummary, f64, Amou
 
     let federations = federations
         .into_iter()
-        .filter_map(|federation_summary| {
-            // Don't show offline federations for now. Eventually I'd like to only not show
-            // them if they have been offline for a long time.
-            if federation_summary.health == FederationHealth::Offline {
-                return None;
-            }
-
+        .map(|federation_summary| {
             let avg_txs = federation_summary
                 .last_7d_activity
                 .iter()
@@ -115,7 +190,7 @@ async fn fetch_federations() -> anyhow::Result<Vec<(FederationSummary, f64, Amou
                     .sum::<u64>()
                     / federation_summary.last_7d_activity.len() as u64,
             );
-            Some((federation_summary, avg_txs, avg_volume))
+            (federation_summary, avg_txs, avg_volume)
         })
         .collect::<Vec<_>>();
 

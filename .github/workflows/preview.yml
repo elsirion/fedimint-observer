@@ -1,0 +1,32 @@
+name: Deploy Preview
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v4
+      - name: Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@v2
+      - name: Build Frontend
+        run: nix build .#fmo_frontend_default
+      - uses: elsirion/sspd@v4
+        id: upload
+        with:
+          path: 'result'
+          preview_token: ${{ secrets.SSPD_API_TOKEN }}
+          preview_url: "preview.sirion.io"
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          message: |
+            🚀 Preview deployment is ready! [View Preview](${{ steps.upload.outputs.preview_url }})

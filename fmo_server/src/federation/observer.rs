@@ -21,8 +21,10 @@ use fedimint_core::util::backon::{ConstantBuilder, FibonacciBuilder};
 use fedimint_core::util::retry;
 use fedimint_core::{Amount, PeerId};
 use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
-use fedimint_ln_common::{LightningInput, LightningOutput, LightningOutputV0};
-use fedimint_mint_common::{MintInput, MintOutput};
+use fedimint_ln_common::{
+    LightningConsensusItem, LightningInput, LightningOutput, LightningOutputV0,
+};
+use fedimint_mint_common::{MintConsensusItem, MintInput, MintOutput};
 use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput, WalletOutputV0};
 use fmo_api_types::{
     FederationActivity, FederationHealth, FederationSummary, FederationUtxo, FedimintTotals,
@@ -204,6 +206,11 @@ impl FederationObserver {
                 index: 7,
                 sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v7.sql")),
                 backfill: None,
+            },
+            DbMigration {
+                index: 8,
+                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v8.sql")),
+                backfill: None, // TO-DO
             },
         ];
 
@@ -788,6 +795,63 @@ impl FederationObserver {
                         ]
                     ).await?;
             }
+
+            let json_txi: Option<serde_json::Value> = match kind.as_str() {
+                "mint" => match input.as_any().downcast_ref::<MintInput>() {
+                    Some(input) => {
+                        let value = serde_json::to_value(input)
+                            .expect("Should be able to serialize to JSON");
+                        debug!("found Mint Transaction Input: {value:?}");
+                        Some(value)
+                    }
+                    None => {
+                        warn!("could not downcast (check decoders registry). {input:?}");
+                        None
+                    }
+                },
+                "wallet" => match input.as_any().downcast_ref::<WalletInput>() {
+                    Some(input) => {
+                        let value = serde_json::to_value(input)
+                            .expect("Should be able to serialize to JSON");
+                        debug!("found Wallet Transaction Input: {value:?}");
+                        Some(value)
+                    }
+                    None => {
+                        warn!("could not downcast (check decoders registry). {input:?}");
+                        None
+                    }
+                },
+                "ln" => match input.as_any().downcast_ref::<LightningInput>() {
+                    Some(input) => {
+                        let value = serde_json::to_value(input)
+                            .expect("Should be able to serialize to JSON");
+                        debug!("found Lightning Transaction Input: {value:?}");
+                        Some(value)
+                    }
+                    None => {
+                        warn!("could not downcast (check decoders registry). {input:?}");
+                        None
+                    }
+                },
+                other => {
+                    warn!("Transaction Input of kind {other}. Not implemented.");
+                    None
+                }
+            };
+
+            if let Some(json_value) = json_txi {
+                dbtx.execute(
+                    "INSERT INTO transaction_input_details VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
+                    &[
+                        &federation_id.consensus_encode_to_vec(),
+                        &fedimint_txid.consensus_encode_to_vec(),
+                        &(in_idx as i32),
+                        &kind,
+                        &json_value,
+                    ],
+                )
+                .await?;
+            }
         }
 
         for (out_idx, output) in transaction.outputs.into_iter().enumerate() {
@@ -921,6 +985,63 @@ impl FederationObserver {
                     }
                 }
             }
+
+            let json_txo: Option<serde_json::Value> = match kind.as_str() {
+                "mint" => match output.as_any().downcast_ref::<MintOutput>() {
+                    Some(output) => {
+                        let value = serde_json::to_value(output)
+                            .expect("Should be able to serialize to JSON");
+                        debug!("found Mint Transaction Output: {value:?}");
+                        Some(value)
+                    }
+                    None => {
+                        warn!("could not downcast (check decoders registry). {output:?}");
+                        None
+                    }
+                },
+                "wallet" => match output.as_any().downcast_ref::<WalletOutput>() {
+                    Some(output) => {
+                        let value = serde_json::to_value(output)
+                            .expect("Should be able to serialize to JSON");
+                        debug!("found Wallet Transaction Output: {value:?}");
+                        Some(value)
+                    }
+                    None => {
+                        warn!("could not downcast (check decoders registry). {output:?}");
+                        None
+                    }
+                },
+                "ln" => match output.as_any().downcast_ref::<LightningOutput>() {
+                    Some(output) => {
+                        let value = serde_json::to_value(output)
+                            .expect("Should be able to serialize to JSON");
+                        debug!("found Lightning Transaction Output: {value:?}");
+                        Some(value)
+                    }
+                    None => {
+                        warn!("could not downcast (check decoders registry). {output:?}");
+                        None
+                    }
+                },
+                other => {
+                    warn!("Transaction Output of kind {other}. Not implemented.");
+                    None
+                }
+            };
+
+            if let Some(json_value) = json_txo {
+                dbtx.execute(
+                    "INSERT INTO transaction_output_details VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING",
+                    &[
+                        &federation_id.consensus_encode_to_vec(),
+                        &fedimint_txid.consensus_encode_to_vec(),
+                        &(out_idx as i32),
+                        &kind,
+                        &json_value,
+                    ],
+                )
+                .await?;
+            }
         }
 
         Ok(())
@@ -936,6 +1057,64 @@ impl FederationObserver {
         ci: DynModuleConsensusItem,
     ) -> Result<(), tokio_postgres::Error> {
         let kind = instance_to_kind(config, ci.module_instance_id());
+
+        let json_ci: Option<serde_json::Value> = match kind.as_str() {
+            "mint" => match ci.as_any().downcast_ref::<MintConsensusItem>() {
+                Some(ci) => {
+                    let value =
+                        serde_json::to_value(ci).expect("Should be able to serialize to JSON");
+                    debug!("found Mint CI: {value:?}");
+                    Some(value)
+                }
+                None => {
+                    warn!("could not downcast (check decoders registry). {ci:?}");
+                    None
+                }
+            },
+            "wallet" => match ci.as_any().downcast_ref::<WalletConsensusItem>() {
+                Some(ci) => {
+                    let value =
+                        serde_json::to_value(ci).expect("Should be able to serialize to JSON");
+                    debug!("found Wallet CI: {value:?}");
+                    Some(value)
+                }
+                None => {
+                    warn!("could not downcast (check decoders registry). {ci:?}");
+                    None
+                }
+            },
+            "ln" => match ci.as_any().downcast_ref::<LightningConsensusItem>() {
+                Some(ci) => {
+                    let value =
+                        serde_json::to_value(ci).expect("Should be able to serialize to JSON");
+                    debug!("found Lightning CI: {value:?}");
+                    Some(value)
+                }
+                None => {
+                    warn!("could not downcast (check decoders registry). {ci:?}");
+                    None
+                }
+            },
+            other => {
+                warn!("Consensus Item of kind {other}. Not implemented.");
+                None
+            }
+        };
+
+        if let Some(json_value) = json_ci {
+            dbtx.execute(
+                "INSERT INTO consensus_items VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING",
+                &[
+                    &federation_id.consensus_encode_to_vec(),
+                    &(session_index as i32),
+                    &(item_index as i32),
+                    &(peer_id.to_usize() as i32),
+                    &kind,
+                    &json_value,
+                ],
+            )
+            .await?;
+        }
 
         if kind != "wallet" {
             return Ok(());

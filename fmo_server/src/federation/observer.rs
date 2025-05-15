@@ -184,6 +184,10 @@ impl FederationObserver {
                 7,
                 include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v7.sql")),
             ),
+            (
+                8,
+                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v8.sql")),
+            ),
         ];
 
         for (version, migration) in migration_map.iter() {

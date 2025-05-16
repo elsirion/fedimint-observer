@@ -1,3 +1,5 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
@@ -36,6 +38,17 @@ use tracing::{debug, error, warn};
 use crate::federation::db::{Federation, FederationV0};
 use crate::federation::{db, decoders_from_config, instance_to_kind};
 use crate::util::{execute, query, query_one, query_opt, query_value};
+
+type BackfillFn = for<'a> fn(
+    &'a FederationObserver,
+    &'a Transaction<'a>,
+) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>;
+
+pub struct DbMigration {
+    pub index: i32,
+    pub sql: &'static str,
+    pub backfill: Option<BackfillFn>,
+}
 
 #[derive(Debug, Clone)]
 pub struct FederationObserver {
@@ -151,47 +164,57 @@ impl FederationObserver {
         let schema_version =
             query_value::<i32>(&self.connection().await?, "SELECT get_max_version();", &[]).await?;
 
-        let migration_map = [
-            (
-                0,
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v0.sql")),
-            ),
-            (
-                1,
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v1.sql")),
-            ),
-            (
-                2,
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v2.sql")),
-            ),
-            (
-                3,
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v3.sql")),
-            ),
-            (
-                4,
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v4.sql")),
-            ),
-            (
-                5,
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v5.sql")),
-            ),
-            (
-                6,
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v6.sql")),
-            ),
-            (
-                7,
-                include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v7.sql")),
-            ),
+        let migrations: &[DbMigration] = &[
+            DbMigration {
+                index: 0,
+                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v0.sql")),
+                backfill: None,
+            },
+            DbMigration {
+                index: 1,
+                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v1.sql")),
+                backfill: None,
+            },
+            DbMigration {
+                index: 2,
+                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v2.sql")),
+                backfill: Some(|slf, dbtx| Box::pin(slf.backfill_v2_migration_wallet_data(dbtx))),
+            },
+            DbMigration {
+                index: 3,
+                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v3.sql")),
+                backfill: None,
+            },
+            DbMigration {
+                index: 4,
+                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v4.sql")),
+                backfill: None,
+            },
+            DbMigration {
+                index: 5,
+                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v5.sql")),
+                backfill: None,
+            },
+            DbMigration {
+                index: 6,
+                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v6.sql")),
+                backfill: Some(|slf, dbtx| Box::pin(slf.backfill_v6_migrate_configs(dbtx))),
+            },
+            DbMigration {
+                index: 7,
+                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v7.sql")),
+                backfill: None,
+            },
         ];
 
-        for (version, migration) in migration_map.iter() {
-            if *version > schema_version {
+        for migration in migrations.iter() {
+            if migration.index > schema_version {
                 let mut conn = self.connection().await?;
                 let transaction = conn.transaction().await?;
-                transaction.batch_execute(migration).await?;
-                self.handle_backfill(*version, &transaction).await?;
+                transaction.batch_execute(migration.sql).await?;
+                if let Some(backfill_fn) = migration.backfill {
+                    backfill_fn(self, &transaction).await?;
+                }
                 transaction.commit().await?;
             }
         }
@@ -299,14 +322,6 @@ impl FederationObserver {
             .await?;
         }
         Ok(())
-    }
-
-    async fn handle_backfill(&self, version: i32, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
-        match version {
-            2 => Ok(self.backfill_v2_migration_wallet_data(dbtx).await?),
-            6 => Ok(self.backfill_v6_migrate_configs(dbtx).await?),
-            _ => Ok(()),
-        }
     }
 
     pub(super) async fn connection(&self) -> anyhow::Result<deadpool_postgres::Object> {

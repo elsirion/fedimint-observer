@@ -46,7 +46,7 @@ pub fn StarsSelector(
             { move || {
                 let selected = selected.get();
                 let hover = hover.get();
-                (1..=5).map(|idx| star(idx, selected >= idx, hover.map_or(false, |h| h >= idx))).collect::<Vec<_>>()
+                (1..=5).map(|idx| star(idx, selected >= idx, hover.is_some_and(|h| h >= idx))).collect::<Vec<_>>()
             }}
         </div>
     }

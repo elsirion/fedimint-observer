@@ -32,6 +32,8 @@ use fmo_api_types::{
 use futures::future::join_all;
 use futures::StreamExt;
 use postgres_from_row::FromRow;
+#[cfg(feature = "stability_pool_v1")]
+use stability_pool_common::{StabilityPoolConsensusItem, StabilityPoolInput, StabilityPoolOutput};
 use tokio::time::sleep;
 use tokio_postgres::NoTls;
 use tracing::log::info;
@@ -833,6 +835,19 @@ impl FederationObserver {
                         None
                     }
                 },
+                #[cfg(feature = "stability_pool_v1")]
+                "stability_pool" => match input.as_any().downcast_ref::<StabilityPoolInput>() {
+                    Some(input) => {
+                        let value = serde_json::to_value(input)
+                            .expect("Should be able to serialize to JSON");
+                        debug!("found Stability Pool Input: {value:?}");
+                        Some(value)
+                    }
+                    None => {
+                        warn!("could not downcast (check decoders registry). {input:?}");
+                        None
+                    }
+                },
                 other => {
                     warn!("Transaction Input of kind {other}. Not implemented.");
                     None
@@ -1023,6 +1038,20 @@ impl FederationObserver {
                         None
                     }
                 },
+                #[cfg(feature = "stability_pool_v1")]
+                "stability_pool" => match output.as_any().downcast_ref::<StabilityPoolOutput>() {
+                    Some(output) => {
+                        let value = serde_json::to_value(output)
+                            .expect("Should be able to serialize to JSON");
+                        debug!("found Stability Pool Output: {value:?}");
+                        Some(value)
+                    }
+                    None => {
+                        warn!("could not downcast (check decoders registry). {output:?}");
+                        None
+                    }
+                },
+
                 other => {
                     warn!("Transaction Output of kind {other}. Not implemented.");
                     None
@@ -1088,6 +1117,19 @@ impl FederationObserver {
                     let value =
                         serde_json::to_value(ci).expect("Should be able to serialize to JSON");
                     debug!("found Lightning CI: {value:?}");
+                    Some(value)
+                }
+                None => {
+                    warn!("could not downcast (check decoders registry). {ci:?}");
+                    None
+                }
+            },
+            #[cfg(feature = "stability_pool_v1")]
+            "stability_pool" => match ci.as_any().downcast_ref::<StabilityPoolConsensusItem>() {
+                Some(ci) => {
+                    let value =
+                        serde_json::to_value(ci).expect("Should be able to serialize to JSON");
+                    debug!("found Stability Pool CI: {value:?}");
                     Some(value)
                 }
                 None => {

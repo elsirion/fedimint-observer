@@ -182,7 +182,7 @@ impl FederationObserver {
             DbMigration {
                 index: 2,
                 sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v2.sql")),
-                backfill: Some(|slf, dbtx| Box::pin(slf.backfill_v2_migration_wallet_data(dbtx))),
+                backfill: Some(|slf, dbtx| Box::pin(slf.backfill_reprocess_all_sessions(dbtx))),
             },
             DbMigration {
                 index: 3,
@@ -212,7 +212,7 @@ impl FederationObserver {
             DbMigration {
                 index: 8,
                 sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v8.sql")),
-                backfill: None, // TO-DO
+                backfill: Some(|slf, dbtx| Box::pin(slf.backfill_reprocess_all_sessions(dbtx))),
             },
         ];
 
@@ -222,6 +222,10 @@ impl FederationObserver {
                 let transaction = conn.transaction().await?;
                 transaction.batch_execute(migration.sql).await?;
                 if let Some(backfill_fn) = migration.backfill {
+                    info!(
+                        "Running backfill procedure for migration to V{}",
+                        migration.index
+                    );
                     backfill_fn(self, &transaction).await?;
                 }
                 transaction.commit().await?;
@@ -249,11 +253,8 @@ impl FederationObserver {
         Ok(())
     }
 
-    async fn backfill_v2_migration_wallet_data(
-        &self,
-        dbtx: &Transaction<'_>,
-    ) -> anyhow::Result<()> {
-        info!("Beginning backfill for v2 wallet migration data, this may take a long time");
+    async fn backfill_reprocess_all_sessions(&self, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
+        info!("Beginning data backfill needed by schema update, this may take a long time");
 
         let num_cpus = std::thread::available_parallelism()
             .map(|non_zero_cpus| non_zero_cpus.get())

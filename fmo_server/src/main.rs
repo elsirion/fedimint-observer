@@ -57,6 +57,7 @@ async fn main() -> anyhow::Result<()> {
             federation_observer: FederationObserver::new(
                 &dotenv::var("FO_DATABASE").context("No FO_DATABASE provided")?,
                 &dotenv::var("FO_ADMIN_AUTH").context("No FO_ADMIN_AUTH provided")?,
+                &dotenv::var("FO_MEMPOOL_URL").context("No FO_MEMPOOL_URL provided")?,
             )
             .await?,
         });

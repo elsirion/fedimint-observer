@@ -58,11 +58,16 @@ pub struct DbMigration {
 pub struct FederationObserver {
     connection_pool: deadpool_postgres::Pool,
     admin_auth: String,
+    mempool_url: String,
     task_group: TaskGroup,
 }
 
 impl FederationObserver {
-    pub async fn new(database: &str, admin_auth: &str) -> anyhow::Result<FederationObserver> {
+    pub async fn new(
+        database: &str,
+        admin_auth: &str,
+        mempool_url: &str,
+    ) -> anyhow::Result<FederationObserver> {
         let connection_pool = {
             let pool_config = deadpool_postgres::Config {
                 url: Some(database.to_owned()),
@@ -74,6 +79,7 @@ impl FederationObserver {
         let slf = FederationObserver {
             connection_pool,
             admin_auth: admin_auth.to_owned(),
+            mempool_url: mempool_url.to_owned(),
             task_group: Default::default(),
         };
 
@@ -503,7 +509,7 @@ impl FederationObserver {
     }
 
     async fn fetch_block_times_inner(&self) -> anyhow::Result<()> {
-        let builder = esplora_client::Builder::new("https://mempool.space/api");
+        let builder = esplora_client::Builder::new(&self.mempool_url);
         let esplora_client = builder.build_async()?;
 
         // TODO: find a better way to pre-seed the DB so we don't have to bother
@@ -679,6 +685,7 @@ impl FederationObserver {
                         item_idx as u64,
                         item.peer,
                         module_ci,
+                        &self.mempool_url,
                     )
                     .await?;
                 }
@@ -1085,6 +1092,7 @@ impl FederationObserver {
         item_index: u64,
         peer_id: PeerId,
         ci: DynModuleConsensusItem,
+        mempool_url: &str,
     ) -> Result<(), tokio_postgres::Error> {
         let kind = instance_to_kind(config, ci.module_instance_id());
 
@@ -1238,7 +1246,7 @@ impl FederationObserver {
                 let esplora_txid = esplora_client::Txid::from_str(peg_out_txid.as_str())
                     .expect("Couldn't create esplora txid");
 
-                let builder = esplora_client::Builder::new("https://mempool.space/api");
+                let builder = esplora_client::Builder::new(mempool_url);
                 let client = builder
                     .build_async()
                     .expect("Failed to build esplora client");

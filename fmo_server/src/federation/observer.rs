@@ -711,17 +711,18 @@ impl FederationObserver {
                     (Some(amount_msat), None)
                 }
                 "wallet" => {
-                    let amount_msat = input
+                    // TODO: recognize v1 wallet inputs
+                    if let Some(v0_input) = input
                         .as_any()
                         .downcast_ref::<WalletInput>()
                         .expect("Not Wallet input")
                         .maybe_v0_ref()
-                        .expect("Not v0")
-                        .0
-                        .tx_output()
-                        .value
-                        * 1000;
-                    (Some(amount_msat), None)
+                    {
+                        let amount_msat = v0_input.0.tx_output().value * 1000;
+                        (Some(amount_msat), None)
+                    } else {
+                        (None, None)
+                    }
                 }
                 _ => (None, None),
             };
@@ -740,34 +741,37 @@ impl FederationObserver {
             .await?;
 
             if kind.as_str() == "wallet" {
-                let peg_in_proof = &input
+                if let Some(v0_input) = input
                     .as_any()
                     .downcast_ref::<WalletInput>()
                     .expect("Not Wallet input")
                     .maybe_v0_ref()
-                    .expect("Not v0")
-                    .0;
+                {
+                    let peg_in_proof = &v0_input.0;
 
-                let outpoint = peg_in_proof.outpoint();
+                    let outpoint = peg_in_proof.outpoint();
 
-                let address = bitcoin::Address::from_script(
-                    bitcoin::Script::from_bytes(peg_in_proof.tx_output().script_pubkey.as_bytes()),
-                    bitcoin::Network::Bitcoin,
-                )
-                .expect("Invalid output address");
+                    let address = bitcoin::Address::from_script(
+                        bitcoin::Script::from_bytes(
+                            peg_in_proof.tx_output().script_pubkey.as_bytes(),
+                        ),
+                        bitcoin::Network::Bitcoin,
+                    )
+                    .expect("Invalid output address");
 
-                dbtx.execute(
-                        "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
-                        &[
-                            &outpoint.txid[..].to_owned(),
-                            &(outpoint.vout as i32),
-                            &address.to_string(),
-                            &maybe_amount_msat.map(|amt| amt as i64).expect("Wallet input must have amount"),
-                            &federation_id.consensus_encode_to_vec(),
-                            &fedimint_txid.consensus_encode_to_vec(),
-                            &(in_idx as i32),
-                        ]
-                    ).await?;
+                    dbtx.execute(
+                            "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
+                            &[
+                                &outpoint.txid[..].to_owned(),
+                                &(outpoint.vout as i32),
+                                &address.to_string(),
+                                &maybe_amount_msat.map(|amt| amt as i64).expect("Wallet input must have amount"),
+                                &federation_id.consensus_encode_to_vec(),
+                                &fedimint_txid.consensus_encode_to_vec(),
+                                &(in_idx as i32),
+                            ]
+                        ).await?;
+                }
             }
         }
 

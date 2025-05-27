@@ -748,17 +748,18 @@ impl FederationObserver {
                     (Some(amount_msat), None)
                 }
                 "wallet" => {
-                    let amount_msat = input
+                    // TODO: recognize v1 wallet inputs
+                    if let Some(v0_input) = input
                         .as_any()
                         .downcast_ref::<WalletInput>()
                         .expect("Not Wallet input")
                         .maybe_v0_ref()
-                        .expect("Not v0")
-                        .0
-                        .tx_output()
-                        .value
-                        * 1000;
-                    (Some(amount_msat), None)
+                    {
+                        let amount_msat = v0_input.0.tx_output().value * 1000;
+                        (Some(amount_msat), None)
+                    } else {
+                        (None, None)
+                    }
                 }
                 _ => (None, None),
             };

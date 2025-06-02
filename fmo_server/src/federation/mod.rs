@@ -8,7 +8,7 @@ mod transaction;
 
 use anyhow::Context;
 use axum::extract::{Path, State};
-use axum::routing::{get, put};
+use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use axum_auth::AuthBearer;
 use fedimint_core::config::{ClientConfig, FederationId, JsonClientConfig};
@@ -16,6 +16,7 @@ use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::invite_code::InviteCode;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
 use fmo_api_types::{FederationSummary, FedimintTotals};
+use serde::Deserialize;
 use serde_json::json;
 
 use crate::federation::guardians::get_federation_health;
@@ -57,6 +58,7 @@ pub fn get_federations_routes() -> Router<AppState> {
         .route("/:federation_id/utxos", get(get_federation_utxos))
         .route("/:federation_id/sessions", get(list_sessions))
         .route("/:federation_id/sessions/count", get(count_sessions))
+        .route("/:federation_id/backfill", post(backfill_federation))
 }
 
 pub async fn list_observed_federations(
@@ -146,6 +148,27 @@ async fn publish_rating_event(
     Json(event): Json<nostr_sdk::Event>,
 ) -> crate::error::Result<()> {
     Ok(state.federation_observer.submit_rating(event).await?)
+}
+
+#[derive(Deserialize, Debug)]
+struct BackfillParams {
+    session_start: Option<i32>,
+    session_end: Option<i32>,
+}
+
+async fn backfill_federation(
+    Path(federation_id): Path<FederationId>,
+    AuthBearer(auth): AuthBearer,
+    State(state): State<AppState>,
+    Json(params): Json<BackfillParams>,
+) -> crate::error::Result<()> {
+    state.federation_observer.check_auth(&auth)?;
+
+    Ok(state
+        .federation_observer
+        .backfill_federation(federation_id, params.session_start, params.session_end)
+        .await?
+        .into())
 }
 
 fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {

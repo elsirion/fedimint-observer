@@ -1466,6 +1466,95 @@ impl FederationObserver {
         )
         .await? as u32)
     }
+
+    pub async fn backfill_federation(
+        &self,
+        federation_id: FederationId,
+        session_start: Option<i32>,
+        session_end: Option<i32>,
+    ) -> anyhow::Result<()> {
+        info!("Backfilling federation {}", federation_id);
+
+        let maybe_federation = self.get_federation(federation_id).await?;
+        if maybe_federation.is_none() {
+            info!("Federation {} not found", federation_id);
+            return Ok(());
+        }
+
+        let session_start = session_start.unwrap_or(0);
+        let session_end = session_end.unwrap_or(i32::MAX);
+
+        if session_end < session_start {
+            info!("Session_start should come before session_end. Aborting backfill");
+            return Ok(());
+        }
+
+        let federation = maybe_federation.unwrap();
+
+        let num_cpus = std::thread::available_parallelism()
+            .map(|non_zero_cpus| non_zero_cpus.get())
+            .unwrap_or(12);
+
+        let decoders = decoders_from_config(&federation.config);
+
+        let mut connection = self.connection().await?;
+        let dbtx = connection.transaction().await?;
+
+        let session_outcome_rows = match dbtx
+            .query(
+                "SELECT * FROM sessions WHERE federation_id = $1 AND session_index BETWEEN $2 AND $3 ORDER BY session_index",
+                &[&federation.federation_id.consensus_encode_to_vec(), &(session_start), &(session_end)],
+            )
+            .await
+        {
+            Ok(rows) => rows,
+            Err(e) => {
+                eprintln!("Database query failed: {:?}", e);
+                eprintln!("Error kind: {:?}", e.code());
+                return Err(e.into());
+            }
+        };
+
+        let rows_count = session_outcome_rows.len();
+        info!(
+            "Backfill will process {} sessions, from {} to {}",
+            rows_count, session_start, session_end
+        );
+
+        let mut parsing_stream =
+            futures::stream::iter(session_outcome_rows.into_iter().enumerate())
+                .map(|(row_idx, row)| {
+                    let decoders_clone = decoders.clone();
+                    tokio::task::spawn(async move {
+                        if row_idx % 1000 == 0 {
+                            let percentage = (row_idx as f64) / (rows_count as f64);
+                            let percentage_str = format!("{:.2}%", percentage * 100.0);
+                            info!(
+                                "parsing session index: {:?}/{:?} ({})",
+                                row_idx, rows_count, percentage_str
+                            );
+                        }
+                        db::SessionOutcome::from_row_with_decoders(&row, &decoders_clone.clone())
+                    })
+                })
+                .buffered(num_cpus)
+                .boxed();
+
+        while let Some(outcome) = parsing_stream.next().await.transpose()? {
+            self.process_session(
+                federation.federation_id,
+                federation.config.clone(),
+                outcome.session_index as u64,
+                outcome.data,
+                &dbtx,
+            )
+            .await?;
+        }
+
+        info!("Backfill complete!");
+
+        Ok(())
+    }
 }
 
 fn last_n_day_iter(now: NaiveDate, days: u32) -> impl Iterator<Item = NaiveDate> {

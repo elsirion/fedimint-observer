@@ -1084,6 +1084,7 @@ impl FederationObserver {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn process_ci(
         dbtx: &Transaction<'_>,
         federation_id: FederationId,

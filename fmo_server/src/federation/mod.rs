@@ -167,8 +167,7 @@ async fn backfill_federation(
     Ok(state
         .federation_observer
         .backfill_federation(federation_id, params.session_start, params.session_end)
-        .await?
-        .into())
+        .await?)
 }
 
 fn decoders_from_config(config: &ClientConfig) -> ModuleDecoderRegistry {

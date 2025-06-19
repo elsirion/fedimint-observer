@@ -37,7 +37,7 @@ use stability_pool_common::{StabilityPoolConsensusItem, StabilityPoolInput, Stab
 use tokio::time::sleep;
 use tokio_postgres::NoTls;
 use tracing::log::info;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info_span, warn, Instrument};
 
 use crate::federation::db::{Federation, FederationV0};
 use crate::federation::{db, decoders_from_config, instance_to_kind};
@@ -102,31 +102,32 @@ impl FederationObserver {
     async fn spawn_observer(&self, federation: Federation) {
         let slf = self.clone();
 
-        let federation_inner = federation.clone();
+        let federation_id = federation.federation_id;
+        let config = federation.config.clone();
         self.task_group.spawn_cancellable(
-            format!("Observer for {}", federation_inner.federation_id),
+            format!("Observer for {}", federation_id),
             async move {
                 loop {
                     let e = slf
-                        .observe_federation_history(
-                            federation_inner.federation_id,
-                            federation_inner.config.clone(),
-                        )
+                        .observe_federation_history(federation_id, config.clone())
                         .await
                         .expect_err("observer task exited unexpectedly");
                     error!("Observer errored, restarting in 30s: {e}");
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
-            },
+            }
+            .instrument(info_span!("o", fed = %federation_id.to_prefix())),
         );
 
         let slf = self.clone();
+        let federation_id = federation.federation_id;
+        let config = federation.config;
         self.task_group.spawn_cancellable(
-            format!("Health Monitor for {}", federation.federation_id),
+            format!("Health Monitor for {}", federation_id),
             async move {
                 loop {
                     let e = slf
-                        .monitor_health(federation.federation_id, federation.config.clone())
+                        .monitor_health(federation_id, config.clone())
                         .await
                         .expect_err("health monitor task exited unexpectedly");
                     error!("Health Monitor errored, restarting in 30s: {e}");

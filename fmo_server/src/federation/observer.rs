@@ -37,7 +37,7 @@ use stability_pool_common::{StabilityPoolConsensusItem, StabilityPoolInput, Stab
 use tokio::time::sleep;
 use tokio_postgres::NoTls;
 use tracing::log::info;
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info_span, warn, Instrument};
 
 use crate::federation::db::{Federation, FederationV0};
 use crate::federation::{db, decoders_from_config, instance_to_kind};
@@ -102,37 +102,39 @@ impl FederationObserver {
     async fn spawn_observer(&self, federation: Federation) {
         let slf = self.clone();
 
-        let federation_inner = federation.clone();
+        let federation_id = federation.federation_id;
+        let config = federation.config.clone();
         self.task_group.spawn_cancellable(
-            format!("Observer for {}", federation_inner.federation_id),
+            format!("Observer for {}", federation_id),
             async move {
                 loop {
                     let e = slf
-                        .observe_federation_history(
-                            federation_inner.federation_id,
-                            federation_inner.config.clone(),
-                        )
+                        .observe_federation_history(federation_id, config.clone())
                         .await
                         .expect_err("observer task exited unexpectedly");
                     error!("Observer errored, restarting in 30s: {e}");
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
-            },
+            }
+            .instrument(info_span!("observer", fed = %federation_id.to_prefix())),
         );
 
         let slf = self.clone();
+        let federation_id = federation.federation_id;
+        let config = federation.config;
         self.task_group.spawn_cancellable(
-            format!("Health Monitor for {}", federation.federation_id),
+            format!("Health Monitor for {}", federation_id),
             async move {
                 loop {
                     let e = slf
-                        .monitor_health(federation.federation_id, federation.config.clone())
+                        .monitor_health(federation_id, config.clone())
                         .await
                         .expect_err("health monitor task exited unexpectedly");
                     error!("Health Monitor errored, restarting in 30s: {e}");
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
-            },
+            }
+            .instrument(info_span!("health", fed = %federation_id.to_prefix())),
         );
     }
 
@@ -777,34 +779,38 @@ impl FederationObserver {
             .await?;
 
             if kind.as_str() == "wallet" {
-                let peg_in_proof = &input
+                // TODO: recognize v1 wallet inputs
+                if let Some(v0_input) = input
                     .as_any()
                     .downcast_ref::<WalletInput>()
                     .expect("Not Wallet input")
                     .maybe_v0_ref()
-                    .expect("Not v0")
-                    .0;
+                {
+                    let peg_in_proof = &v0_input.0;
 
-                let outpoint = peg_in_proof.outpoint();
+                    let outpoint = peg_in_proof.outpoint();
 
-                let address = bitcoin::Address::from_script(
-                    bitcoin::Script::from_bytes(peg_in_proof.tx_output().script_pubkey.as_bytes()),
-                    bitcoin::Network::Bitcoin,
-                )
-                .expect("Invalid output address");
+                    let address = bitcoin::Address::from_script(
+                        bitcoin::Script::from_bytes(
+                            peg_in_proof.tx_output().script_pubkey.as_bytes(),
+                        ),
+                        bitcoin::Network::Bitcoin,
+                    )
+                    .expect("Invalid output address");
 
-                dbtx.execute(
-                        "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
-                        &[
-                            &outpoint.txid[..].to_owned(),
-                            &(outpoint.vout as i32),
-                            &address.to_string(),
-                            &maybe_amount_msat.map(|amt| amt as i64).expect("Wallet input must have amount"),
-                            &federation_id.consensus_encode_to_vec(),
-                            &fedimint_txid.consensus_encode_to_vec(),
-                            &(in_idx as i32),
-                        ]
-                    ).await?;
+                    dbtx.execute(
+                            "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
+                            &[
+                                &outpoint.txid[..].to_owned(),
+                                &(outpoint.vout as i32),
+                                &address.to_string(),
+                                &maybe_amount_msat.map(|amt| amt as i64).expect("Wallet input must have amount"),
+                                &federation_id.consensus_encode_to_vec(),
+                                &fedimint_txid.consensus_encode_to_vec(),
+                                &(in_idx as i32),
+                            ]
+                        ).await?;
+                }
             }
 
             let json_txi: Option<serde_json::Value> = match kind.as_str() {
@@ -885,7 +891,7 @@ impl FederationObserver {
                     let ln_output = output
                         .as_any()
                         .downcast_ref::<LightningOutput>()
-                        .expect("Not LN input")
+                        .expect("Not LN output")
                         .maybe_v0_ref()
                         .expect("Not v0");
                     let (maybe_amount_msat, ln_contract_interaction_kind, contract_id) =
@@ -928,7 +934,7 @@ impl FederationObserver {
                     let amount_msat = output
                         .as_any()
                         .downcast_ref::<MintOutput>()
-                        .expect("Not Mint input")
+                        .expect("Not Mint output")
                         .maybe_v0_ref()
                         .expect("Not v0")
                         .amount
@@ -939,7 +945,7 @@ impl FederationObserver {
                     let amount_msat = output
                         .as_any()
                         .downcast_ref::<WalletOutput>()
-                        .expect("Not Wallet input")
+                        .expect("Not Wallet output")
                         .maybe_v0_ref()
                         .expect("Not v0")
                         .amount()
@@ -968,7 +974,7 @@ impl FederationObserver {
                 let wallet_v0_output = output
                     .as_any()
                     .downcast_ref::<WalletOutput>()
-                    .expect("Not Wallet input")
+                    .expect("Not Wallet output")
                     .maybe_v0_ref()
                     .expect("Not v0");
 
@@ -1085,6 +1091,7 @@ impl FederationObserver {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn process_ci(
         dbtx: &Transaction<'_>,
         federation_id: FederationId,
@@ -1466,6 +1473,95 @@ impl FederationObserver {
             &[],
         )
         .await? as u32)
+    }
+
+    pub async fn backfill_federation(
+        &self,
+        federation_id: FederationId,
+        session_start: Option<i32>,
+        session_end: Option<i32>,
+    ) -> anyhow::Result<()> {
+        info!("Backfilling federation {}", federation_id);
+
+        let maybe_federation = self.get_federation(federation_id).await?;
+        if maybe_federation.is_none() {
+            info!("Federation {} not found", federation_id);
+            return Ok(());
+        }
+
+        let session_start = session_start.unwrap_or(0);
+        let session_end = session_end.unwrap_or(i32::MAX);
+
+        if session_end < session_start {
+            info!("Session_start should come before session_end. Aborting backfill");
+            return Ok(());
+        }
+
+        let federation = maybe_federation.unwrap();
+
+        let num_cpus = std::thread::available_parallelism()
+            .map(|non_zero_cpus| non_zero_cpus.get())
+            .unwrap_or(12);
+
+        let decoders = decoders_from_config(&federation.config);
+
+        let mut connection = self.connection().await?;
+        let dbtx = connection.transaction().await?;
+
+        let session_outcome_rows = match dbtx
+            .query(
+                "SELECT * FROM sessions WHERE federation_id = $1 AND session_index BETWEEN $2 AND $3 ORDER BY session_index",
+                &[&federation.federation_id.consensus_encode_to_vec(), &(session_start), &(session_end)],
+            )
+            .await
+        {
+            Ok(rows) => rows,
+            Err(e) => {
+                eprintln!("Database query failed: {:?}", e);
+                eprintln!("Error kind: {:?}", e.code());
+                return Err(e.into());
+            }
+        };
+
+        let rows_count = session_outcome_rows.len();
+        info!(
+            "Backfill will process {} sessions, from {} to {}",
+            rows_count, session_start, session_end
+        );
+
+        let mut parsing_stream =
+            futures::stream::iter(session_outcome_rows.into_iter().enumerate())
+                .map(|(row_idx, row)| {
+                    let decoders_clone = decoders.clone();
+                    tokio::task::spawn(async move {
+                        if row_idx % 1000 == 0 {
+                            let percentage = (row_idx as f64) / (rows_count as f64);
+                            let percentage_str = format!("{:.2}%", percentage * 100.0);
+                            info!(
+                                "parsing session index: {:?}/{:?} ({})",
+                                row_idx, rows_count, percentage_str
+                            );
+                        }
+                        db::SessionOutcome::from_row_with_decoders(&row, &decoders_clone.clone())
+                    })
+                })
+                .buffered(num_cpus)
+                .boxed();
+
+        while let Some(outcome) = parsing_stream.next().await.transpose()? {
+            self.process_session(
+                federation.federation_id,
+                federation.config.clone(),
+                outcome.session_index as u64,
+                outcome.data,
+                &dbtx,
+            )
+            .await?;
+        }
+
+        info!("Backfill complete!");
+
+        Ok(())
     }
 }
 

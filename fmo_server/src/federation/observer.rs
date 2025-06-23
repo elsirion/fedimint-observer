@@ -116,7 +116,7 @@ impl FederationObserver {
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             }
-            .instrument(info_span!("o", fed = %federation_id.to_prefix())),
+            .instrument(info_span!("observer", fed = %federation_id.to_prefix())),
         );
 
         let slf = self.clone();
@@ -133,7 +133,8 @@ impl FederationObserver {
                     error!("Health Monitor errored, restarting in 30s: {e}");
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
-            },
+            }
+            .instrument(info_span!("health", fed = %federation_id.to_prefix())),
         );
     }
 
@@ -778,34 +779,38 @@ impl FederationObserver {
             .await?;
 
             if kind.as_str() == "wallet" {
-                let peg_in_proof = &input
+                // TODO: recognize v1 wallet inputs
+                if let Some(v0_input) = input
                     .as_any()
                     .downcast_ref::<WalletInput>()
                     .expect("Not Wallet input")
                     .maybe_v0_ref()
-                    .expect("Not v0")
-                    .0;
+                {
+                    let peg_in_proof = &v0_input.0;
 
-                let outpoint = peg_in_proof.outpoint();
+                    let outpoint = peg_in_proof.outpoint();
 
-                let address = bitcoin::Address::from_script(
-                    bitcoin::Script::from_bytes(peg_in_proof.tx_output().script_pubkey.as_bytes()),
-                    bitcoin::Network::Bitcoin,
-                )
-                .expect("Invalid output address");
+                    let address = bitcoin::Address::from_script(
+                        bitcoin::Script::from_bytes(
+                            peg_in_proof.tx_output().script_pubkey.as_bytes(),
+                        ),
+                        bitcoin::Network::Bitcoin,
+                    )
+                    .expect("Invalid output address");
 
-                dbtx.execute(
-                        "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
-                        &[
-                            &outpoint.txid[..].to_owned(),
-                            &(outpoint.vout as i32),
-                            &address.to_string(),
-                            &maybe_amount_msat.map(|amt| amt as i64).expect("Wallet input must have amount"),
-                            &federation_id.consensus_encode_to_vec(),
-                            &fedimint_txid.consensus_encode_to_vec(),
-                            &(in_idx as i32),
-                        ]
-                    ).await?;
+                    dbtx.execute(
+                            "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",
+                            &[
+                                &outpoint.txid[..].to_owned(),
+                                &(outpoint.vout as i32),
+                                &address.to_string(),
+                                &maybe_amount_msat.map(|amt| amt as i64).expect("Wallet input must have amount"),
+                                &federation_id.consensus_encode_to_vec(),
+                                &fedimint_txid.consensus_encode_to_vec(),
+                                &(in_idx as i32),
+                            ]
+                        ).await?;
+                }
             }
 
             let json_txi: Option<serde_json::Value> = match kind.as_str() {
@@ -886,7 +891,7 @@ impl FederationObserver {
                     let ln_output = output
                         .as_any()
                         .downcast_ref::<LightningOutput>()
-                        .expect("Not LN input")
+                        .expect("Not LN output")
                         .maybe_v0_ref()
                         .expect("Not v0");
                     let (maybe_amount_msat, ln_contract_interaction_kind, contract_id) =
@@ -929,7 +934,7 @@ impl FederationObserver {
                     let amount_msat = output
                         .as_any()
                         .downcast_ref::<MintOutput>()
-                        .expect("Not Mint input")
+                        .expect("Not Mint output")
                         .maybe_v0_ref()
                         .expect("Not v0")
                         .amount
@@ -940,7 +945,7 @@ impl FederationObserver {
                     let amount_msat = output
                         .as_any()
                         .downcast_ref::<WalletOutput>()
-                        .expect("Not Wallet input")
+                        .expect("Not Wallet output")
                         .maybe_v0_ref()
                         .expect("Not v0")
                         .amount()
@@ -969,7 +974,7 @@ impl FederationObserver {
                 let wallet_v0_output = output
                     .as_any()
                     .downcast_ref::<WalletOutput>()
-                    .expect("Not Wallet input")
+                    .expect("Not Wallet output")
                     .maybe_v0_ref()
                     .expect("Not v0");
 

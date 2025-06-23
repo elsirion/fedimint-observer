@@ -116,7 +116,7 @@ impl FederationObserver {
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
             }
-            .instrument(info_span!("o", fed = %federation_id.to_prefix())),
+            .instrument(info_span!("sessions", fed = %federation_id.to_prefix())),
         );
 
         let slf = self.clone();
@@ -133,7 +133,8 @@ impl FederationObserver {
                     error!("Health Monitor errored, restarting in 30s: {e}");
                     tokio::time::sleep(Duration::from_secs(30)).await;
                 }
-            },
+            }
+            .instrument(info_span!("health", fed = %federation_id.to_prefix())),
         );
     }
 

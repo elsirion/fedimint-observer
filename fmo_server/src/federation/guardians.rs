@@ -24,7 +24,6 @@ impl FederationObserver {
         federation_id: FederationId,
         config: ClientConfig,
     ) -> anyhow::Result<()> {
-        const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
         const REQUEST_INTERVAL: Duration = Duration::from_secs(60);
 
         let mut interval = tokio::time::interval(REQUEST_INTERVAL);
@@ -35,7 +34,9 @@ impl FederationObserver {
                 .iter()
                 .map(|(&peer_id, peer_url)| (peer_id, peer_url.url.clone())),
             &None,
-        );
+        )
+        .await?;
+
         let wallet_module = config
             .modules
             .iter()
@@ -55,7 +56,6 @@ impl FederationObserver {
                         // the background
                         let status = api
                             .request_single_peer(
-                                Some(REQUEST_TIMEOUT),
                                 STATUS_ENDPOINT.to_owned(),
                                 ApiRequestErased::default(),
                                 peer_id,
@@ -70,7 +70,6 @@ impl FederationObserver {
                         let block_height = api
                             .with_module(wallet_module)
                             .request_single_peer(
-                                Some(REQUEST_TIMEOUT),
                                 BLOCK_COUNT_LOCAL_ENDPOINT.to_owned(),
                                 ApiRequestErased::default(),
                                 peer_id,

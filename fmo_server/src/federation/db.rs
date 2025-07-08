@@ -20,7 +20,7 @@ impl FromRow for crate::federation::db::FederationV0 {
     fn try_from_row(row: &Row) -> Result<Self, Error> {
         let federation_id_bytes: Vec<u8> = row.try_get("federation_id")?;
         let federation_id =
-            FederationId::consensus_decode_vec(federation_id_bytes, &Default::default())
+            FederationId::consensus_decode_whole(&federation_id_bytes, &Default::default())
                 .expect("Invalid data in DB");
 
         let config_bytes: Vec<u8> = row.try_get("config")?;
@@ -51,11 +51,11 @@ impl FromRow for Federation {
     fn try_from_row(row: &Row) -> Result<Self, Error> {
         let federation_id_bytes: Vec<u8> = row.try_get("federation_id")?;
         let federation_id =
-            FederationId::consensus_decode_vec(federation_id_bytes, &Default::default())
+            FederationId::consensus_decode_whole(&federation_id_bytes, &Default::default())
                 .expect("Invalid data in DB");
 
         let config_bytes: Vec<u8> = row.try_get("config")?;
-        let config = ClientConfig::consensus_decode_vec(config_bytes, &Default::default())
+        let config = ClientConfig::consensus_decode_whole(&config_bytes, &Default::default())
             .expect("Invalid data in DB");
 
         Ok(Federation {
@@ -83,8 +83,8 @@ impl FromRow for crate::federation::db::Transaction {
         let decoder = ModuleDecoderRegistry::default().with_fallback();
 
         let txid_bytes: Vec<u8> = row.try_get("txid")?;
-        let txid =
-            TransactionId::consensus_decode_vec(txid_bytes, &decoder).expect("Invalid data in DB");
+        let txid = TransactionId::consensus_decode_whole(&txid_bytes, &decoder)
+            .expect("Invalid data in DB");
 
         let session_index = row.try_get::<_, i32>("session_index")?;
 
@@ -92,7 +92,7 @@ impl FromRow for crate::federation::db::Transaction {
 
         let data_bytes: Vec<u8> = row.try_get("data")?;
         let data =
-            fedimint_core::transaction::Transaction::consensus_decode_vec(data_bytes, &decoder)
+            fedimint_core::transaction::Transaction::consensus_decode_whole(&data_bytes, &decoder)
                 .expect("Invalid data in DB");
 
         Ok(crate::federation::db::Transaction {
@@ -119,8 +119,8 @@ impl FromRow for crate::federation::db::SessionOutcome {
         let decoder = ModuleDecoderRegistry::default().with_fallback();
 
         let session_data_bytes: Vec<u8> = row.try_get("session")?;
-        let data = fedimint_core::session_outcome::SessionOutcome::consensus_decode_vec(
-            session_data_bytes,
+        let data = fedimint_core::session_outcome::SessionOutcome::consensus_decode_whole(
+            &session_data_bytes,
             &decoder,
         )
         .expect("Invalid data in DB");
@@ -144,8 +144,8 @@ impl SessionOutcome {
         decoders: &ModuleDecoderRegistry,
     ) -> Result<Self, Error> {
         let session_data_bytes: Vec<u8> = row.try_get("session")?;
-        let data = fedimint_core::session_outcome::SessionOutcome::consensus_decode_vec(
-            session_data_bytes,
+        let data = fedimint_core::session_outcome::SessionOutcome::consensus_decode_whole(
+            &session_data_bytes,
             decoders,
         )
         .expect("Invalid data in DB");

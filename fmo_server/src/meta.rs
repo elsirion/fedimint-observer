@@ -1,5 +1,6 @@
 use axum::Json;
-use fedimint_core::config::{JsonClientConfig, META_OVERRIDE_URL_KEY};
+use fedimint_core::config::JsonClientConfig;
+use fedimint_core_v3::config::META_OVERRIDE_URL_KEY;
 use tracing::debug;
 use tracing::log::warn;
 

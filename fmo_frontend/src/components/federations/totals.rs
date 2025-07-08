@@ -1,4 +1,4 @@
-use fedimint_core::util::backon::FibonacciBuilder;
+use fedimint_core::util::backoff_util::background_backoff;
 use fedimint_core::util::retry;
 use fmo_api_types::FedimintTotals;
 use leptos::{component, create_resource, view, IntoView, SignalGet};
@@ -11,7 +11,7 @@ pub fn Totals() -> impl IntoView {
         |_| async {
             retry(
                 "fetching federation totals",
-                FibonacciBuilder::default().with_max_times(usize::MAX),
+                background_backoff(),
                 fetch_federation_totals,
             )
             .await

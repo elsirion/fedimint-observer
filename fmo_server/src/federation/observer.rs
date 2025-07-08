@@ -748,17 +748,20 @@ impl FederationObserver {
                     (Some(amount_msat), None)
                 }
                 "wallet" => {
-                    let amount_msat = input
+                    let amount = match input
                         .as_any()
                         .downcast_ref::<WalletInput>()
                         .expect("Not Wallet input")
-                        .maybe_v0_ref()
-                        .expect("Not v0")
-                        .0
-                        .tx_output()
-                        .value
-                        .to_sat()
-                        * 1000;
+                    {
+                        WalletInput::V0(wallet_input) => wallet_input.tx_output().value,
+                        WalletInput::V1(wallet_input) => wallet_input.tx_out.value,
+                        _ => {
+                            panic!("Unsupported WalletInput version");
+                        }
+                    };
+
+                    let amount_msat = amount.to_sat() * 1000;
+
                     (Some(amount_msat), None)
                 }
                 _ => (None, None),

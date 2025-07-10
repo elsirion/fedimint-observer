@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use fedimint_core::config::FederationId;
+use fedimint_core::util::backoff_util::background_backoff;
 use fedimint_core::util::retry;
 use fedimint_core::{NumPeers, PeerId};
-use fedimint_core::util::backoff_util::background_backoff;
 use fmo_api_types::GuardianHealth;
 use leptos::{component, create_resource, view, IntoView, SignalGet};
 

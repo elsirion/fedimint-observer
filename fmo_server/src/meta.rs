@@ -1,6 +1,5 @@
 use axum::Json;
 use fedimint_core::config::JsonClientConfig;
-use fedimint_core_v3::config::META_OVERRIDE_URL_KEY;
 use tracing::debug;
 use tracing::log::warn;
 
@@ -19,7 +18,7 @@ pub async fn federation_meta(
     );
 
     let meta_fields = if let Some(override_url) = meta_fields_config
-        .get(META_OVERRIDE_URL_KEY)
+        .get("meta_override_url")
         .or_else(|| meta_fields_config.get("meta_external_url")) // Fedi legacy field
         .and_then(|url| url.as_str().map(ToOwned::to_owned))
     {

@@ -39,7 +39,7 @@ use tokio_postgres::NoTls;
 use tracing::log::info;
 use tracing::{debug, error, info_span, warn, Instrument};
 
-use crate::federation::db::{Federation, FederationV0};
+use crate::federation::db::Federation;
 use crate::federation::{db, decoders_from_config, instance_to_kind};
 use crate::util::{execute, query, query_one, query_opt, query_value};
 
@@ -210,7 +210,7 @@ impl FederationObserver {
             DbMigration {
                 index: 6,
                 sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v6.sql")),
-                backfill: Some(|slf, dbtx| Box::pin(slf.backfill_v6_migrate_configs(dbtx))),
+                backfill: None,
             },
             DbMigration {
                 index: 7,
@@ -223,6 +223,15 @@ impl FederationObserver {
                 backfill: Some(|slf, dbtx| Box::pin(slf.backfill_reprocess_all_sessions(dbtx))),
             },
         ];
+
+        let min_current_version = migrations[0].index - 1;
+        if min_current_version > schema_version {
+            return Err(anyhow::anyhow!(
+                "Schema version is {}, but this version of fedimint observer only allows upgrading from version {} and above",
+                schema_version,
+                min_current_version
+            ));
+        }
 
         for migration in migrations.iter() {
             if migration.index > schema_version {
@@ -316,28 +325,6 @@ impl FederationObserver {
                 )
                 .await?;
             }
-        }
-        Ok(())
-    }
-
-    async fn backfill_v6_migrate_configs(&self, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
-        let federations =
-            query::<FederationV0>(&self.connection().await?, "SELECT * FROM federations", &[])
-                .await?;
-        for fed in federations {
-            let config = serde_json::from_value::<ClientConfig>(
-                serde_json::to_value(fed.config).expect("serializabke"),
-            )
-            .expect("Invalid JSON");
-
-            dbtx.execute(
-                "UPDATE federations SET config = $1 WHERE federation_id = $2",
-                &[
-                    &config.consensus_encode_to_vec(),
-                    &fed.federation_id.consensus_encode_to_vec(),
-                ],
-            )
-            .await?;
         }
         Ok(())
     }

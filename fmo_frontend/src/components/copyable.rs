@@ -6,7 +6,7 @@ use web_sys::window;
 pub fn Copyable(text: String) -> impl IntoView {
     let text_inner = text.clone();
     let copy_action = move |_| {
-        if let Some(clipboard) = window().and_then(|w| w.navigator().clipboard()) {
+        if let Some(clipboard) = window().map(|w| w.navigator().clipboard()) {
             let _ = clipboard.write_text(&text_inner);
         } else {
             // handle the lack of clipboard!

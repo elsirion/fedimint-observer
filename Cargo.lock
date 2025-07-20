@@ -1688,8 +1688,7 @@ checksum = "658bd65b1cf4c852a3cc96f18a8ce7b5640f6b703f905c7d74532294c2a63984"
 [[package]]
 name = "fedimint-api-client"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af7a73b4318cc604ded4c091398c53d3f946fc0fe50babfacc627891f93fde9c"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.7.2-patch-xyz#2eedea93cd8d5792e3839bf3ee3edbfb5651115e"
 dependencies = [
  "anyhow",
  "async-channel 2.3.1",
@@ -1830,8 +1829,7 @@ dependencies = [
 [[package]]
 name = "fedimint-core"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5eb37968c55559b1e79a6874aee5933685894008307885f01b11705bc6a6d67"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.7.2-patch-xyz#2eedea93cd8d5792e3839bf3ee3edbfb5651115e"
 dependencies = [
  "anyhow",
  "async-channel 2.3.1",
@@ -1914,8 +1912,7 @@ dependencies = [
 [[package]]
 name = "fedimint-derive"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ce85bdb6d2ed91c2f134f9ac4a290f6fdc57ac2a9f211788e75bac63d2a43d9"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.7.2-patch-xyz#2eedea93cd8d5792e3839bf3ee3edbfb5651115e"
 dependencies = [
  "itertools 0.13.0",
  "proc-macro2",
@@ -1926,8 +1923,7 @@ dependencies = [
 [[package]]
 name = "fedimint-ln-common"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b2214022915ea9377338d0722e3a264ae0e9c659492a7e51acc7b00451f228a"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.7.2-patch-xyz#2eedea93cd8d5792e3839bf3ee3edbfb5651115e"
 dependencies = [
  "anyhow",
  "bitcoin 0.32.6",
@@ -1964,8 +1960,7 @@ dependencies = [
 [[package]]
 name = "fedimint-logging"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39f2235b4b4889a466799f4aa6abc930c2b96d42292aba83610ec73d4019baaa"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.7.2-patch-xyz#2eedea93cd8d5792e3839bf3ee3edbfb5651115e"
 dependencies = [
  "anyhow",
  "tracing-subscriber",
@@ -1974,8 +1969,7 @@ dependencies = [
 [[package]]
 name = "fedimint-mint-common"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc242996096728dba764ead1d8b772a6847bde0be13fe92db4dc87241efe556d"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.7.2-patch-xyz#2eedea93cd8d5792e3839bf3ee3edbfb5651115e"
 dependencies = [
  "anyhow",
  "bitcoin_hashes 0.14.0",
@@ -2005,8 +1999,7 @@ dependencies = [
 [[package]]
 name = "fedimint-tbs"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2e92ca5d21c39f18938f817ecd20c852f12a6086346889be95339b39f5b1dbc"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.7.2-patch-xyz#2eedea93cd8d5792e3839bf3ee3edbfb5651115e"
 dependencies = [
  "bls12_381 0.8.0",
  "fedimint-core 0.7.2",
@@ -2065,8 +2058,7 @@ dependencies = [
 [[package]]
 name = "fedimint-wallet-common"
 version = "0.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09220eb530e0bd23152597a221c4df3bc89b151a0b79181e75d781d5bfcfe135"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.7.2-patch-xyz#2eedea93cd8d5792e3839bf3ee3edbfb5651115e"
 dependencies = [
  "anyhow",
  "bitcoin 0.32.6",

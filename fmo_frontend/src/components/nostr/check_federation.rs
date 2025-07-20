@@ -7,9 +7,10 @@ use fedimint_core::core::ModuleKind;
 use fedimint_core::invite_code::InviteCode;
 use leptos::html::Input;
 use leptos::{
-    component, create_action, create_node_ref, view, IntoView, MaybeSignal, SignalGet,
-    SignalGetUntracked,
+    component, create_action, create_effect, create_node_ref, view, IntoView, MaybeSignal,
+    SignalGet, SignalGetUntracked,
 };
+use leptos_router::{use_query, Params, ParamsError, ParamsMap};
 use nostr_sdk::{EventBuilder, Kind, SingleLetterTag, Tag, TagKind};
 use reqwest::StatusCode;
 
@@ -24,9 +25,24 @@ struct FederationInfo {
     federation_config: JsonClientConfig,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CheckQuery {
+    check: Option<String>,
+}
+
+impl Params for CheckQuery {
+    fn from_map(map: &ParamsMap) -> Result<Self, ParamsError> {
+        Ok(CheckQuery {
+            check: map.get("check").map(|s| s.to_string()),
+        })
+    }
+}
+
 #[component]
 pub fn CheckFederation() -> impl IntoView {
     let invite_input_ref = create_node_ref::<Input>();
+    let query = use_query::<CheckQuery>();
+
     let check_federation_action = create_action(move |&()| async move {
         let check_federation_inner = move || async move {
             let invite_code = invite_input_ref
@@ -145,6 +161,19 @@ pub fn CheckFederation() -> impl IntoView {
                 .get()
                 .map(|res| res.is_ok())
                 .unwrap_or(false)
+    });
+
+    // Handle deep-linking: auto-fill input and trigger check if 'check' parameter
+    // is present
+    create_effect(move |_| {
+        if let Ok(query_params) = query.get() {
+            if let Some(check_value) = query_params.check {
+                if let Some(input_element) = invite_input_ref.get() {
+                    input_element.set_value(&check_value);
+                    check_federation_action.dispatch(());
+                }
+            }
+        }
     });
 
     view! {

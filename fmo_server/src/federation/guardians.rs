@@ -208,34 +208,23 @@ impl FederationObserver {
         let federations = query::<FederationHealthRow>(
             &self.connection().await?,
             // language=postgresql
-            "WITH RankedRows AS (
-                    SELECT
-                        *,
-                        ROW_NUMBER() OVER (PARTITION BY federation_id, guardian_id ORDER BY time DESC) AS rn
-                    FROM
-                        guardian_health
-                    ),
-                    GuardianHealth as (
-                    SELECT
-                        RankedRows.federation_id,
-                        RankedRows.guardian_id,
-                        RankedRows.status -> 'federation'  ->> 'session_count' AS session_count
-                    FROM
-                        RankedRows
-                    WHERE
-                        rn = 1
-                    )
-                SELECT
-                    federation_id,
-                    count(*)::int as guardians,
-                    count(session_count)::int as online_guardians
-                FROM
-                    GuardianHealth
-                GROUP BY
-                    federation_id
-            ",
+            "SELECT
+                gh.federation_id,
+                COUNT(DISTINCT gh.guardian_id)::int as guardians,
+                COUNT(DISTINCT CASE WHEN gh.status -> 'federation' ->> 'session_count' IS NOT NULL
+                                   THEN gh.guardian_id END)::int as online_guardians
+             FROM guardian_health gh
+             INNER JOIN (
+                 SELECT federation_id, guardian_id, MAX(time) as latest_time
+                 FROM guardian_health
+                 GROUP BY federation_id, guardian_id
+             ) latest ON gh.federation_id = latest.federation_id
+                        AND gh.guardian_id = latest.guardian_id
+                        AND gh.time = latest.latest_time
+             GROUP BY gh.federation_id",
             &[],
-        ).await?;
+        )
+        .await?;
 
         federations
             .into_iter()

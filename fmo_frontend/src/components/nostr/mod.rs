@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use check_federation::CheckFederation;
 use fedimint_core::config::FederationId;
 use fedimint_core::invite_code::InviteCode;
-use fedimint_core::util::backon::FibonacciBuilder;
+use fedimint_core::util::backoff_util::background_backoff;
 use fedimint_core::util::retry;
 use leptos::{component, create_resource, view, IntoView, SignalGet};
 use leptos_meta::Title;
@@ -76,7 +76,7 @@ async fn fetch_nostr_federations() -> BTreeMap<FederationId, InviteCode> {
 
     retry(
         "Fetching Nostr federations",
-        FibonacciBuilder::default().with_max_times(usize::MAX),
+        background_backoff(),
         fetch_nostr_federations_impl,
     )
     .await

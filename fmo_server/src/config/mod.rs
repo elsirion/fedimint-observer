@@ -4,7 +4,6 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use fedimint_api_client::download_from_invite_code;
 use fedimint_core::config::{FederationId, JsonClientConfig};
 use fedimint_core::invite_code::InviteCode;
 use reqwest::Method;
@@ -33,7 +32,7 @@ pub fn get_config_routes() -> Router<AppState> {
         .route("/:invite/id", get(fetch_federation_id))
         .route("/:invite/module_kinds", get(fetch_federation_module_kinds));
 
-    let cors_enabled = dotenv::var("ALLOW_CONFIG_CORS").map_or(false, |v| v == "true");
+    let cors_enabled = dotenv::var("ALLOW_CONFIG_CORS").is_ok_and(|v| v == "true");
 
     if cors_enabled {
         router.layer(
@@ -87,6 +86,8 @@ impl FederationConfigCache {
 }
 
 async fn fetch_config_inner(invite: &InviteCode) -> anyhow::Result<JsonClientConfig> {
-    let raw_config = download_from_invite_code(invite).await?;
+    let raw_config = fedimint_api_client::api::net::Connector::default()
+        .download_from_invite_code(invite)
+        .await?;
     config_to_json(raw_config)
 }

@@ -8,8 +8,8 @@ use bitcoin::hashes::Hash;
 use bitcoin::{Address, OutPoint, Txid};
 use chrono::{DateTime, NaiveDate};
 use deadpool_postgres::{GenericClient, Runtime, Transaction};
+use fedimint_api_client::api::net::Connector;
 use fedimint_api_client::api::DynGlobalApi;
-use fedimint_api_client::download_from_invite_code;
 use fedimint_core::config::{ClientConfig, FederationId};
 use fedimint_core::core::DynModuleConsensusItem;
 use fedimint_core::encoding::Encodable;
@@ -17,7 +17,7 @@ use fedimint_core::epoch::ConsensusItem;
 use fedimint_core::invite_code::InviteCode;
 use fedimint_core::session_outcome::SessionOutcome;
 use fedimint_core::task::TaskGroup;
-use fedimint_core::util::backon::{ConstantBuilder, FibonacciBuilder};
+use fedimint_core::util::backoff_util::background_backoff;
 use fedimint_core::util::retry;
 use fedimint_core::{Amount, PeerId};
 use fedimint_ln_common::contracts::{Contract, IdentifiableContract};
@@ -471,7 +471,9 @@ impl FederationObserver {
             return Ok(federation_id);
         }
 
-        let config = download_from_invite_code(invite).await?;
+        let config = Connector::default()
+            .download_from_invite_code(invite)
+            .await?;
 
         self.connection()
             .await?
@@ -587,7 +589,8 @@ impl FederationObserver {
                 .iter()
                 .map(|(&peer_id, peer_url)| (peer_id, peer_url.url.clone())),
             &None,
-        );
+        )
+        .await?;
         let decoders = decoders_from_config(&config);
 
         info!("Starting background job for {federation_id}");
@@ -602,9 +605,7 @@ impl FederationObserver {
                 async move {
                     let signed_session_outcome = retry(
                         format!("Waiting for session {session_index}"),
-                        ConstantBuilder::default()
-                            .with_delay(Duration::from_secs(1))
-                            .with_max_times(usize::MAX),
+                        background_backoff(),
                         || async {
                             api_fetch_single
                                 .await_block(session_index, &decoders_single)
@@ -749,16 +750,20 @@ impl FederationObserver {
                     (Some(amount_msat), None)
                 }
                 "wallet" => {
-                    let amount_msat = input
+                    let amount = match input
                         .as_any()
                         .downcast_ref::<WalletInput>()
                         .expect("Not Wallet input")
-                        .maybe_v0_ref()
-                        .expect("Not v0")
-                        .0
-                        .tx_output()
-                        .value
-                        * 1000;
+                    {
+                        WalletInput::V0(wallet_input) => wallet_input.tx_output().value,
+                        WalletInput::V1(wallet_input) => wallet_input.tx_out.value,
+                        _ => {
+                            panic!("Unsupported WalletInput version");
+                        }
+                    };
+
+                    let amount_msat = amount.to_sat() * 1000;
+
                     (Some(amount_msat), None)
                 }
                 _ => (None, None),
@@ -1256,10 +1261,7 @@ impl FederationObserver {
 
                 let fetched_tx = retry(
                     "fetching tx from esplora".to_string(),
-                    FibonacciBuilder::default()
-                        .with_min_delay(Duration::from_secs(30))
-                        .with_max_delay(Duration::from_secs(60 * 30))
-                        .with_max_times(usize::MAX),
+                    background_backoff(),
                     || async {
                         client.get_tx_no_opt(&esplora_txid).await.map_err(|e| {
                             warn!("failed to fetch tx: {e:?}");

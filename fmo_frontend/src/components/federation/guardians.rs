@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use fedimint_core::config::FederationId;
-use fedimint_core::util::backon::FibonacciBuilder;
+use fedimint_core::util::backoff_util::background_backoff;
 use fedimint_core::util::retry;
 use fedimint_core::{NumPeers, PeerId};
 use fmo_api_types::GuardianHealth;
@@ -125,7 +125,7 @@ pub struct Guardian {
 async fn fetch_guardian_health(id: FederationId) -> BTreeMap<PeerId, GuardianHealth> {
     retry(
         "fetching guardian health",
-        FibonacciBuilder::default().with_max_times(usize::MAX),
+        background_backoff(),
         || async move {
             reqwest::get(format!("{}/federations/{}/health", BASE_URL, id))
                 .await?

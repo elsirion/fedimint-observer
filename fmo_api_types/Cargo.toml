@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bitcoin = { version = "0.30.2", features = ["serde"] }
+bitcoin = { version = "0.32.5", features = ["serde"] }
 fedimint-core = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }

@@ -141,6 +141,7 @@
             pkgs.postgresql
             # sqlite is used only for creating the dump file for migrating existing instances
             pkgs.sqlite
+            pkgs.nixpkgs-fmt
           ] ++ lib.optionals stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];

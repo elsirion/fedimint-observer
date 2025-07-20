@@ -98,7 +98,7 @@
               src = rustSrc;
 
               cargoExtraArgs = "--package=fmo_frontend";
-              trunkIndexPath = "fmo_frontend/index.html";
+              trunkIndexPath = "index.html";
               strictDeps = true;
 
               pname = "fmo_frontend";
@@ -115,6 +115,17 @@
           in
           rec {
             fmo_frontend = api: craneLib.buildTrunkPackage (wasmArgs // {
+              cargoArtifacts = cargoArtifactsWasm;
+              
+              preBuild = ''
+                cd ./fmo_frontend
+              '';
+              
+              postBuild = ''
+                mv ./dist ..
+                cd ..
+              '';
+              
               nativeBuildInputs = with pkgs; [
                 wasm-pack
                 nodejs

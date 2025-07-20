@@ -116,16 +116,16 @@
           rec {
             fmo_frontend = api: craneLib.buildTrunkPackage (wasmArgs // {
               cargoArtifacts = cargoArtifactsWasm;
-              
+
               preBuild = ''
                 cd ./fmo_frontend
               '';
-              
+
               postBuild = ''
                 mv ./dist ..
                 cd ..
               '';
-              
+
               nativeBuildInputs = with pkgs; [
                 wasm-pack
                 nodejs

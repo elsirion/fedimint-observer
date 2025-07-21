@@ -10,9 +10,10 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use fedimint_core::config::{FederationId, JsonClientConfig};
-use leptos::{component, create_resource, view, IntoView, Show, SignalGet, SignalWith};
+use leptos::prelude::*;
 use leptos_meta::Title;
-use leptos_router::{use_params, Params, ParamsError, ParamsMap};
+use leptos_router::hooks::use_params;
+use leptos_router::params::{Params, ParamsError, ParamsMap};
 use utxos::Utxos;
 
 use crate::components::federation::activity::ActivityChart;
@@ -29,18 +30,26 @@ pub fn Federation() -> impl IntoView {
         params.with(|params| params.as_ref().map(|params| params.id).ok())
     };
 
-    let config_resource = create_resource(id, |id| async move {
-        let id = id.ok_or_else(|| "No federation id".to_owned())?;
-        let config = fetch_federation_config(id)
-            .await
-            .map_err(|e| e.to_string())?;
-        Result::<_, String>::Ok(config)
+    let config_resource = LocalResource::new(move || async move {
+        match id() {
+            Some(id) => {
+                let config = fetch_federation_config(id)
+                    .await
+                    .map_err(|e| e.to_string())?;
+                Result::<_, String>::Ok(config)
+            }
+            None => Err("No federation id".to_owned()),
+        }
     });
 
-    let meta_resource = create_resource(id, |id| async move {
-        let id = id.ok_or_else(|| "No federation id".to_owned())?;
-        let meta = fetch_federation_meta(id).await.map_err(|e| e.to_string())?;
-        Result::<_, String>::Ok(meta)
+    let meta_resource = LocalResource::new(move || async move {
+        match id() {
+            Some(id) => {
+                let meta = fetch_federation_meta(id).await.map_err(|e| e.to_string())?;
+                Result::<_, String>::Ok(meta)
+            }
+            None => Err("No federation id".to_owned()),
+        }
     });
 
     view! {
@@ -118,10 +127,10 @@ pub fn Federation() -> impl IntoView {
                                     </Tab>
                                 </Tabs>
                             }
-                                .into_view()
+                                .into_any()
                         }
-                        Some(Err(e)) => view! { {format!("Error: {}", e)} }.into_view(),
-                        None => view! { "Loading..." }.into_view(),
+                        Some(Err(e)) => view! { <p>{format!("Error: {}", e)}</p> }.into_any(),
+                        None => view! { <p>"Loading..."</p> }.into_any(),
                     }
                 }}
 
@@ -138,7 +147,7 @@ struct FederationParams {
 impl Params for FederationParams {
     fn from_map(map: &ParamsMap) -> Result<Self, ParamsError> {
         map.get("id")
-            .and_then(|id| FederationId::from_str(id).ok())
+            .and_then(|id| FederationId::from_str(id.as_str()).ok())
             .map(|id| FederationParams { id })
             .ok_or_else(|| ParamsError::MissingParam("id".into()))
     }

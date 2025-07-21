@@ -5,7 +5,7 @@ use fedimint_core::config::FederationId;
 use fedimint_core::invite_code::InviteCode;
 use fedimint_core::util::backoff_util::background_backoff;
 use fedimint_core::util::retry;
-use leptos::{component, create_resource, view, IntoView, SignalGet};
+use leptos::prelude::*;
 
 use crate::components::Copyable;
 use crate::BASE_URL;
@@ -13,10 +13,8 @@ use crate::BASE_URL;
 #[component]
 pub fn NostrFederationRow(federation_id: FederationId, invite_code: InviteCode) -> impl IntoView {
     let invite_code_inner = invite_code.clone();
-    let federation_name_res = create_resource(
-        || (),
-        move |_| fetch_federation_name(invite_code_inner.clone()),
-    );
+    let federation_name_res =
+        LocalResource::new(move || fetch_federation_name(invite_code_inner.clone()));
 
     view! {
         <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">

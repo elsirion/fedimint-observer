@@ -4,10 +4,7 @@ mod totals;
 
 use fedimint_core::Amount;
 use fmo_api_types::{FederationHealth, FederationSummary};
-use leptos::{
-    component, create_resource, create_signal, view, IntoView, SignalGet, SignalGetUntracked,
-    SignalSet,
-};
+use leptos::prelude::*;
 use leptos_meta::Title;
 
 use crate::components::federations::federation_row::FederationRow;
@@ -16,10 +13,8 @@ use crate::BASE_URL;
 
 #[component]
 pub fn Federations() -> impl IntoView {
-    let federations_res = create_resource(
-        || (),
-        |_| async { fetch_federations().await.map_err(|e| e.to_string()) },
-    );
+    let federations_res =
+        LocalResource::new(|| async { fetch_federations().await.map_err(|e| e.to_string()) });
 
     fn to_row((summary, avg_txs, avg_volume): (FederationSummary, f64, Amount)) -> impl IntoView {
         view! {
@@ -59,7 +54,7 @@ pub fn Federations() -> impl IntoView {
         )
     };
 
-    let (collapse_offline, set_collapse_offline) = create_signal(true);
+    let (collapse_offline, set_collapse_offline) = signal(true);
 
     view! {
         <Title

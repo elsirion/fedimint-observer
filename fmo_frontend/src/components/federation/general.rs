@@ -1,5 +1,5 @@
 use fedimint_core::config::JsonClientConfig;
-use leptos::{component, view, IntoView};
+use leptos::prelude::*;
 
 #[component]
 pub fn General(config: JsonClientConfig) -> impl IntoView {

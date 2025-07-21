@@ -1,4 +1,4 @@
-use leptos::{component, view, IntoView};
+use leptos::prelude::*;
 use web_sys::window;
 
 // TODO: on_success/on_failure callbacks

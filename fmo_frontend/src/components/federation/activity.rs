@@ -8,10 +8,7 @@ use fedimint_core::config::FederationId;
 use fedimint_core::Amount;
 use fmo_api_types::FederationActivity;
 use itertools::Itertools;
-use leptos::{
-    component, create_effect, create_resource, create_signal, event_target_value, view, IntoView,
-    RwSignal, Show, SignalGet, SignalSet, SignalUpdate,
-};
+use leptos::prelude::*;
 
 use super::chart::TimeLineChart;
 use crate::components::alert::{Alert, AlertLevel};
@@ -19,21 +16,18 @@ use crate::util::AsBitcoin;
 
 #[component]
 pub fn ActivityChart(id: FederationId) -> impl IntoView {
-    let history_resource = create_resource(
-        || (),
-        move |()| async move {
-            fetch_federation_history(id)
-                .await
-                .map_err(|e| e.to_string())
-        },
-    );
+    let history_resource = LocalResource::new(move || async move {
+        fetch_federation_history(id)
+            .await
+            .map_err(|e| e.to_string())
+    });
 
     view! {
         {move || {
             match history_resource.get() {
-                Some(Ok(history)) => view! { <ChartInner data=history/> }.into_view(),
-                Some(Err(e)) => view! { <p>"Error: " {e}</p> }.into_view(),
-                None => view! { <p>"Loading ..."</p> }.into_view(),
+                Some(Ok(history)) => view! { <ChartInner data=history/> }.into_any(),
+                Some(Err(e)) => view! { <p>"Error: " {e}</p> }.into_any(),
+                None => view! { <p>"Loading ..."</p> }.into_any(),
             }
         }}
     }
@@ -74,11 +68,11 @@ pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoVie
         (total, transactions)
     };
 
-    let (chart_type, set_chart_type) = create_signal(ChartType::Volume);
-    let (filter_outliers, set_filter_outliers) = create_signal(true);
+    let (chart_type, set_chart_type) = signal(ChartType::Volume);
+    let (filter_outliers, set_filter_outliers) = signal(true);
 
     let chart_name_signal = RwSignal::new("".to_owned());
-    create_effect(move |_| {
+    Effect::new(move |_| {
         let chart_name = match chart_type.get() {
             ChartType::Volume => "Daily Volume",
             ChartType::Transactions => "Daily Transactions",
@@ -158,7 +152,7 @@ pub fn ChartInner(data: BTreeMap<NaiveDate, FederationActivity>) -> impl IntoVie
                 </div>
             </div>
 
-            <TimeLineChart name=chart_name_signal data=chart_data />
+            <TimeLineChart name=chart_name_signal data=Signal::derive(chart_data) />
 
         </div>
     }

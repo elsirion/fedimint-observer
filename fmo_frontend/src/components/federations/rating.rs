@@ -1,4 +1,4 @@
-use leptos::{component, view, IntoView};
+use leptos::prelude::*;
 
 #[component]
 pub fn Rating(count: u64, rating: Option<f64>) -> impl IntoView {

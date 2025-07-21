@@ -1,7 +1,8 @@
 use fedimint_core::config::FederationId;
 use fedimint_core::Amount;
 use fmo_api_types::{FederationHealth, FederationRating};
-use leptos::{component, view, IntoView};
+use leptos::either::Either;
+use leptos::prelude::*;
 
 use crate::components::badge::{Badge, BadgeLevel};
 use crate::components::federations::rating::Rating;
@@ -41,21 +42,21 @@ pub fn FederationRow(
             <td class="px-6 py-4">
                 { match health {
                     FederationHealth::Online => {
-                        view! { <Copyable text=invite/> }.into_view()
+                        Either::Left(view! { <Copyable text=invite/> })
                     },
                     FederationHealth::Degraded => {
-                        view! {
+                        Either::Right(view! {
                             <Badge level=BadgeLevel::Warning>
                                 "Degraded"
                             </Badge>
-                        }.into_view()
+                        })
                     }
                     FederationHealth::Offline => {
-                        view! {
+                        Either::Right(view! {
                             <Badge level=BadgeLevel::Error>
                                 "Offline"
                             </Badge>
-                        }.into_view()
+                        })
                     },
                 }}
             </td>

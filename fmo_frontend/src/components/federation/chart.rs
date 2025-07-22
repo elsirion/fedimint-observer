@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use leptos::{component, view, IntoView, RwSignal, Signal, SignalGet};
+use leptos::prelude::*;
 use leptos_chartistry::{
     AspectRatio, AxisMarker, Chart, Interpolation, IntoInner, Line, Period, RotatedLabel, Series,
     TickLabels, Timestamps, Tooltip, XGridLine, XGuideLine, YGridLine, YGuideLine,

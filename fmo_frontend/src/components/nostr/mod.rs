@@ -8,7 +8,7 @@ use fedimint_core::config::FederationId;
 use fedimint_core::invite_code::InviteCode;
 use fedimint_core::util::backoff_util::background_backoff;
 use fedimint_core::util::retry;
-use leptos::{component, create_resource, view, IntoView, SignalGet};
+use leptos::prelude::*;
 use leptos_meta::Title;
 use nostr_federation_row::NostrFederationRow;
 
@@ -16,7 +16,7 @@ use crate::BASE_URL;
 
 #[component]
 pub fn NostrFederations() -> impl IntoView {
-    let nostr_federations_res = create_resource(|| (), |_| fetch_nostr_federations());
+    let nostr_federations_res = LocalResource::new(fetch_nostr_federations);
 
     view! {
         <Title

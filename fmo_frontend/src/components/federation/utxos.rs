@@ -1,13 +1,13 @@
 use fedimint_core::config::FederationId;
 use fmo_api_types::FederationUtxo;
-use leptos::{component, create_resource, view, IntoView, SignalGet};
+use leptos::prelude::*;
 
 use crate::components::alert::{Alert, AlertLevel};
 use crate::util::AsBitcoin;
 
 #[component]
 pub fn Utxos(federation_id: FederationId) -> impl IntoView {
-    let utxo_resource = create_resource(|| (), move |()| fetch_federation_utxos(federation_id));
+    let utxo_resource = LocalResource::new(move || fetch_federation_utxos(federation_id));
 
     view! {
         {move || {
@@ -43,7 +43,7 @@ pub fn Utxos(federation_id: FederationId) -> impl IntoView {
                                 </tr>
                             }
                         })
-                        .collect::<Vec<_>>();
+                        .collect_view();
                     view! {
                         <div>
                             <Alert
@@ -67,11 +67,10 @@ pub fn Utxos(federation_id: FederationId) -> impl IntoView {
                                 <tbody>{rows}</tbody>
                             </table>
                         </div>
-                    }
-                        .into_view()
-                }
-                Some(Err(e)) => view! { <p>"Error: " {e}</p> }.into_view(),
-                None => view! { <p>"Loading ..."</p> }.into_view(),
+                    }.into_any()
+                },
+                Some(Err(e)) => view! { <p>"Error: " {e}</p> }.into_any(),
+                None => view! { <p>"Loading ..."</p> }.into_any(),
             }
         }}
     }

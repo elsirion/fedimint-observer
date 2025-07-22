@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 
-use leptos::{component, view, Children, IntoView, MaybeSignal, SignalGet};
+use leptos::prelude::*;
 
 #[component]
 pub fn Button<F: FnOnce() + Copy + 'static>(
     #[prop(default = PRIMARY_BUTTON)] color_scheme: ButtonColors,
     #[prop(into, optional)] class: String,
     on_click: F,
-    #[prop(into, optional)] disabled: MaybeSignal<bool>,
+    #[prop(into, optional)] disabled: Signal<bool>,
     children: Children,
 ) -> impl IntoView {
     const COMMON: &str = "whitespace-nowrap font-medium rounded-lg text-sm px-5";

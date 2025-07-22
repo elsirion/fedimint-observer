@@ -16,6 +16,7 @@ use crate::federation::observer::FederationObserver;
 
 /// Fedimint config fetching service implementation
 mod config;
+mod db;
 /// `anyhow`-based error handling for axum
 mod error;
 mod federation;

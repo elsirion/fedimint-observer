@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  nix-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - fmo_server
+          - fmo_frontend_default
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Nix
+      uses: cachix/install-nix-action@v27
+      with:
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build ${{ matrix.target }}
+      run: nix build .#${{ matrix.target }}
+
+    - name: Check build output
+      run: ls -la result*

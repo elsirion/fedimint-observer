@@ -1,8 +1,9 @@
 use fmo_frontend::components::nostr::NostrFederations;
 use fmo_frontend::components::{Federation, Federations, NavBar, NavItem};
-use leptos::*;
+use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, Link};
-use leptos_router::{Route, Router, Routes};
+use leptos_router::components::{Route, Router, Routes};
+use leptos_router::path;
 
 fn main() {
     // set up logging
@@ -33,11 +34,11 @@ fn main() {
                                 active: false,
                             },
                         ]/>
-                        <Routes>
-                            <Route path="/" view=|| view! { <Federations/> }/>
-                            <Route path="/federations/:id" view=|| view! { <Federation/> }/>
-                            <Route path="/nostr" view=|| view! { <NostrFederations/> }/>
-                            <Route path="/about" view=|| view! { <div>About</div> }/>
+                        <Routes fallback=|| view! { <div>"Page not found"</div> }>
+                            <Route path=path!("/") view=|| view! { <Federations/> }/>
+                            <Route path=path!("/federations/:id") view=|| view! { <Federation/> }/>
+                            <Route path=path!("/nostr") view=|| view! { <NostrFederations/> }/>
+                            <Route path=path!("/about") view=|| view! { <div>"About"</div> }/>
                         </Routes>
                     </main>
                 </Router>

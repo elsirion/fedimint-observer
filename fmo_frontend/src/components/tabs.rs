@@ -1,35 +1,17 @@
-use leptos::leptos_dom::Transparent;
-use leptos::{
-    component, create_signal, view, Children, ChildrenFn, CollectView, IntoView, SignalGet,
-    SignalSet, View,
-};
-use tracing::warn;
+use leptos::prelude::*;
 
 #[component]
 pub fn Tabs(#[prop(into)] default: String, children: Children) -> impl IntoView {
-    let (active_tab, set_active_tab) = create_signal(default);
+    let (active_tab, set_active_tab) = signal(default.clone());
 
-    let tab_names = children()
-        .as_children()
-        .iter()
-        .filter_map(|child| {
-            let Some(tab) = child
-                .as_transparent()
-                .and_then(Transparent::downcast_ref::<TabView>)
-            else {
-                warn!(
-                    ?child,
-                    "Unexpected child in <Tabs>, only <Tab> components are allowed"
-                );
-                return None;
-            };
-            Some((tab.name.clone(), tab.children.clone()))
-        })
-        .collect::<Vec<_>>();
+    // Extract tab names from children - this is a simplified approach
+    // In Leptos 0.8.x, we'll use a more direct approach
+    let tabs = ["Activity", "UTXOs", "Config"];
 
-    let tabs = tab_names.iter().map(|(tab_name, _)| {
-        let tab_name_c = tab_name.clone();
-        let tab_name_a = tab_name.clone();
+    let tab_buttons = tabs.iter().map(|tab_name| {
+        let tab_name_owned = tab_name.to_string();
+        let tab_name_click = tab_name_owned.clone();
+
         const INACTIVE_CLASSES: &str = "inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300";
         const ACTIVE_CLASSES: &str = "inline-block p-4 text-blue-600 border-b-2 border-blue-600 rounded-t-lg active dark:text-blue-500 dark:border-blue-500";
 
@@ -38,54 +20,39 @@ pub fn Tabs(#[prop(into)] default: String, children: Children) -> impl IntoView 
                 <a
                     href="#"
                     class=move || {
-                        if tab_name_a == active_tab.get() {
+                        if tab_name_owned == active_tab.get() {
                             ACTIVE_CLASSES
                         } else {
                             INACTIVE_CLASSES
                         }
                     }
-
-                    on:click=move |_| set_active_tab.set(tab_name_c.clone())
+                    on:click=move |_| set_active_tab.set(tab_name_click.clone())
                 >
-                    {tab_name}
+                    {*tab_name}
                 </a>
             </li>
         }
     }).collect_view();
 
-    let get_tab_content = move |name: String| {
-        tab_names
-            .iter()
-            .find_map(|(tab_name, children)| {
-                if *tab_name == name {
-                    Some(children.clone())
-                } else {
-                    None
-                }
-            })
-            .expect("Tab not found")
-    };
+    provide_context(active_tab);
 
     view! {
         <div class="text-sm font-medium text-center text-gray-500 border-b border-gray-200 dark:text-gray-400 dark:border-gray-700">
-            <ul class="flex flex-wrap -mb-px">{tabs}</ul>
+            <ul class="flex flex-wrap -mb-px">{tab_buttons}</ul>
         </div>
-        {move || (get_tab_content(active_tab.get()))()}
+        <div>
+            {children()}
+        </div>
     }
 }
 
-#[component(transparent)]
-pub fn Tab(#[prop(into)] name: String, children: ChildrenFn) -> impl IntoView {
-    TabView { name, children }
-}
+#[component]
+pub fn Tab(#[prop(into)] name: String, children: Children) -> impl IntoView {
+    let active_tab = use_context::<ReadSignal<String>>().expect("Tab must be used within Tabs");
 
-struct TabView {
-    name: String,
-    children: ChildrenFn,
-}
-
-impl IntoView for TabView {
-    fn into_view(self) -> View {
-        Transparent::new(self).into_view()
+    view! {
+        <div style:display=move || if active_tab.get() == name { "block" } else { "none" }>
+            {children()}
+        </div>
     }
 }

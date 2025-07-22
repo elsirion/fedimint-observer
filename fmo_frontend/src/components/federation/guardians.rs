@@ -5,7 +5,7 @@ use fedimint_core::util::backoff_util::background_backoff;
 use fedimint_core::util::retry;
 use fedimint_core::{NumPeers, PeerId};
 use fmo_api_types::GuardianHealth;
-use leptos::{component, create_resource, view, IntoView, SignalGet};
+use leptos::prelude::*;
 
 use crate::components::badge::{Badge, BadgeLevel};
 use crate::BASE_URL;
@@ -15,10 +15,8 @@ pub fn Guardians(federation_id: FederationId, guardians: Vec<Guardian>) -> impl 
     let n = guardians.len();
     let t = NumPeers::from(n).threshold();
 
-    let health_resource = create_resource(
-        || (),
-        move |()| async move { fetch_guardian_health(federation_id).await },
-    );
+    let health_resource =
+        LocalResource::new(move || async move { fetch_guardian_health(federation_id).await });
 
     let warn_if_true = |warn| {
         if warn {
@@ -80,14 +78,14 @@ pub fn Guardians(federation_id: FederationId, guardians: Vec<Guardian>) -> impl 
                                             }.into_view());
                                         }
 
-                                        badges.into_view()
+                                        view! { {badges} }.into_any()
                                     }
                                     None => {
                                         view! {
                                             <span class="text-sm font-medium text-gray-500 dark:text-gray-400">
                                                 "Loading"
                                             </span>
-                                        }.into_view()
+                                        }.into_any()
                                     }
                                 }}
                             </p>

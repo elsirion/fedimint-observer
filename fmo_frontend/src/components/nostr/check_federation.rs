@@ -5,12 +5,11 @@ use anyhow::{ensure, Context};
 use fedimint_core::config::JsonClientConfig;
 use fedimint_core::core::ModuleKind;
 use fedimint_core::invite_code::InviteCode;
+use leptos::either::Either;
 use leptos::html::Input;
-use leptos::{
-    component, create_action, create_effect, create_node_ref, view, IntoView, MaybeSignal,
-    SignalGet, SignalGetUntracked,
-};
-use leptos_router::{use_query, Params, ParamsError, ParamsMap};
+use leptos::prelude::*;
+use leptos_router::hooks::use_query;
+use leptos_router::params::{Params, ParamsError, ParamsMap};
 use nostr_sdk::{EventBuilder, Kind, SingleLetterTag, Tag, TagKind};
 use reqwest::StatusCode;
 
@@ -40,56 +39,57 @@ impl Params for CheckQuery {
 
 #[component]
 pub fn CheckFederation() -> impl IntoView {
-    let invite_input_ref = create_node_ref::<Input>();
+    let invite_input_ref = NodeRef::<Input>::new();
     let query = use_query::<CheckQuery>();
 
-    let check_federation_action = create_action(move |&()| async move {
-        let check_federation_inner = move || async move {
-            let invite_code = invite_input_ref
-                .get_untracked()
-                .expect("invite_input_ref should be loaded by now")
-                .value();
+    let check_federation_action =
+        Action::<(), std::result::Result<FederationInfo, String>>::new_local(
+            move |&()| async move {
+                let check_federation_inner = move || async move {
+                    let invite_code = invite_input_ref
+                        .get_untracked()
+                        .expect("invite_input_ref should be loaded by now")
+                        .value();
 
-            let federation_config = {
-                let url = format!("{}/config/{invite_code}", BASE_URL);
-                let response = reqwest::get(&url).await?;
-                let config: JsonClientConfig = response.json().await?;
-                config
-            };
+                    let federation_config = {
+                        let url = format!("{}/config/{invite_code}", BASE_URL);
+                        let response = reqwest::get(&url).await?;
+                        let config: JsonClientConfig = response.json().await?;
+                        config
+                    };
 
-            let federation_name = {
-                let url = format!("{}/config/{invite_code}/meta", BASE_URL);
-                let response = reqwest::get(&url).await?;
-                let meta: BTreeMap<String, serde_json::Value> = response.json().await?;
-                meta.get("federation_name")
-                    .context("No name found")?
-                    .as_str()
-                    .context("Name isn't a string")?
-                    .to_owned()
-            };
+                    let federation_name = {
+                        let url = format!("{}/config/{invite_code}/meta", BASE_URL);
+                        let response = reqwest::get(&url).await?;
+                        let meta: BTreeMap<String, serde_json::Value> = response.json().await?;
+                        meta.get("federation_name")
+                            .context("No name found")?
+                            .as_str()
+                            .context("Name isn't a string")?
+                            .to_owned()
+                    };
 
-            Result::<_, anyhow::Error>::Ok(FederationInfo {
-                federation_name,
-                federation_config,
-            })
-        };
+                    Result::<_, anyhow::Error>::Ok(FederationInfo {
+                        federation_name,
+                        federation_config,
+                    })
+                };
 
-        check_federation_inner().await.map_err(|e| e.to_string())
-    });
+                check_federation_inner().await.map_err(|e| e.to_string())
+            },
+        );
 
     fn or_loading<I: IntoView>(maybe_value: Option<I>) -> impl IntoView {
         if let Some(value) = maybe_value {
-            view! {
+            Either::Left(view! {
                 <span>
                     {value}
                 </span>
-            }
-            .into_view()
+            })
         } else {
-            view! {
+            Either::Right(view! {
                 <div class="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-48"></div>
-            }
-            .into_view()
+            })
         }
     }
 
@@ -135,20 +135,23 @@ pub fn CheckFederation() -> impl IntoView {
         }))
     };
 
-    let announce_federation_action = create_action(move |&()| async move {
-        let federation_info = check_federation_action
-            .value()
-            .get_untracked()
-            .expect("Button should only be clickable if federation info was fetched")
-            .expect("Button should only be clickable if federation info fetching was successful");
+    let announce_federation_action =
+        Action::<(), std::result::Result<(), String>>::new_local(move |&()| async move {
+            let federation_info = check_federation_action
+                .value()
+                .get_untracked()
+                .expect("Button should only be clickable if federation info was fetched")
+                .expect(
+                    "Button should only be clickable if federation info fetching was successful",
+                );
 
-        sign_and_publish_federation(&federation_info.federation_config)
-            .await
-            .map_err(|e| e.to_string())?;
+            sign_and_publish_federation(&federation_info.federation_config)
+                .await
+                .map_err(|e| e.to_string())?;
 
-        Result::<_, String>::Ok(())
-    });
-    let announce_button_disabled = MaybeSignal::derive(move || {
+            Result::<_, String>::Ok(())
+        });
+    let announce_button_disabled = Signal::derive(move || {
         check_federation_action.pending().get()
             || !check_federation_action
                 .value()
@@ -165,11 +168,11 @@ pub fn CheckFederation() -> impl IntoView {
 
     // Handle deep-linking: auto-fill input and trigger check if 'check' parameter
     // is present
-    create_effect(move |_| {
+    Effect::new(move |_| {
         if let Ok(query_params) = query.get() {
-            if let Some(check_value) = query_params.check {
+            if let Some(ref check_value) = query_params.check {
                 if let Some(input_element) = invite_input_ref.get() {
-                    input_element.set_value(&check_value);
+                    input_element.set_value(check_value);
                     check_federation_action.dispatch(());
                 }
             }
@@ -195,7 +198,7 @@ pub fn CheckFederation() -> impl IntoView {
                 >
                     <div class="relative flex-1">
                         <input
-                            _ref=invite_input_ref
+                            node_ref=invite_input_ref
                             placeholder=" "
                             type="text"
                             class="block px-2.5 h-11 w-full text-sm text-gray-900 bg-transparent rounded-lg border-gray-300 appearance-none dark:text-white dark:border-gray-600 dark:focus:border-blue-500 focus:outline-none focus:ring-0 focus:border-blue-600 peer border"
@@ -227,82 +230,97 @@ pub fn CheckFederation() -> impl IntoView {
                         Announce Federation
                     </Button>
                 </form>
-                { move || match announce_federation_action.value().get() {
-                    Some(Err(e)) => {view! {
-                        <Alert
-                            message=e
-                            level=AlertLevel::Error
-                            class="mt-4"
-                        />
-                    }.into_view()}
-                    Some(Ok(())) => {view! {
-                        <Alert
-                            message="Federation announced successfully! Reload the page to see it listed"
-                            level=AlertLevel::Success
-                            class="mt-4"
-                        />
-                    }.into_view()}
-                    None => {view!().into_view()}
-                }}
+                {
+                    let error_alert = move || announce_federation_action.value().get()
+                        .and_then(|res| res.err())
+                        .map(|e| view! {
+                            <Alert
+                                message=e
+                                level=AlertLevel::Error
+                                class="mt-4"
+                            />
+                        });
+                    let success_alert = move || announce_federation_action.value().get()
+                        .and_then(|res| res.ok())
+                        .map(|_| view! {
+                            <Alert
+                                message="Federation announced successfully! Reload the page to see it listed"
+                                level=AlertLevel::Success
+                                class="mt-4"
+                            />
+                        });
+                    view! {
+                        {error_alert}
+                        {success_alert}
+                    }
+                }
 
-                { move || if check_federation_action.pending().get() || check_federation_action.value().get().map(|info| info.is_ok()).unwrap_or(false) {
+                {
+                    let table_view = move || {
+                        (check_federation_action.pending().get() || check_federation_action.value().get().map(|info| info.is_ok()).unwrap_or(false))
+                            .then(|| view! {
+                                <div class="flow-root mt-4">
+                                    <div class="relative overflow-x-auto">
+                                        <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+                                            <tbody>
+                                                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                                    <th
+                                                        scope="row"
+                                                        class="px-6 py-4 font-medium text-gray-900 dark:text-white"
+                                                    >
+                                                        Name
+                                                    </th>
+                                                    <td class="px-6 py-4">{federation_name}</td>
+                                                </tr>
+                                                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                                    <th
+                                                        scope="row"
+                                                        class="px-6 py-4 font-medium text-gray-900 dark:text-white"
+                                                    >
+                                                        Guardians
+                                                    </th>
+                                                    <td class="px-6 py-4 whitespace-normal">{federation_guardians}</td>
+                                                </tr>
+                                                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                                    <th
+                                                        scope="row"
+                                                        class="px-6 py-4 font-medium text-gray-900 dark:text-white"
+                                                    >
+                                                        Modules
+                                                    </th>
+                                                    <td class="px-6 py-4 whitespace-normal">{federation_modules}</td>
+                                                </tr>
+                                                <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                                                    <th
+                                                        scope="row"
+                                                        class="px-6 py-4 font-medium text-gray-900 dark:text-white"
+                                                    >
+                                                        Network
+                                                    </th>
+                                                    <td class="px-6 py-4 whitespace-normal">{federation_network}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            })
+                    };
+                    let error_alert = move || {
+                        check_federation_action.value().get()
+                            .and_then(|res| res.err())
+                            .map(|e| view! {
+                                <Alert
+                                    message=e
+                                    level=AlertLevel::Error
+                                    class="mt-4"
+                                />
+                            })
+                    };
                     view! {
-                        <div class="flow-root mt-4">
-                            <div class="relative overflow-x-auto">
-                                <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-                                    <tbody>
-                                        <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                            <th
-                                                scope="row"
-                                                class="px-6 py-4 font-medium text-gray-900 dark:text-white"
-                                            >
-                                                Name
-                                            </th>
-                                            <td class="px-6 py-4">{federation_name}</td>
-                                        </tr>
-                                        <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                            <th
-                                                scope="row"
-                                                class="px-6 py-4 font-medium text-gray-900 dark:text-white"
-                                            >
-                                                Guardians
-                                            </th>
-                                            <td class="px-6 py-4 whitespace-normal">{federation_guardians}</td>
-                                        </tr>
-                                        <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                            <th
-                                                scope="row"
-                                                class="px-6 py-4 font-medium text-gray-900 dark:text-white"
-                                            >
-                                                Modules
-                                            </th>
-                                            <td class="px-6 py-4 whitespace-normal">{federation_modules}</td>
-                                        </tr>
-                                        <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                                            <th
-                                                scope="row"
-                                                class="px-6 py-4 font-medium text-gray-900 dark:text-white"
-                                            >
-                                                Network
-                                            </th>
-                                            <td class="px-6 py-4 whitespace-normal">{federation_network}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    }.into_view()
-                } else if let Some(Err(e)) = check_federation_action.value().get() {
-                    view! {
-                        <Alert
-                            message=e
-                            level=AlertLevel::Error
-                            class="mt-4"
-                        />
-                    }.into_view()
-                } else {
-                    view!().into_view()
-                }}
+                        {table_view}
+                        {error_alert}
+                    }
+                }
             </div>
         </div>
     }

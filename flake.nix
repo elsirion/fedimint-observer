@@ -106,7 +106,7 @@
 
               # Specify the wasm32 target
               CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
-              RUSTFLAGS = "--cfg=web_sys_unstable_apis";
+              RUSTFLAGS = "--cfg=web_sys_unstable_apis --cfg getrandom_backend=\"wasm_js\"";
             };
 
             cargoArtifactsWasm = craneLib.buildDepsOnly (wasmArgs // {
@@ -138,14 +138,14 @@
               wasm-bindgen-cli = pkgs.buildWasmBindgenCli rec {
                 src = pkgs.fetchCrate {
                   pname = "wasm-bindgen-cli";
-                  version = "0.2.92";
-                  hash = "sha256-1VwY8vQy7soKEgbki4LD+v259751kKxSxmo/gqE6yV0=";
+                  version = "0.2.100";
+                  hash = "sha256-3RJzK7mkYFrs7C/WkhW9Rr4LdP5ofb2FdYGz1P7Uxog=";
                 };
 
                 cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
                   inherit src;
                   inherit (src) pname version;
-                  hash = "sha256-81vQkKubMWaX0M3KAwpYgMA1zUQuImFGvh5yTW+rIAs=";
+                  hash = "sha256-qsO12332HSjWCVKtf1cUePWWb9IdYUmT+8OPj/XP2WE=";
                 };
               };
             });

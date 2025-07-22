@@ -1,4 +1,5 @@
-use leptos::{component, view, Children, IntoView};
+use leptos::either::Either;
+use leptos::prelude::*;
 
 #[component]
 pub fn Badge(
@@ -14,22 +15,18 @@ pub fn Badge(
     };
 
     match tooltip {
-        Some(tooltip_str) => {
-            view! {
-                <span class=style>
-                    <abbr title=tooltip_str>
-                        { children() }
-                    </abbr>
-                </span>
-            }
-        }
-        None => {
-            view! {
-                <span class=style>
+        Some(tooltip_str) => Either::Left(view! {
+            <span class=style>
+                <abbr title=tooltip_str>
                     { children() }
-                </span>
-            }
-        }
+                </abbr>
+            </span>
+        }),
+        None => Either::Right(view! {
+            <span class=style>
+                { children() }
+            </span>
+        }),
     }
 }
 

@@ -1,9 +1,7 @@
-use std::future::Future;
-use std::pin::Pin;
 use std::str::FromStr;
 use std::time::{Duration, SystemTime};
 
-use anyhow::ensure;
+use anyhow::{bail, ensure};
 use bitcoin::hashes::Hash;
 use bitcoin::{Address, OutPoint, Txid};
 use chrono::{DateTime, NaiveDate};
@@ -39,20 +37,11 @@ use tokio_postgres::NoTls;
 use tracing::log::info;
 use tracing::{debug, error, info_span, warn, Instrument};
 
-use crate::federation::db::{Federation, FederationV0};
+use crate::db::DbMigration;
+use crate::federation::db::Federation;
 use crate::federation::{db, decoders_from_config, instance_to_kind};
 use crate::util::{execute, query, query_one, query_opt, query_value};
-
-type BackfillFn = for<'a> fn(
-    &'a FederationObserver,
-    &'a Transaction<'a>,
-) -> Pin<Box<dyn Future<Output = anyhow::Result<()>> + Send + 'a>>;
-
-pub struct DbMigration {
-    pub index: i32,
-    pub sql: &'static str,
-    pub backfill: Option<BackfillFn>,
-}
+use crate::{migration, migration_backfill, schema_setup};
 
 #[derive(Debug, Clone)]
 pub struct FederationObserver {
@@ -173,69 +162,46 @@ impl FederationObserver {
         )
         .await?;
 
-        let schema_version =
-            query_value::<i32>(&self.connection().await?, "SELECT get_max_version();", &[]).await?;
+        let maybe_schema_version =
+            match query_value::<i32>(&self.connection().await?, "SELECT get_max_version();", &[])
+                .await?
+            {
+                -1 => {
+                    // No schema version table, assume schema is not set up
+                    info!("No schema version found, setting up schema");
+                    None
+                }
+                version => Some(version as usize),
+            };
 
         let migrations: &[DbMigration] = &[
-            DbMigration {
-                index: 0,
-                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v0.sql")),
-                backfill: None,
-            },
-            DbMigration {
-                index: 1,
-                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v1.sql")),
-                backfill: None,
-            },
-            DbMigration {
-                index: 2,
-                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v2.sql")),
-                backfill: Some(|slf, dbtx| Box::pin(slf.backfill_reprocess_all_sessions(dbtx))),
-            },
-            DbMigration {
-                index: 3,
-                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v3.sql")),
-                backfill: None,
-            },
-            DbMigration {
-                index: 4,
-                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v4.sql")),
-                backfill: None,
-            },
-            DbMigration {
-                index: 5,
-                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v5.sql")),
-                backfill: None,
-            },
-            DbMigration {
-                index: 6,
-                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v6.sql")),
-                backfill: Some(|slf, dbtx| Box::pin(slf.backfill_v6_migrate_configs(dbtx))),
-            },
-            DbMigration {
-                index: 7,
-                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v7.sql")),
-                backfill: None,
-            },
-            DbMigration {
-                index: 8,
-                sql: include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/schema/v8.sql")),
-                backfill: Some(|slf, dbtx| Box::pin(slf.backfill_reprocess_all_sessions(dbtx))),
-            },
+            schema_setup!("/schema/v0.sql"),
+            schema_setup!("/schema/v1.sql"),
+            schema_setup!("/schema/v2.sql"),
+            schema_setup!("/schema/v3.sql"),
+            schema_setup!("/schema/v4.sql"),
+            schema_setup!("/schema/v5.sql"),
+            schema_setup!("/schema/v6.sql"),
+            migration!("/schema/v7.sql"),
+            migration_backfill!(
+                "/schema/v8.sql",
+                FederationObserver::backfill_reprocess_all_sessions
+            ),
         ];
 
-        for migration in migrations.iter() {
-            if migration.index > schema_version {
+        for (index, migration) in migrations.iter().enumerate() {
+            if maybe_schema_version.is_none_or(|schema_version| index > schema_version) {
                 let mut conn = self.connection().await?;
                 let transaction = conn.transaction().await?;
                 transaction.batch_execute(migration.sql).await?;
-                if let Some(backfill_fn) = migration.backfill {
-                    info!(
-                        "Running backfill procedure for migration to V{}",
-                        migration.index
-                    );
+
+                if let Some(backfill_fn) = &migration.backfill {
+                    info!("Running backfill procedure for migration to V{}", index);
                     backfill_fn(self, &transaction).await?;
+                } else if maybe_schema_version.is_some() {
+                    bail!("Migration V{} does not have a backfill procedure but needs one since the DB is already populated. Please use an older version of Fedimint Observer to run the migration.", index);
                 }
+
                 transaction.commit().await?;
             }
         }
@@ -316,28 +282,6 @@ impl FederationObserver {
                 )
                 .await?;
             }
-        }
-        Ok(())
-    }
-
-    async fn backfill_v6_migrate_configs(&self, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
-        let federations =
-            query::<FederationV0>(&self.connection().await?, "SELECT * FROM federations", &[])
-                .await?;
-        for fed in federations {
-            let config = serde_json::from_value::<ClientConfig>(
-                serde_json::to_value(fed.config).expect("serializabke"),
-            )
-            .expect("Invalid JSON");
-
-            dbtx.execute(
-                "UPDATE federations SET config = $1 WHERE federation_id = $2",
-                &[
-                    &config.consensus_encode_to_vec(),
-                    &fed.federation_id.consensus_encode_to_vec(),
-                ],
-            )
-            .await?;
         }
         Ok(())
     }

@@ -1,14 +1,11 @@
-use leptos::{component, create_signal, view, IntoView, SignalGet, SignalSet};
+use leptos::prelude::*;
 
 #[component]
-pub fn StarsSelector(
-    default_value: u8,
-    selected_stars: impl SignalSet<Value = u8> + Copy + 'static,
-) -> impl IntoView {
+pub fn StarsSelector(default_value: u8, selected_stars: WriteSignal<u8>) -> impl IntoView {
     selected_stars.set(default_value);
 
-    let (selected, set_selected) = create_signal(default_value);
-    let (hover, set_hover) = create_signal(None);
+    let (selected, set_selected) = signal(default_value);
+    let (hover, set_hover) = signal(None);
 
     let star = move |star_idx: u8, fill: bool, border: bool| {
         view! {

@@ -1804,7 +1804,7 @@ checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 [[package]]
 name = "fedimint-api-client"
 version = "0.8.0-beta.2"
-source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#afbe56ee4ec26f8b01fd2d7cf00d8eee1c86d44e"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#b3b6a41a48120b298dcd8560cd6c312e9a4bbfe9"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
@@ -1893,7 +1893,7 @@ dependencies = [
 [[package]]
 name = "fedimint-core"
 version = "0.8.0-beta.2"
-source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#afbe56ee4ec26f8b01fd2d7cf00d8eee1c86d44e"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#b3b6a41a48120b298dcd8560cd6c312e9a4bbfe9"
 dependencies = [
  "anyhow",
  "async-channel 2.5.0",
@@ -1964,7 +1964,7 @@ dependencies = [
 [[package]]
 name = "fedimint-derive"
 version = "0.8.0-beta.2"
-source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#afbe56ee4ec26f8b01fd2d7cf00d8eee1c86d44e"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#b3b6a41a48120b298dcd8560cd6c312e9a4bbfe9"
 dependencies = [
  "itertools 0.14.0",
  "proc-macro2",
@@ -1975,7 +1975,7 @@ dependencies = [
 [[package]]
 name = "fedimint-ln-common"
 version = "0.8.0-beta.2"
-source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#afbe56ee4ec26f8b01fd2d7cf00d8eee1c86d44e"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#b3b6a41a48120b298dcd8560cd6c312e9a4bbfe9"
 dependencies = [
  "anyhow",
  "bitcoin 0.32.6",
@@ -2002,7 +2002,7 @@ dependencies = [
 [[package]]
 name = "fedimint-logging"
 version = "0.8.0-beta.2"
-source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#afbe56ee4ec26f8b01fd2d7cf00d8eee1c86d44e"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#b3b6a41a48120b298dcd8560cd6c312e9a4bbfe9"
 dependencies = [
  "anyhow",
  "tracing-subscriber",
@@ -2011,7 +2011,7 @@ dependencies = [
 [[package]]
 name = "fedimint-mint-common"
 version = "0.8.0-beta.2"
-source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#afbe56ee4ec26f8b01fd2d7cf00d8eee1c86d44e"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#b3b6a41a48120b298dcd8560cd6c312e9a4bbfe9"
 dependencies = [
  "anyhow",
  "bitcoin_hashes 0.14.0",
@@ -2025,7 +2025,7 @@ dependencies = [
 [[package]]
 name = "fedimint-tbs"
 version = "0.8.0-beta.2"
-source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#afbe56ee4ec26f8b01fd2d7cf00d8eee1c86d44e"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#b3b6a41a48120b298dcd8560cd6c312e9a4bbfe9"
 dependencies = [
  "bls12_381",
  "fedimint-core 0.8.0-beta.2",
@@ -2062,7 +2062,7 @@ dependencies = [
 [[package]]
 name = "fedimint-wallet-common"
 version = "0.8.0-beta.2"
-source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#afbe56ee4ec26f8b01fd2d7cf00d8eee1c86d44e"
+source = "git+https://github.com/elsirion/fedimint?branch=v0.8-beta.2-patch-xyz#b3b6a41a48120b298dcd8560cd6c312e9a4bbfe9"
 dependencies = [
  "anyhow",
  "bitcoin 0.32.6",

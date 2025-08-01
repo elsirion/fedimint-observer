@@ -4,6 +4,7 @@ mod totals;
 
 use fedimint_core::Amount;
 use fmo_api_types::{FederationHealth, FederationSummary};
+use itertools::Itertools;
 use leptos::prelude::*;
 use leptos_meta::Title;
 
@@ -164,6 +165,10 @@ pub fn Federations() -> impl IntoView {
 }
 
 async fn fetch_federations() -> anyhow::Result<Vec<(FederationSummary, f64, Amount)>> {
+    fn rating_index(rating: &fmo_api_types::FederationRating) -> f64 {
+        rating.avg.unwrap_or(0.0) * (rating.count as f64 + 1.0).log10()
+    }
+
     let url = format!("{}/federations", BASE_URL);
     let response = reqwest::get(&url).await?;
     let federations: Vec<FederationSummary> = response.json().await?;
@@ -186,6 +191,9 @@ async fn fetch_federations() -> anyhow::Result<Vec<(FederationSummary, f64, Amou
                     / federation_summary.last_7d_activity.len() as u64,
             );
             (federation_summary, avg_txs, avg_volume)
+        })
+        .sorted_by(|(a, _, _), (b, _, _)| {
+            rating_index(&b.nostr_votes).total_cmp(&rating_index(&a.nostr_votes))
         })
         .collect::<Vec<_>>();
 

@@ -727,21 +727,24 @@ impl FederationObserver {
             .await?;
 
             if kind.as_str() == "wallet" {
-                let peg_in_proof = &input
+                let (outpoint, script) = match input
                     .as_any()
                     .downcast_ref::<WalletInput>()
                     .expect("Not Wallet input")
-                    .maybe_v0_ref()
-                    .expect("Not v0")
-                    .0;
+                {
+                    WalletInput::V0(peg_in_proof) => {
+                        let outpoint = peg_in_proof.outpoint();
+                        let script = peg_in_proof.tx_output().script_pubkey;
+                        (outpoint, script)
+                    }
+                    WalletInput::V1(v1) => (v1.outpoint, v1.tx_out.script_pubkey.clone()),
+                    WalletInput::Default { variant, .. } => {
+                        panic!("WalletInput v{variant} not implemented");
+                    }
+                };
 
-                let outpoint = peg_in_proof.outpoint();
-
-                let address = bitcoin::Address::from_script(
-                    bitcoin::Script::from_bytes(peg_in_proof.tx_output().script_pubkey.as_bytes()),
-                    bitcoin::Network::Bitcoin,
-                )
-                .expect("Invalid output address");
+                let address = bitcoin::Address::from_script(&script, bitcoin::Network::Bitcoin)
+                    .expect("Invalid output address");
 
                 dbtx.execute(
                         "INSERT INTO wallet_peg_ins VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING",

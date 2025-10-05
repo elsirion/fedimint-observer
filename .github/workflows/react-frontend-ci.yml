@@ -1,0 +1,201 @@
+name: React Frontend CI
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'fmo_frontend_react/**'
+      - '.github/workflows/react-frontend-ci.yml'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'fmo_frontend_react/**'
+      - '.github/workflows/react-frontend-ci.yml'
+
+jobs:
+  lint-and-build:
+    name: Lint and Build React Frontend
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: fmo_frontend_react/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./fmo_frontend_react
+      run: npm ci
+
+    - name: Run ESLint
+      working-directory: ./fmo_frontend_react
+      run: npm run lint
+      continue-on-error: true
+
+    - name: TypeScript type check
+      working-directory: ./fmo_frontend_react
+      run: npx tsc --noEmit
+
+    - name: Build production bundle
+      working-directory: ./fmo_frontend_react
+      run: npm run build
+
+    - name: Check build output
+      working-directory: ./fmo_frontend_react
+      run: |
+        echo "Build completed successfully!"
+        ls -lh dist/
+        echo "CSS size:"
+        ls -lh dist/assets/*.css
+        echo "JS size:"
+        ls -lh dist/assets/*.js
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: react-frontend-build
+        path: fmo_frontend_react/dist/
+        retention-days: 7
+
+  test:
+    name: Test React Frontend
+    runs-on: ubuntu-latest
+    needs: lint-and-build
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: fmo_frontend_react/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./fmo_frontend_react
+      run: npm ci
+
+    - name: Run tests (placeholder)
+      working-directory: ./fmo_frontend_react
+      run: |
+        echo "No tests configured yet"
+        echo "To add tests, install vitest or jest and add test scripts"
+      continue-on-error: true
+
+  preview-build:
+    name: Build Preview
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: lint-and-build
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: fmo_frontend_react/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./fmo_frontend_react
+      run: npm ci
+
+    - name: Build for preview
+      working-directory: ./fmo_frontend_react
+      run: npm run build
+
+    - name: Comment PR with build info
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          const distPath = './fmo_frontend_react/dist';
+          const stats = fs.statSync(path.join(distPath, 'index.html'));
+          
+          const comment = `## 🚀 React Frontend Build Preview
+          
+          ✅ Build completed successfully!
+          
+          **Build artifacts:**
+          - Ready for deployment
+          - All TypeScript checks passed
+          - Production bundle generated
+          
+          **Next steps:**
+          - Review the changes
+          - Test locally if needed
+          - Merge when ready
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+  bundle-size-check:
+    name: Bundle Size Check
+    runs-on: ubuntu-latest
+    needs: lint-and-build
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: fmo_frontend_react/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./fmo_frontend_react
+      run: npm ci
+
+    - name: Build
+      working-directory: ./fmo_frontend_react
+      run: npm run build
+
+    - name: Analyze bundle size
+      working-directory: ./fmo_frontend_react
+      run: |
+        echo "## Bundle Size Analysis" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### JavaScript Bundles" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        ls -lh dist/assets/*.js | awk '{print $9, $5}' >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### CSS Bundles" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        ls -lh dist/assets/*.css | awk '{print $9, $5}' >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Calculate total size
+        TOTAL_JS=$(du -ch dist/assets/*.js | grep total | awk '{print $1}')
+        TOTAL_CSS=$(du -ch dist/assets/*.css | grep total | awk '{print $1}')
+        echo "**Total JS:** $TOTAL_JS" >> $GITHUB_STEP_SUMMARY
+        echo "**Total CSS:** $TOTAL_CSS" >> $GITHUB_STEP_SUMMARY

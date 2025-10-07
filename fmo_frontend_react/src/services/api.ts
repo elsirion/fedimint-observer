@@ -1,10 +1,10 @@
 import type { FedimintTotals, FederationSummary } from '../types/api';
 
-const BASE_URL = import.meta.env.VITE_API_SERVER || 'http://127.0.0.1:3000';
+const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
 
 export const api = {
   async getTotals(): Promise<FedimintTotals> {
-    const response = await fetch(`${BASE_URL}/totals`);
+    const response = await fetch(`${BASE_URL}/federations/totals`);
     if (!response.ok) {
       throw new Error('Failed to fetch totals');
     }
@@ -27,7 +27,7 @@ export const api = {
     return response.json();
   },
 
-  async getNostrFederations(): Promise<FederationSummary[]> {
+  async getNostrFederations(): Promise<Record<string, string>> {
     const response = await fetch(`${BASE_URL}/nostr/federations`);
     if (!response.ok) {
       throw new Error('Failed to fetch nostr federations');

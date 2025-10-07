@@ -128,25 +128,25 @@ jobs:
         script: |
           const fs = require('fs');
           const path = require('path');
-          
+
           const distPath = './fmo_frontend_react/dist';
           const stats = fs.statSync(path.join(distPath, 'index.html'));
-          
-          const comment = `## 🚀 React Frontend Build Preview
-          
-          ✅ Build completed successfully!
-          
+
+          const comment = `## React Frontend Build Preview
+
+          Build completed successfully!
+
           **Build artifacts:**
           - Ready for deployment
           - All TypeScript checks passed
           - Production bundle generated
-          
+
           **Next steps:**
           - Review the changes
           - Test locally if needed
           - Merge when ready
           `;
-          
+
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
@@ -193,7 +193,7 @@ jobs:
         ls -lh dist/assets/*.css | awk '{print $9, $5}' >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
+
         # Calculate total size
         TOTAL_JS=$(du -ch dist/assets/*.js | grep total | awk '{print $1}')
         TOTAL_CSS=$(du -ch dist/assets/*.css | grep total | awk '{print $1}')

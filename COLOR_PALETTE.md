@@ -4,7 +4,7 @@
 
 ### Background Colors
 - **Body Background**: `dark:bg-gray-900` (#111827) ✅ MATCHES
-- **Navbar**: `bg-white` (light) / `dark:bg-gray-900` (dark) ✅ MATCHES  
+- **Navbar**: `bg-white` (light) / `dark:bg-gray-900` (dark) ✅ MATCHES
 - **Tables**: `bg-white` (light) / `dark:bg-gray-800` (dark) ✅ MATCHES
 - **Table Header**: `bg-gray-50` (light) / `dark:bg-gray-700` (dark) ✅ MATCHES
 
@@ -77,7 +77,7 @@
 - **Body Background**: `dark:bg-gray-900` ✅ MATCHES
 
 ### Formatting
-- **Bitcoin Display**: 
+- **Bitcoin Display**:
   - Table cells: `XX.XXXXXX BTC` ✅ MATCHES
   - Total Volume: Bitcoin symbol + number (no text) ✅ MATCHES
 - **Number Formatting**: Thousand separators ✅ MATCHES
@@ -85,7 +85,7 @@
 
 ### Icons
 - **GitHub Icon**: SVG path identical ✅ MATCHES
-- **Bitcoin Symbol**: SVG path identical ✅ MATCHES  
+- **Bitcoin Symbol**: SVG path identical ✅ MATCHES
 - **Star Icon**: SVG path identical ✅ MATCHES
 - **Copy Icon**: SVG path identical ✅ MATCHES
 - **Checkmark Icon**: SVG path for copied state ✅ ADDED

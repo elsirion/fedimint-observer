@@ -19,14 +19,6 @@ export const api = {
     return response.json();
   },
 
-  async getFederation(id: string): Promise<FederationSummary> {
-    const response = await fetch(`${BASE_URL}/federations/${id}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch federation ${id}`);
-    }
-    return response.json();
-  },
-
   async getNostrFederations(): Promise<Record<string, string>> {
     const response = await fetch(`${BASE_URL}/nostr/federations`);
     if (!response.ok) {

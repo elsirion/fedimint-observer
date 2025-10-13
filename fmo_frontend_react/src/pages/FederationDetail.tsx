@@ -86,7 +86,8 @@ export function FederationDetail() {
           throw new Error('Federation not found');
         }
         setFederation(fed);
-        return fetchFederationConfig(fed.invite);
+        // Fetch config using federation ID first, fallback to invite if needed
+        return fetchFederationConfig(id, fed.invite);
       })
       .then((configData) => {
         setConfig(configData);
@@ -266,6 +267,7 @@ export function FederationDetail() {
             <div className="space-y-4">
               {config.guardians.map((guardian) => {
                 const health = guardianHealth[guardian.id.toString()];
+                const isLoading = !health;
                 const isOnline = health?.latest !== null && health?.latest !== undefined;
                 const session = health?.latest?.session_count || 0;
                 const block = health?.latest ? health.latest.block_height - 1 : 0;
@@ -281,23 +283,31 @@ export function FederationDetail() {
                       {guardian.url}
                     </div>
                     <div className="flex gap-2 flex-wrap">
-                      <Badge level={isOnline ? 'success' : 'error'}>
-                        {isOnline ? 'Online' : 'Offline'}
-                      </Badge>
-                      {isOnline && (
+                      {isLoading ? (
+                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                          Loading...
+                        </span>
+                      ) : (
                         <>
-                          <Badge
-                            level={sessionOutdated ? 'warning' : 'info'}
-                            tooltip={sessionOutdated ? 'Guardian is lacking behind others' : undefined}
-                          >
-                            Session {session}
+                          <Badge level={isOnline ? 'success' : 'error'}>
+                            {isOnline ? 'Online' : 'Offline'}
                           </Badge>
-                          <Badge
-                            level={blockOutdated ? 'warning' : 'info'}
-                            tooltip={blockOutdated ? "Guardian's bitcoind is out of sync" : undefined}
-                          >
-                            Block {block}
-                          </Badge>
+                          {isOnline && (
+                            <>
+                              <Badge
+                                level={sessionOutdated ? 'warning' : 'info'}
+                                tooltip={sessionOutdated ? 'Guardian is lacking behind others' : undefined}
+                              >
+                                Session {session}
+                              </Badge>
+                              <Badge
+                                level={blockOutdated ? 'warning' : 'info'}
+                                tooltip={blockOutdated ? "Guardian's bitcoind is out of sync" : undefined}
+                              >
+                                Block {block}
+                              </Badge>
+                            </>
+                          )}
                         </>
                       )}
                     </div>
@@ -624,16 +634,30 @@ export function FederationDetail() {
   );
 }
 
-async function fetchFederationConfig(invite: string): Promise<FederationConfig> {
+async function fetchFederationConfig(federationId: string, inviteCode: string): Promise<FederationConfig> {
   const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
 
-  // Fetch config using invite code
-  const configResponse = await fetch(`${BASE_URL}/config/${invite}`);
+  // Try fetching config using federation ID first (works for actively observed federations)
+  try {
+    const configResponse = await fetch(`${BASE_URL}/federations/${federationId}/config`);
+    if (configResponse.ok) {
+      const config = await configResponse.json();
+      return parseConfig(config);
+    }
+  } catch (err) {
+    console.log('Failed to fetch from /federations/{id}/config, trying invite code fallback');
+  }
+
+  // Fallback: fetch config using invite code (works for any federation with valid invite)
+  const configResponse = await fetch(`${BASE_URL}/config/${inviteCode}`);
   if (!configResponse.ok) {
-    throw new Error('Failed to fetch federation config');
+    throw new Error(`Failed to fetch federation config: ${configResponse.status}`);
   }
   const config = await configResponse.json();
+  return parseConfig(config);
+}
 
+function parseConfig(config: any): FederationConfig {
   // Parse guardians
   const guardians: Guardian[] = config.global?.api_endpoints
     ? Object.entries(config.global.api_endpoints).map(([id, endpoint]: [string, any]) => ({

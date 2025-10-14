@@ -37,18 +37,19 @@ export function Nostr() {
   const [announceSuccess, setAnnounceSuccess] = useState(false);
 
   useEffect(() => {
-    // Fetch both nostr federations and main federations to get names
-    Promise.all([
-      api.getNostrFederations(),
-      api.getFederations()
-    ])
-      .then(([nostrData, mainFederations]) => {
+    const fetchFederationsWithNames = async () => {
+      try {
+        const [nostrData, mainFederations] = await Promise.all([
+          api.getNostrFederations(),
+          api.getFederations()
+        ]);
+
         // Create a map of federation IDs to names from the main list
         const nameMap = new Map(
           mainFederations.map(fed => [fed.id, fed.name])
         );
 
-        // Convert the nostr object to an array with names looked up
+        // Convert the nostr object to an array
         const nostrFeds = Object.entries(nostrData).map(([id, invite]) => ({
           id,
           name: nameMap.get(id) || null,
@@ -56,12 +57,45 @@ export function Nostr() {
         }));
 
         setFederations(nostrFeds);
-        setLoading(false);
-      })
-      .catch((err) => {
+        setLoading(false); // Stop loading immediately - show table with IDs
+
+        // For federations without names, fetch from /config/{invite}/meta in background
+        const federationsWithoutNames = nostrFeds.filter(fed => !fed.name);
+
+        if (federationsWithoutNames.length > 0) {
+          const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
+
+          // Fetch names for federations without them (in background, non-blocking)
+          federationsWithoutNames.forEach(async (fed) => {
+            try {
+              const metaResponse = await fetch(`${BASE_URL}/config/${fed.invite}/meta`, {
+                signal: AbortSignal.timeout(5000), // 5 second timeout
+              });
+              if (metaResponse.ok) {
+                const meta = await metaResponse.json();
+                const fetchedName = meta.federation_name || null;
+
+                // Update this specific federation's name
+                if (fetchedName) {
+                  setFederations(prevFeds =>
+                    prevFeds.map(f =>
+                      f.id === fed.id ? { ...f, name: fetchedName } : f
+                    )
+                  );
+                }
+              }
+            } catch (err) {
+              console.error(`Failed to fetch name for ${fed.id}:`, err);
+            }
+          });
+        }
+      } catch (err) {
         console.error('Failed to fetch nostr federations:', err);
         setLoading(false);
-      });
+      }
+    };
+
+    fetchFederationsWithNames();
   }, []);
 
   const handleCheckFederation = async (e: React.FormEvent) => {

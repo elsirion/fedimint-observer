@@ -175,7 +175,13 @@ export function Home() {
             </tr>
           </thead>
           <tbody className={collapseOffline ? 'hidden' : ''}>
-            {offlineFederations.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-4 text-center">
+                  Loading...
+                </td>
+              </tr>
+            ) : offlineFederations.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center">
                   No offline federations

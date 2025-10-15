@@ -152,7 +152,7 @@ export function Nostr() {
         ? Object.values(config.modules).find((mod: any) => mod.kind === 'wallet')
         : null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const network = walletModule ? (walletModule as any).network : undefined;
+      const network = walletModule ? ((walletModule as any).value?.network || (walletModule as any).config?.network) : undefined;
 
       setFederationInfo({
         name,
@@ -183,11 +183,13 @@ export function Nostr() {
 
       const config = federationInfo.config;
 
-      // Calculate federation ID
-      const federationId = config.global.federation_id;
+      // Calculate federation ID from config
+      const federationId = await calculateFederationId(config);
 
-  // Build invite code from config
-  const inviteCode = await buildInviteCode(config);
+      // Use the stored invite code (the one user entered)
+      if (!inviteCode.trim()) {
+        throw new Error('Invite code is required');
+      }
 
       // Get network and modules
       const network = federationInfo.network || 'unknown';
@@ -226,7 +228,8 @@ export function Nostr() {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to announce federation: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Failed to announce federation (${response.status}): ${errorText}`);
       }
 
       setAnnounceSuccess(true);
@@ -239,15 +242,26 @@ export function Nostr() {
     }
   };
 
-  // Helper function to build invite code from config
-  const buildInviteCode = async (_config: any): Promise<string> => {
-    // Use the stored invite code or build from config
-    if (inviteCode) {
-      return inviteCode;
-    }
+  // Helper function to calculate federation ID from config
+  // This matches the Rust implementation's calculate_federation_id() function
+  const calculateFederationId = async (_config: any): Promise<string> => {
+    try {
+      // Use the API endpoint to calculate the federation ID from the invite code
+      // since calculating it client-side would require crypto libraries
+      const response = await fetch(
+        `${import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000'}/config/${inviteCode}/id`
+      );
 
-    // If we don't have the invite code, we can't proceed
-    throw new Error('Invite code not available');
+      if (!response.ok) {
+        throw new Error('Failed to fetch federation ID');
+      }
+
+      // The endpoint returns the FederationId directly as a JSON string
+      const federationId = await response.json();
+      return typeof federationId === 'string' ? federationId : String(federationId);
+    } catch (err) {
+      throw new Error(`Failed to calculate federation ID: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   return (

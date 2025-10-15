@@ -51,159 +51,125 @@ export function Home() {
   const offlineFederations = federations.filter((fed) => fed.health === 'offline');
 
   return (
-    <div>
-      <div className="my-16">
+    <div className="pb-4">
+      <div className="my-8 sm:my-16">
         <Totals />
       </div>
-      <div className="relative overflow-x-auto shadow-md sm:rounded-lg">
-        <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <caption className="p-5 text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
-            Observed Federations
-            <p className="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">
-              List of all active federations this instance is collecting statistics on
-            </p>
-          </caption>
-          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-            <tr>
-              <th scope="col" className="px-6 py-3">
-                Name
-              </th>
-              <th scope="col" className="px-6 py-3">
-                <a
-                  href="https://github.com/nostr-protocol/nips/pull/1110"
-                  className="underline hover:no-underline"
-                >
-                  Recommendations
-                </a>
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Invite Code
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Total Assets
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Average Activity (7d)
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center">
-                  Loading...
-                </td>
-              </tr>
-            ) : activeFederations.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center">
-                  No active federations found
-                </td>
-              </tr>
-            ) : (
-              activeFederations.map((fed) => (
-                <FederationRow
-                  key={fed.id}
-                  id={fed.id}
-                  name={fed.name || 'Unnamed'}
-                  rating={fed.nostr_votes}
-                  invite={fed.invite}
-                  totalAssets={fed.deposits}
-                  avgTxs={fed.avgTxs}
-                  avgVolume={fed.avgVolume}
-                  health={fed.health}
-                />
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="relative shadow-md sm:rounded-lg">
+        <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
+          Observed Federations
+          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
+            List of all active federations this instance is collecting statistics on
+          </p>
+        </div>
+        <div className="hidden lg:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
+          <div>Name</div>
+          <div>
+            <a
+              href="https://github.com/nostr-protocol/nips/pull/1110"
+              className="underline hover:no-underline"
+            >
+              Recommendations
+            </a>
+          </div>
+          <div>Invite Code</div>
+          <div>Total Assets</div>
+          <div>Average Activity (7d)</div>
+        </div>
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {loading ? (
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+              Loading...
+            </div>
+          ) : activeFederations.length === 0 ? (
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+              No active federations found
+            </div>
+          ) : (
+            activeFederations.map((fed) => (
+              <FederationRow
+                key={fed.id}
+                id={fed.id}
+                name={fed.name || 'Unnamed'}
+                rating={fed.nostr_votes}
+                invite={fed.invite}
+                totalAssets={fed.deposits}
+                avgTxs={fed.avgTxs}
+                avgVolume={fed.avgVolume}
+                health={fed.health}
+              />
+            ))
+          )}
+        </div>
       </div>
 
-      <div className="relative overflow-x-auto shadow-md sm:rounded-lg mt-6">
-        <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <caption
-            className="p-5 text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800 cursor-pointer"
-            onClick={() => setCollapseOffline(!collapseOffline)}
+      <div className="relative shadow-md sm:rounded-lg mt-6">
+        <div
+          className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800 cursor-pointer"
+          onClick={() => setCollapseOffline(!collapseOffline)}
+        >
+          <svg
+            className={`w-3 h-3 shrink-0 inline mr-2 transition-transform ${collapseOffline ? 'rotate-180' : ''}`}
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 10 6"
           >
-            <svg
-              className={`w-3 h-3 shrink-0 inline mr-2 ${collapseOffline ? 'rotate-180' : ''}`}
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 10 6"
-            >
-              <path
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M9 5 5 1 1 5"
-              />
-            </svg>
-            <span>Shut Down Federations</span>
-            <p className="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">
-              List of federations that have ceased operations but were observed in the past
-            </p>
-          </caption>
-          <thead
-            className={
-              collapseOffline
-                ? 'hidden'
-                : 'text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400'
-            }
-          >
-            <tr>
-              <th scope="col" className="px-6 py-3">
-                Name
-              </th>
-              <th scope="col" className="px-6 py-3">
+            <path
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M9 5 5 1 1 5"
+            />
+          </svg>
+          <span>Shut Down Federations</span>
+          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
+            List of federations that have ceased operations but were observed in the past
+          </p>
+        </div>
+        {!collapseOffline && (
+          <>
+            <div className="hidden lg:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
+              <div>Name</div>
+              <div>
                 <a
                   href="https://github.com/nostr-protocol/nips/pull/1110"
                   className="underline hover:no-underline"
                 >
                   Recommendations
                 </a>
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Invite Code
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Total Assets
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Average Activity (7d)
-              </th>
-            </tr>
-          </thead>
-          <tbody className={collapseOffline ? 'hidden' : ''}>
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center">
+              </div>
+              <div>Invite Code</div>
+              <div>Total Assets</div>
+              <div>Average Activity (7d)</div>
+            </div>
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {loading ? (
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                   Loading...
-                </td>
-              </tr>
-            ) : offlineFederations.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-6 py-4 text-center">
+                </div>
+              ) : offlineFederations.length === 0 ? (
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                   No offline federations
-                </td>
-              </tr>
-            ) : (
-              offlineFederations.map((fed) => (
-                <FederationRow
-                  key={fed.id}
-                  id={fed.id}
-                  name={fed.name || 'Unnamed'}
-                  rating={fed.nostr_votes}
-                  invite={fed.invite}
-                  totalAssets={fed.deposits}
-                  avgTxs={fed.avgTxs}
-                  avgVolume={fed.avgVolume}
-                  health={fed.health}
-                />
-              ))
-            )}
-          </tbody>
-        </table>
+                </div>
+              ) : (
+                offlineFederations.map((fed) => (
+                  <FederationRow
+                    key={fed.id}
+                    id={fed.id}
+                    name={fed.name || 'Unnamed'}
+                    rating={fed.nostr_votes}
+                    invite={fed.invite}
+                    totalAssets={fed.deposits}
+                    avgTxs={fed.avgTxs}
+                    avgVolume={fed.avgVolume}
+                    health={fed.health}
+                  />
+                ))
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

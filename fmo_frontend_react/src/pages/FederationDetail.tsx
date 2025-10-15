@@ -238,33 +238,33 @@ export function FederationDetail() {
   }
 
   return (
-    <div className="py-8">
-      <div className="mb-6">
+    <div className="py-4 sm:py-8 px-4 sm:px-0">
+      <div className="mb-4 sm:mb-6">
         <Link
           to="/"
-          className="text-blue-600 dark:text-blue-400 hover:underline"
+          className="text-sm sm:text-base text-blue-600 dark:text-blue-400 hover:underline"
         >
           ← Back to Federations
         </Link>
       </div>
 
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-6 sm:mb-8 break-words">
         {federation.name || 'Unnamed Federation'}
       </h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Guardians Panel */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
             Guardians
             {config && (
-              <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
+              <span className="ml-2 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
                 {config.guardians.length} of {config.guardians.length} Federation
               </span>
             )}
           </h2>
           {config ? (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {config.guardians.map((guardian) => {
                 const health = guardianHealth[guardian.id.toString()];
                 const isLoading = !health;
@@ -275,16 +275,16 @@ export function FederationDetail() {
                 const blockOutdated = health?.latest?.block_outdated || false;
 
                 return (
-                  <div key={guardian.id} className="border-b border-gray-200 dark:border-gray-700 pb-4 last:border-0">
-                    <div className="font-medium text-gray-900 dark:text-white mb-1">
+                  <div key={guardian.id} className="border-b border-gray-200 dark:border-gray-700 pb-3 sm:pb-4 last:border-0">
+                    <div className="font-medium text-sm sm:text-base text-gray-900 dark:text-white mb-1">
                       Guardian {guardian.id}
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-2 break-all">
                       {guardian.url}
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       {isLoading ? (
-                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
                           Loading...
                         </span>
                       ) : (
@@ -316,26 +316,26 @@ export function FederationDetail() {
               })}
             </div>
           ) : (
-            <div className="text-gray-500 dark:text-gray-400">Loading guardians...</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Loading guardians...</div>
           )}
         </div>
 
         {/* Right Column */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Federation Info Panel */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
               Federation
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Network</div>
-                <div className="text-gray-900 dark:text-white">
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Network</div>
+                <div className="text-sm sm:text-base text-gray-900 dark:text-white">
                   {config?.network || 'Unknown'}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Modules</div>
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">Modules</div>
                 <div className="flex gap-2 flex-wrap">
                   {config?.modules.map((module) => (
                     <Badge key={module} level="info">
@@ -345,10 +345,10 @@ export function FederationDetail() {
                 </div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1">
                   Confirmations Required
                 </div>
-                <div className="text-gray-900 dark:text-white">
+                <div className="text-sm sm:text-base text-gray-900 dark:text-white">
                   {config?.confirmations_required || 'N/A'}
                 </div>
               </div>
@@ -356,8 +356,8 @@ export function FederationDetail() {
           </div>
 
           {/* Recommend Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
               Recommend
             </h2>
             <form onSubmit={handleRateSubmit}>
@@ -369,13 +369,13 @@ export function FederationDetail() {
               )}
 
               <div className="mb-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                   {/* Star Selector */}
                   {[1, 2, 3, 4, 5].map((star) => (
                     <svg
                       key={star}
                       onClick={() => setRating(star)}
-                      className={`w-6 h-6 cursor-pointer ${
+                      className={`w-5 h-5 sm:w-6 sm:h-6 cursor-pointer ${
                         star <= rating ? 'text-yellow-300' : 'text-gray-300 dark:text-gray-500'
                       }`}
                       fill="currentColor"
@@ -385,7 +385,7 @@ export function FederationDetail() {
                       <path d="M20.924 7.625a1.523 1.523 0 0 0-1.238-1.044l-5.051-.734-2.259-4.577a1.534 1.534 0 0 0-2.752 0L7.365 5.847l-5.051.734A1.535 1.535 0 0 0 1.463 9.2l3.656 3.563-.863 5.031a1.532 1.532 0 0 0 2.226 1.616L11 17.033l4.518 2.375a1.534 1.534 0 0 0 2.226-1.617l-.863-5.03L20.537 9.2a1.523 1.523 0 0 0 .387-1.575Z"/>
                     </svg>
                   ))}
-                  <span className="ml-4 text-xl text-gray-900 dark:text-white">
+                  <span className="ml-2 sm:ml-4 text-lg sm:text-xl text-gray-900 dark:text-white">
                     {rating}/5
                   </span>
                 </div>
@@ -397,13 +397,13 @@ export function FederationDetail() {
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Comment"
-                  className="block w-full p-4 text-gray-900 border border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full p-3 sm:p-4 text-sm sm:text-base text-gray-900 border border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full px-5 py-2.5 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                className="w-full px-5 py-2.5 text-sm sm:text-base text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 font-medium rounded-lg dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
               >
                 Rate
               </button>
@@ -413,12 +413,12 @@ export function FederationDetail() {
       </div>
 
       {/* Tabs Section (Activity, UTXOs, Config) */}
-      <div className="mt-6">
+      <div className="mt-4 sm:mt-6">
         <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="-mb-px flex space-x-8">
+          <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
             <button
               onClick={() => setActiveTab('activity')}
-              className={`border-b-2 py-4 px-1 text-sm font-medium ${
+              className={`border-b-2 py-3 sm:py-4 px-1 text-xs sm:text-sm font-medium whitespace-nowrap ${
                 activeTab === 'activity'
                   ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -428,7 +428,7 @@ export function FederationDetail() {
             </button>
             <button
               onClick={() => setActiveTab('utxos')}
-              className={`border-b-2 py-4 px-1 text-sm font-medium ${
+              className={`border-b-2 py-3 sm:py-4 px-1 text-xs sm:text-sm font-medium whitespace-nowrap ${
                 activeTab === 'utxos'
                   ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -438,7 +438,7 @@ export function FederationDetail() {
             </button>
             <button
               onClick={() => setActiveTab('config')}
-              className={`border-b-2 py-4 px-1 text-sm font-medium ${
+              className={`border-b-2 py-3 sm:py-4 px-1 text-xs sm:text-sm font-medium whitespace-nowrap ${
                 activeTab === 'config'
                   ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
@@ -448,115 +448,130 @@ export function FederationDetail() {
             </button>
           </nav>
         </div>
-        <div className="mt-6">
+        <div className="mt-4 sm:mt-6">
           {activeTab === 'activity' && (
             <>
-              <div className="bg-blue-900/20 border border-blue-500 rounded-lg p-4 mb-6">
-                <span className="text-blue-400 font-semibold">Info:</span>
-                <span className="text-gray-300 ml-2">
+              <div className="bg-blue-900/20 border border-blue-500 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+                <span className="text-xs sm:text-sm text-blue-400 font-semibold">Info:</span>
+                <span className="text-xs sm:text-sm text-gray-300 ml-2">
                   Some transaction types, like Lightning transactions, cause more than one Fedimint transaction.
                 </span>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                <div className="flex items-end justify-between mb-6">
-                  <div>
-                    <h3 className="text-3xl font-bold text-gray-900 dark:text-white">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4 sm:mb-6">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white break-words">
                       {chartMetric === 'volume'
                         ? histogram.reduce((sum, entry) => sum + entry.volume, 0).toFixed(6) + ' BTC'
                         : histogram.reduce((sum, entry) => sum + entry.count, 0).toString()}
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                       {chartMetric === 'volume' ? 'Total Volume' : 'Total Transactions'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 shrink-0 relative z-10">
                     {chartMetric === 'volume' && (
                       <label
-                        className="flex items-center text-sm text-gray-600 dark:text-gray-400"
+                        className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400 cursor-pointer whitespace-nowrap"
                         title="Filter out values that are more than 10 times the 95th percentile"
                       >
                         <input
                           type="checkbox"
-                          className="mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                          className="mr-2 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 shrink-0"
                           checked={filterOutliers}
                           onChange={(e) => setFilterOutliers(e.target.checked)}
                         />
-                        Filter Extreme Outliers
+                        <span className="hidden sm:inline">Filter Extreme Outliers</span>
+                        <span className="sm:hidden">Filter Outliers</span>
                       </label>
                     )}
-                    <select
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                      value={chartMetric}
-                      onChange={(e) => setChartMetric(e.target.value as 'volume' | 'count')}
-                    >
-                      <option value="volume">Volume</option>
-                      <option value="count">Transactions</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs sm:text-sm min-w-[140px] appearance-none cursor-pointer debug-select"
+                        value={chartMetric}
+                        onChange={(e) => setChartMetric(e.target.value as 'volume' | 'count')}
+                        aria-label="Chart metric (debug)"
+                      >
+                        <option value="volume">Volume</option>
+                        <option value="count">Transactions</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {histogramLoading ? (
-                  <div className="text-center text-gray-500 dark:text-gray-400 py-12">
+                  <div className="text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 py-12">
                     Loading chart data...
                   </div>
                 ) : histogram.length > 0 ? (
-                  <div className="mt-4">
-                    <h4 className="text-center text-base font-normal text-gray-500 dark:text-gray-400 mb-4">
+                  <div className="mt-4 -mx-4 sm:mx-0">
+                    <h4 className="text-center text-sm sm:text-base font-normal text-gray-500 dark:text-gray-400 mb-4 px-4 sm:px-0">
                       Daily {chartMetric === 'volume' ? 'Volume' : 'Transactions'}
                     </h4>
-                    <ResponsiveContainer width="100%" height={400}>
-                      <AreaChart data={chartMetric === 'volume' && filterOutliers ? removeOutliers(histogram) : histogram}>
-                        <defs>
-                          <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis
-                          dataKey="date"
-                          stroke="#9ca3af"
-                          style={{ fontSize: '11px' }}
-                          angle={-45}
-                          textAnchor="end"
-                          height={80}
-                        />
-                        <YAxis
-                          stroke="#9ca3af"
-                          style={{ fontSize: '12px' }}
-                          tickFormatter={(value) =>
-                            chartMetric === 'volume'
-                              ? value.toFixed(3)
-                              : value.toString()
-                          }
-                        />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: '#1f2937',
-                            border: '1px solid #374151',
-                            borderRadius: '0.5rem',
-                            color: '#fff'
-                          }}
-                          formatter={(value: number) => [
-                            chartMetric === 'volume'
-                              ? `${value.toFixed(8)} BTC`
-                              : `${value} transactions`,
-                            chartMetric === 'volume' ? 'Volume' : 'Transactions'
-                          ]}
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey={chartMetric}
-                          stroke="#3b82f6"
-                          fillOpacity={1}
-                          fill="url(#colorMetric)"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                    <div className="w-full px-4 sm:px-0">
+                      <ResponsiveContainer width="100%" height={300} className="sm:!h-[400px]">
+                        <AreaChart data={chartMetric === 'volume' && filterOutliers ? removeOutliers(histogram) : histogram} margin={{ left: -25, right: 5, top: 5, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                          <XAxis
+                            dataKey="date"
+                            stroke="#9ca3af"
+                            style={{ fontSize: '9px' }}
+                            className="sm:!text-[11px]"
+                            angle={-45}
+                            textAnchor="end"
+                            height={60}
+                            interval="preserveStartEnd"
+                          />
+                          <YAxis
+                            stroke="#9ca3af"
+                            style={{ fontSize: '10px' }}
+                            className="sm:!text-xs"
+                            tickFormatter={(value) =>
+                              chartMetric === 'volume'
+                                ? value.toFixed(3)
+                                : value.toString()
+                            }
+                          />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: '#1f2937',
+                              border: '1px solid #374151',
+                              borderRadius: '0.5rem',
+                              color: '#fff',
+                              fontSize: '12px'
+                            }}
+                            formatter={(value: number) => [
+                              chartMetric === 'volume'
+                                ? `${value.toFixed(8)} BTC`
+                                : `${value} transactions`,
+                              chartMetric === 'volume' ? 'Volume' : 'Transactions'
+                            ]}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey={chartMetric}
+                            stroke="#3b82f6"
+                            fillOpacity={1}
+                            fill="url(#colorMetric)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
                   </div>
                 ) : (
-                  <div className="text-center text-gray-500 dark:text-gray-400 py-12">
+                  <div className="text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 py-12">
                     No activity data available
                   </div>
                 )}
@@ -571,59 +586,53 @@ export function FederationDetail() {
                 message="The UTXO view is reconstructed from a combination of the public federation log and on-chain transactions, hence unconfirmed change UTXOs may be missing."
               />
 
-              <div className="mt-4 relative overflow-x-auto shadow-md sm:rounded-lg">
-                <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-                    <tr>
-                      <th scope="col" className="px-6 py-3">
-                        UTXOs ({utxos.length} total)
-                      </th>
-                      <th scope="col" className="px-6 py-3">
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {utxosLoading ? (
-                      <tr>
-                        <td colSpan={2} className="px-6 py-4 text-center">
-                          Loading UTXOs...
-                        </td>
-                      </tr>
-                    ) : utxos.length === 0 ? (
-                      <tr>
-                        <td colSpan={2} className="px-6 py-4 text-center">
-                          No UTXOs found
-                        </td>
-                      </tr>
-                    ) : (
-                      utxos.map((utxo, index) => (
-                        <tr key={index} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                          <td className="px-6 py-4">
+              <div className="mt-4 relative shadow-md sm:rounded-lg">
+                <div className="bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold">
+                  UTXOs ({utxos.length} total)
+                </div>
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {utxosLoading ? (
+                    <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                      Loading UTXOs...
+                    </div>
+                  ) : utxos.length === 0 ? (
+                    <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                      No UTXOs found
+                    </div>
+                  ) : (
+                    utxos.map((utxo, index) => (
+                      <div key={index} className="bg-white dark:bg-gray-800 px-3 sm:px-6 py-3 sm:py-4">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">UTXO</span>
                             <a
                               href={`https://mempool.space/address/${utxo.address}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-blue-600 underline dark:text-blue-500 hover:no-underline font-mono text-xs"
+                              className="text-blue-600 underline dark:text-blue-500 hover:no-underline font-mono text-[10px] sm:text-xs block truncate"
+                              title={utxo.out_point}
                             >
                               {utxo.out_point}
                             </a>
-                          </td>
-                          <td className="px-6 py-4">
-                            {(utxo.amount / 100000000000).toFixed(8)} BTC
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                          </div>
+                          <div className="sm:text-right shrink-0">
+                            <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Amount</span>
+                            <span className="text-xs sm:text-sm text-gray-900 dark:text-white font-mono whitespace-nowrap">
+                              {(utxo.amount / 100000000000).toFixed(8)} BTC
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </>
           )}
 
           {activeTab === 'config' && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-              <pre className="text-sm text-gray-900 dark:text-white overflow-x-auto whitespace-pre">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 sm:p-6 overflow-hidden">
+              <pre className="text-[10px] sm:text-xs lg:text-sm text-gray-900 dark:text-white overflow-x-auto whitespace-pre break-words">
                 {config?.rawConfig ? JSON.stringify(config.rawConfig, null, 2) : 'Loading config...'}
               </pre>
             </div>

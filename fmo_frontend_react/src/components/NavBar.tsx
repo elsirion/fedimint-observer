@@ -1,24 +1,27 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 export function NavBar() {
   const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
     <nav className="bg-white border-gray-200 dark:bg-gray-900">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-        <Link to="/" className="flex items-center space-x-3 rtl:space-x-reverse">
-          <img src="/fedimint.png" className="h-8" alt="Fedimint Logo" />
-          <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white">
+        <Link to="/" className="flex items-center space-x-2 sm:space-x-3 rtl:space-x-reverse">
+          <img src="/fedimint.png" className="h-6 sm:h-8" alt="Fedimint Logo" />
+          <span className="self-center text-lg sm:text-2xl font-semibold whitespace-nowrap dark:text-white">
             Fedimint Observer
           </span>
         </Link>
-        <div className="flex md:order-2">
+        
+        <div className="flex items-center md:order-2 gap-2">
           <a
             href="https://github.com/elsirion/fedimint-observer/"
-            className="inline-flex items-center justify-center h-9 mr-3 px-3 text-xs font-medium text-gray-900 bg-white border border-gray-200 rounded-lg focus:outline-none hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-500 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700"
+            className="inline-flex items-center justify-center h-9 px-3 text-xs font-medium text-gray-900 bg-white border border-gray-200 rounded-lg focus:outline-none hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-500 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700"
           >
             <svg
-              className="w-3.5 h-3.5 mr-2"
+              className="w-3.5 h-3.5 sm:mr-2"
               aria-hidden="true"
               xmlns="http://www.w3.org/2000/svg"
               fill="currentColor"
@@ -30,14 +33,47 @@ export function NavBar() {
                 clipRule="evenodd"
               />
             </svg>
-            Fedimint Observer
+            <span className="hidden sm:inline">Fedimint Observer</span>
           </a>
+          
+          {/* Hamburger button */}
+          <button
+            type="button"
+            className="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-gray-500 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
+            aria-controls="navbar-default"
+            aria-expanded={isMenuOpen}
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            <span className="sr-only">Open main menu</span>
+            <svg
+              className="w-5 h-5"
+              aria-hidden="true"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 17 14"
+            >
+              <path
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M1 1h15M1 7h15M1 13h15"
+              />
+            </svg>
+          </button>
         </div>
-        <div className="items-center justify-between hidden w-full md:flex md:w-auto md:order-1">
+        
+        <div
+          className={`${
+            isMenuOpen ? 'block' : 'hidden'
+          } items-center justify-between w-full md:flex md:w-auto md:order-1`}
+          id="navbar-default"
+        >
           <ul className="flex flex-col p-4 md:p-0 mt-4 font-medium border border-gray-100 rounded-lg bg-gray-50 md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0 md:bg-white dark:bg-gray-800 md:dark:bg-gray-900 dark:border-gray-700">
             <li>
               <Link
                 to="/"
+                onClick={() => setIsMenuOpen(false)}
                 className={
                   location.pathname === '/'
                     ? 'block py-2 px-3 text-white bg-blue-700 rounded md:bg-transparent md:text-blue-700 md:p-0 md:dark:text-blue-500'
@@ -50,6 +86,7 @@ export function NavBar() {
             <li>
               <Link
                 to="/nostr"
+                onClick={() => setIsMenuOpen(false)}
                 className={
                   location.pathname === '/nostr'
                     ? 'block py-2 px-3 text-white bg-blue-700 rounded md:bg-transparent md:text-blue-700 md:p-0 md:dark:text-blue-500'

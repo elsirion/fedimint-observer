@@ -27,22 +27,34 @@ export function FederationRow({
   health,
 }: FederationRowProps) {
   return (
-    <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-      <th
-        scope="row"
-        className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
-      >
+    <div className="bg-white dark:bg-gray-800 px-3 sm:px-6 py-4 grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-4 text-xs sm:text-sm">
+      {/* Name */}
+      <div className="font-medium text-gray-900 dark:text-white">
+        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Name</span>
         <Link
           to={`/federations/${id}`}
-          className="font-medium text-blue-600 dark:text-blue-500 hover:underline"
+          className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
         >
           {name}
         </Link>
-      </th>
-      <td>
+      </div>
+
+      {/* Recommendations */}
+      <div>
+        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">
+          <a
+            href="https://github.com/nostr-protocol/nips/pull/1110"
+            className="underline hover:no-underline"
+          >
+            Recommendations
+          </a>
+        </span>
         <Rating count={rating.count} rating={rating.avg} />
-      </td>
-      <td className="px-6 py-4">
+      </div>
+
+      {/* Invite Code / Status */}
+      <div>
+        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>
         {health === 'online' ? (
           <Copyable text={invite} />
         ) : health === 'degraded' ? (
@@ -50,14 +62,22 @@ export function FederationRow({
         ) : (
           <Badge level="error">Offline</Badge>
         )}
-      </td>
-      <td className="px-6 py-4">{asBitcoin(totalAssets, 6)}</td>
-      <td className="px-6 py-4">
-        <ul>
-          <li>#tx: {avgTxs.toFixed(1)}</li>
-          <li>volume: {asBitcoin(avgVolume, 6)}</li>
-        </ul>
-      </td>
-    </tr>
+      </div>
+
+      {/* Total Assets */}
+      <div>
+        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Total Assets</span>
+        <span className="text-gray-900 dark:text-white">{asBitcoin(totalAssets, 6)}</span>
+      </div>
+
+      {/* Average Activity */}
+      <div>
+        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Average Activity (7d)</span>
+        <div className="text-gray-900 dark:text-white">
+          <div>#tx: {avgTxs.toFixed(1)}</div>
+          <div>volume: {asBitcoin(avgVolume, 6)}</div>
+        </div>
+      </div>
+    </div>
   );
 }

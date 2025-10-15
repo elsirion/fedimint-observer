@@ -265,18 +265,18 @@ export function Nostr() {
   };
 
   return (
-    <div>
-      <div className="relative overflow-x-auto shadow-md sm:rounded-lg mt-8">
-        <h1 className="p-5 text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
+    <div className="pb-4">
+      <div className="relative shadow-md sm:rounded-lg mt-8">
+        <h1 className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
           Inspect Federation
-          <p className="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
             Fetch federation info by invite code
           </p>
         </h1>
 
-        <div className="p-5 pt-0 dark:text-white dark:bg-gray-800">
-          <form className="flex gap-2 items-center" onSubmit={handleCheckFederation}>
-            <div className="relative flex-1">
+        <div className="p-4 sm:p-5 pt-0 dark:text-white dark:bg-gray-800">
+          <form className="flex flex-col sm:flex-row gap-2 sm:items-center" onSubmit={handleCheckFederation}>
+            <div className="relative flex-1 w-full">
               <input
                 type="text"
                 value={inviteCode}
@@ -289,78 +289,82 @@ export function Nostr() {
                 Invite Code
               </label>
             </div>
-            <button
-              type="submit"
-              disabled={checking}
-              className="h-11 whitespace-nowrap font-medium rounded-lg text-sm px-5 py-2.5 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 disabled:bg-blue-400 disabled:cursor-not-allowed"
-            >
-              {checking ? 'Checking...' : 'Check Federation'}
-            </button>
-            <button
-              type="button"
-              onClick={handleAnnounceFederation}
-              disabled={!federationInfo || announcing || announceSuccess || checking}
-              className="h-11 whitespace-nowrap font-medium rounded-lg text-sm px-5 py-2.5 text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none disabled:bg-green-400 disabled:cursor-not-allowed"
-            >
-              {announcing ? 'Announcing...' : announceSuccess ? 'Announced!' : 'Announce Federation'}
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <button
+                type="submit"
+                disabled={checking}
+                className="h-11 w-full sm:w-auto whitespace-nowrap font-medium rounded-lg text-sm px-5 py-2.5 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 focus:outline-none dark:focus:ring-blue-800 disabled:bg-blue-400 disabled:cursor-not-allowed"
+              >
+                {checking ? 'Checking...' : 'Check Federation'}
+              </button>
+              <button
+                type="button"
+                onClick={handleAnnounceFederation}
+                disabled={!federationInfo || announcing || announceSuccess || checking}
+                className="h-11 w-full sm:w-auto whitespace-nowrap font-medium rounded-lg text-sm px-5 py-2.5 text-white bg-green-700 hover:bg-green-800 focus:ring-4 focus:ring-green-300 dark:bg-green-600 dark:hover:bg-green-700 focus:outline-none disabled:bg-green-400 disabled:cursor-not-allowed"
+              >
+                {announcing ? 'Announcing...' : announceSuccess ? 'Announced!' : 'Announce Federation'}
+              </button>
+            </div>
           </form>
 
           {(checking || federationInfo) && (
             <div className="flow-root mt-4">
-              <div className="relative overflow-x-auto">
-                <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
+              <div className="relative">
+                <table className="w-full text-xs sm:text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
                   <tbody>
                     <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                      <th scope="row" className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                      <th scope="row" className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 dark:text-white w-24 sm:w-auto">
                         Name
                       </th>
-                      <td className="px-6 py-4">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 break-words">
                         {checking ? (
-                          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-48"></div>
+                          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-32 sm:w-48"></div>
                         ) : (
                           federationInfo?.name || 'Unknown'
                         )}
                       </td>
                     </tr>
                     <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                      <th scope="row" className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                      <th scope="row" className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 dark:text-white w-24 sm:w-auto">
                         Guardians
                       </th>
-                      <td className="px-6 py-4 whitespace-normal">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 break-words">
                         {checking ? (
-                          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-48"></div>
+                          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-32 sm:w-48"></div>
                         ) : (
                           federationInfo?.guardians || 0
                         )}
                       </td>
                     </tr>
                     <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                      <th scope="row" className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                      <th scope="row" className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 dark:text-white w-24 sm:w-auto align-top">
                         Modules
                       </th>
-                      <td className="px-6 py-4 whitespace-normal">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 break-words">
                         {checking ? (
-                          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-48"></div>
+                          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-32 sm:w-48"></div>
                         ) : (
-                          federationInfo?.modules?.map((mod) => (
-                            <span
-                              key={mod}
-                              className="bg-blue-100 text-blue-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300"
-                            >
-                              {mod}
-                            </span>
-                          ))
+                          <div className="flex flex-wrap gap-1">
+                            {federationInfo?.modules?.map((mod) => (
+                              <span
+                                key={mod}
+                                className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300"
+                              >
+                                {mod}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </td>
                     </tr>
                     <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
-                      <th scope="row" className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                      <th scope="row" className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 dark:text-white w-24 sm:w-auto">
                         Network
                       </th>
-                      <td className="px-6 py-4 whitespace-normal">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 break-words">
                         {checking ? (
-                          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-48"></div>
+                          <div className="h-2.5 bg-gray-200 rounded-full dark:bg-gray-700 w-32 sm:w-48"></div>
                         ) : (
                           federationInfo?.network || 'Unknown'
                         )}
@@ -373,14 +377,14 @@ export function Nostr() {
           )}
 
           {error && (
-            <div className="p-4 mb-4 mt-4 text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400">
+            <div className="p-3 sm:p-4 mb-4 mt-4 text-xs sm:text-sm text-red-800 rounded-lg bg-red-50 dark:bg-gray-800 dark:text-red-400 break-words">
               <span className="font-bold">Error: </span>
               {error}
             </div>
           )}
 
           {announceSuccess && (
-            <div className="p-4 mb-4 mt-4 text-sm text-green-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-green-400">
+            <div className="p-3 sm:p-4 mb-4 mt-4 text-xs sm:text-sm text-green-800 rounded-lg bg-green-50 dark:bg-gray-800 dark:text-green-400">
               <span className="font-bold">Success! </span>
               Federation announced successfully! Reload the page to see it listed.
             </div>
@@ -388,57 +392,44 @@ export function Nostr() {
         </div>
       </div>
 
-      <div className="relative overflow-x-auto shadow-md sm:rounded-lg mt-8">
-        <table className="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
-          <caption className="p-5 text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
-            Nostr Federations
-            <p className="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">
-              Other federations announced via Nostr
-            </p>
-          </caption>
-          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
-            <tr>
-              <th scope="col" className="px-6 py-3">
-                Name
-              </th>
-              <th scope="col" className="px-6 py-3">
-                Invite Code
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={2} className="px-6 py-4 text-center">
-                  Loading...
-                </td>
-              </tr>
-            ) : federations.length === 0 ? (
-              <tr>
-                <td colSpan={2} className="px-6 py-4 text-center">
-                  No Nostr federations found
-                </td>
-              </tr>
-            ) : (
-              federations.map((fed) => (
-                <tr
-                  key={fed.id}
-                  className="bg-white border-b dark:bg-gray-800 dark:border-gray-700"
-                >
-                  <th
-                    scope="row"
-                    className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
-                  >
-                    {fed.name || fed.id}
-                  </th>
-                  <td className="px-6 py-4">
-                    <Copyable text={fed.invite} />
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="relative shadow-md sm:rounded-lg mt-8">
+        <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
+          Nostr Federations
+          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
+            Other federations announced via Nostr
+          </p>
+        </div>
+        <div className="hidden sm:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-2 gap-2">
+          <div>Name</div>
+          <div>Invite Code</div>
+        </div>
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+          {loading ? (
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+              Loading...
+            </div>
+          ) : federations.length === 0 ? (
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+              No Nostr federations found
+            </div>
+          ) : (
+            federations.map((fed) => (
+              <div
+                key={fed.id}
+                className="bg-white dark:bg-gray-800 px-3 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-2 text-xs sm:text-sm"
+              >
+                <div className="font-medium text-gray-900 dark:text-white break-all">
+                  <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Name</span>
+                  {fed.name || fed.id}
+                </div>
+                <div>
+                  <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>
+                  <Copyable text={fed.invite} />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

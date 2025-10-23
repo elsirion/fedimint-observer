@@ -78,11 +78,11 @@ export function Home() {
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {loading ? (
-            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
               Loading...
             </div>
           ) : activeFederations.length === 0 ? (
-            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
               No active federations found
             </div>
           ) : (
@@ -145,11 +145,11 @@ export function Home() {
             </div>
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
-                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
                   Loading...
                 </div>
               ) : offlineFederations.length === 0 ? (
-                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
                   No offline federations
                 </div>
               ) : (

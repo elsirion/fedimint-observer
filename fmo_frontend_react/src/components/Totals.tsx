@@ -21,21 +21,21 @@ export function Totals() {
   }, []);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 dark:text-white px-4 sm:px-0">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 text-gray-900 dark:text-white px-4 sm:px-0">
       <div className="text-center">
         <div className="text-3xl sm:text-4xl font-bold mb-2">
           {loading ? 'Loading...' : formatNumber(totals?.federations || 0)}
         </div>
-        <div className="text-sm sm:text-base text-gray-500">Observed Federations</div>
+        <div className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Observed Federations</div>
       </div>
       <div className="text-center border-t sm:border-t-0 sm:border-l border-gray-300 dark:border-gray-600 pt-6 sm:pt-0">
-        <div className="text-3xl sm:text-4xl font-bold mb-2 dark:text-white">
+        <div className="text-3xl sm:text-4xl font-bold mb-2">
           {loading ? 'Loading...' : formatNumber(totals?.tx_count || 0)}
         </div>
-        <div className="text-sm sm:text-base text-gray-500">Total Transactions</div>
+        <div className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Total Transactions</div>
       </div>
       <div className="text-center border-t sm:border-t-0 sm:border-l border-gray-300 dark:border-gray-600 pt-6 sm:pt-0">
-        <div className="text-3xl sm:text-4xl font-bold dark:text-white mb-2">
+        <div className="text-3xl sm:text-4xl font-bold mb-2">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="32"
@@ -48,7 +48,7 @@ export function Totals() {
           </svg>
           {loading ? 'Loading...' : toBitcoin(totals?.tx_volume || 0, 5)}
         </div>
-        <div className="text-sm sm:text-base text-gray-500">Total Volume</div>
+        <div className="text-sm sm:text-base text-gray-600 dark:text-gray-400">Total Volume</div>
       </div>
     </div>
   );

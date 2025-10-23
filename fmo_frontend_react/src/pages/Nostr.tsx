@@ -267,14 +267,14 @@ export function Nostr() {
   return (
     <div className="pb-4">
       <div className="relative shadow-md sm:rounded-lg mt-8">
-        <h1 className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
+        <h1 className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
           Inspect Federation
           <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
             Fetch federation info by invite code
           </p>
         </h1>
 
-        <div className="p-4 sm:p-5 pt-0 dark:text-white dark:bg-gray-800">
+        <div className="p-4 sm:p-5 pt-0 bg-blue-100 dark:text-white dark:bg-gray-800">
           <form className="flex flex-col sm:flex-row gap-2 sm:items-center" onSubmit={handleCheckFederation}>
             <div className="relative flex-1 w-full">
               <input
@@ -283,9 +283,9 @@ export function Nostr() {
                 onChange={(e) => setInviteCode(e.target.value)}
                 disabled={checking || announcing}
                 placeholder=" "
-                className="block px-2.5 h-11 w-full text-sm text-gray-900 bg-transparent rounded-lg border-gray-300 appearance-none dark:text-white dark:border-gray-600 dark:focus:border-blue-500 focus:outline-none focus:ring-0 focus:border-blue-600 peer border disabled:opacity-50 disabled:cursor-not-allowed"
+                className="block px-2.5 h-11 w-full text-sm text-gray-900 bg-transparent rounded-lg border-gray-300 appearance-none dark:text-white dark:bg-gray-700 dark:border-gray-600 dark:focus:border-blue-500 focus:outline-none focus:ring-0 focus:border-blue-600 peer border disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <label className="absolute text-sm text-gray-500 dark:text-gray-400 duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-white dark:bg-gray-800 px-2 peer-focus:px-2 peer-focus:text-blue-600 peer-focus:dark:text-blue-500 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto start-1">
+              <label className="absolute text-sm text-gray-600 dark:text-gray-400 duration-300 transform -translate-y-4 scale-75 top-2 z-10 origin-[0] bg-transparent dark:bg-gray-700 px-2 peer-focus:px-2 peer-focus:text-blue-600 peer-focus:dark:text-blue-500 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-2 peer-focus:scale-75 peer-focus:-translate-y-4 rtl:peer-focus:translate-x-1/4 rtl:peer-focus:left-auto start-1">
                 Invite Code
               </label>
             </div>
@@ -313,7 +313,7 @@ export function Nostr() {
               <div className="relative">
                 <table className="w-full text-xs sm:text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
                   <tbody>
-                    <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                    <tr className="bg-blue-100 border-b dark:bg-gray-800 dark:border-gray-700">
                       <th scope="row" className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 dark:text-white w-24 sm:w-auto">
                         Name
                       </th>
@@ -325,7 +325,7 @@ export function Nostr() {
                         )}
                       </td>
                     </tr>
-                    <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                    <tr className="bg-blue-100 border-b dark:bg-gray-800 dark:border-gray-700">
                       <th scope="row" className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 dark:text-white w-24 sm:w-auto">
                         Guardians
                       </th>
@@ -337,7 +337,7 @@ export function Nostr() {
                         )}
                       </td>
                     </tr>
-                    <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                    <tr className="bg-blue-100 border-b dark:bg-gray-800 dark:border-gray-700">
                       <th scope="row" className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 dark:text-white w-24 sm:w-auto align-top">
                         Modules
                       </th>
@@ -349,7 +349,7 @@ export function Nostr() {
                             {federationInfo?.modules?.map((mod) => (
                               <span
                                 key={mod}
-                                className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300"
+                                className="bg-blue-600 text-white text-xs font-medium px-2.5 py-0.5 rounded  dark:bg-indigo-500"
                               >
                                 {mod}
                               </span>
@@ -358,7 +358,7 @@ export function Nostr() {
                         )}
                       </td>
                     </tr>
-                    <tr className="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                    <tr className="bg-blue-100 border-b dark:bg-gray-800 dark:border-gray-700">
                       <th scope="row" className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-gray-900 dark:text-white w-24 sm:w-auto">
                         Network
                       </th>
@@ -393,37 +393,37 @@ export function Nostr() {
       </div>
 
       <div className="relative shadow-md sm:rounded-lg mt-8">
-        <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
+        <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
           Nostr Federations
           <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
             Other federations announced via Nostr
           </p>
         </div>
-        <div className="hidden sm:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-2 gap-2">
+        <div className="hidden sm:grid bg-gray-100 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-2 gap-2">
           <div>Name</div>
           <div>Invite Code</div>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {loading ? (
-            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
               Loading...
             </div>
           ) : federations.length === 0 ? (
-            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
               No Nostr federations found
             </div>
           ) : (
             federations.map((fed) => (
               <div
                 key={fed.id}
-                className="bg-white dark:bg-gray-800 px-3 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-2 text-xs sm:text-sm"
+                className="bg-blue-100 dark:bg-gray-800 px-3 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-2 text-xs sm:text-sm"
               >
                 <div className="font-medium text-gray-900 dark:text-white break-all">
                   <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Name</span>
                   {fed.name || fed.id}
                 </div>
-                <div>
-                  <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>
+                <div className='bg-blue-100'>
+                  <span className="text-[10px]  sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>
                   <Copyable text={fed.invite} />
                 </div>
               </div>

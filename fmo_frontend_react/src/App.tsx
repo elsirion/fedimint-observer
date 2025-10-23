@@ -3,12 +3,15 @@ import { NavBar } from './components/NavBar';
 import { Home } from './pages/Home';
 import { Nostr } from './pages/Nostr';
 import { FederationDetail } from './pages/FederationDetail';
+import { useTheme } from './hooks/useTheme';
 
 function App() {
+  const { theme, toggleTheme } = useTheme();
+
   return (
     <Router>
       <main className="container mx-auto max-w-6xl px-4 min-h-screen pb-4">
-        <NavBar />
+        <NavBar theme={theme} onToggleTheme={toggleTheme} />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/nostr" element={<Nostr />} />

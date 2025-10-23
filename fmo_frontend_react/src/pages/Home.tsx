@@ -56,13 +56,13 @@ export function Home() {
         <Totals />
       </div>
       <div className="relative shadow-md sm:rounded-lg">
-        <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
+        <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
           Observed Federations
-          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-400">
             List of all active federations this instance is collecting statistics on
           </p>
         </div>
-        <div className="hidden lg:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
+        <div className="hidden lg:grid bg-gray-100 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
           <div>Name</div>
           <div>
             <a
@@ -78,11 +78,11 @@ export function Home() {
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {loading ? (
-            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
               Loading...
             </div>
           ) : activeFederations.length === 0 ? (
-            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
               No active federations found
             </div>
           ) : (
@@ -105,7 +105,7 @@ export function Home() {
 
       <div className="relative shadow-md sm:rounded-lg mt-6">
         <div
-          className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800 cursor-pointer"
+          className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800 cursor-pointer"
           onClick={() => setCollapseOffline(!collapseOffline)}
         >
           <svg
@@ -123,13 +123,13 @@ export function Home() {
             />
           </svg>
           <span>Shut Down Federations</span>
-          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-400">
             List of federations that have ceased operations but were observed in the past
           </p>
         </div>
         {!collapseOffline && (
           <>
-            <div className="hidden lg:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
+            <div className="hidden lg:grid bg-gray-100 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
               <div>Name</div>
               <div>
                 <a
@@ -145,11 +145,11 @@ export function Home() {
             </div>
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
-                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
                   Loading...
                 </div>
               ) : offlineFederations.length === 0 ? (
-                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800">
                   No offline federations
                 </div>
               ) : (

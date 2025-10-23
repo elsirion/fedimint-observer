@@ -20,7 +20,7 @@ export function Rating({ count, rating }: RatingProps) {
           {rating !== null ? rating.toFixed(1) : 'N/A'}
         </p>
       </div>
-      <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">
+      <span className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">
         {count} votes
       </span>
     </div>

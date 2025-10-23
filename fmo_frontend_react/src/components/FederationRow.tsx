@@ -27,10 +27,10 @@ export function FederationRow({
   health,
 }: FederationRowProps) {
   return (
-    <div className="bg-white dark:bg-gray-800 px-3 sm:px-6 py-4 grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-4 text-xs sm:text-sm">
+    <div className="bg-blue-100 dark:bg-gray-800 px-3 sm:px-6 py-4 grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-4 text-xs sm:text-sm">
       {/* Name */}
       <div className="font-medium text-gray-900 dark:text-white">
-        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Name</span>
+        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Name</span>
         <Link
           to={`/federations/${id}`}
           className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
@@ -41,7 +41,7 @@ export function FederationRow({
 
       {/* Recommendations */}
       <div>
-        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">
+        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">
           <a
             href="https://github.com/nostr-protocol/nips/pull/1110"
             className="underline hover:no-underline"
@@ -54,7 +54,7 @@ export function FederationRow({
 
       {/* Invite Code / Status */}
       <div>
-        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>
+        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Invite Code</span>
         {health === 'online' ? (
           <Copyable text={invite} />
         ) : health === 'degraded' ? (
@@ -66,13 +66,13 @@ export function FederationRow({
 
       {/* Total Assets */}
       <div>
-        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Total Assets</span>
+        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Total Assets</span>
         <span className="text-gray-900 dark:text-white">{asBitcoin(totalAssets, 6)}</span>
       </div>
 
       {/* Average Activity */}
       <div>
-        <span className="text-[10px] lg:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Average Activity (7d)</span>
+        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Average Activity (7d)</span>
         <div className="text-gray-900 dark:text-white">
           <div>#tx: {avgTxs.toFixed(1)}</div>
           <div>volume: {asBitcoin(avgVolume, 6)}</div>

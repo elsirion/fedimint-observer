@@ -1,20 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import type { FederationSummary } from '../types/api';
 import { Badge } from '../components/Badge';
 import { Alert } from '../components/Alert';
-import {
-  AreaChart,
-  Area,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Brush,
-} from 'recharts';
+import ReactECharts from 'echarts-for-react';
+import type { EChartsOption } from 'echarts';
 
 interface Guardian {
   id: number;
@@ -80,6 +71,7 @@ export function FederationDetail() {
   const [movingAverageWindow, setMovingAverageWindow] = useState<number>(0); // 0 = off, 7 = 7-day, 30 = 30-day
   const [useLogScale, setUseLogScale] = useState(false);
   const [guardianHealth, setGuardianHealth] = useState<Record<string, GuardianHealth>>({});
+  const [zoomState, setZoomState] = useState<{ start: number; end: number }>({ start: 0, end: 100 });
 
   useEffect(() => {
     if (!id) return;
@@ -170,6 +162,148 @@ export function FederationDetail() {
         : undefined,
     }));
   };
+
+  // Memoize the processed chart data to avoid recalculating on every render
+  const processedChartData = useMemo(() => {
+    let data = chartMetric === 'volume' && filterOutliers ? removeOutliers(histogram) : histogram;
+    if (movingAverageWindow > 0) {
+      data = calculateMovingAverage(data, movingAverageWindow);
+    }
+    // Don't apply log scale manually - let ECharts handle it with yAxis type: 'log'
+    return data;
+  }, [histogram, chartMetric, filterOutliers, movingAverageWindow]);
+
+  // Memoize the ECharts option to prevent unnecessary re-renders
+  const chartOption = useMemo((): EChartsOption => {
+    const dates = processedChartData.map(d => d.date);
+    const values = processedChartData.map(d => chartMetric === 'volume' ? d.volume : d.count);
+    const avgValues = movingAverageWindow > 0 
+      ? processedChartData.map(d => chartMetric === 'volume' ? d.avgVolume : d.avgCount)
+      : [];
+
+    return {
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '15%',
+        top: '10%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLabel: {
+          rotate: 45,
+          fontSize: 10,
+          color: '#9ca3af'
+        },
+        axisLine: { lineStyle: { color: '#374151' } }
+      },
+      yAxis: {
+        type: useLogScale && chartMetric === 'count' ? 'log' : 'value',
+        axisLabel: {
+          fontSize: 10,
+          color: '#9ca3af',
+          formatter: (value: number) => {
+            if (chartMetric === 'volume') {
+              return value < 0.001 ? value.toExponential(1) : value.toFixed(3);
+            }
+            return value < 1 ? value.toFixed(1) : Math.round(value).toString();
+          }
+        },
+        axisLine: { lineStyle: { color: '#374151' } },
+        splitLine: { lineStyle: { color: '#374151', type: 'dashed' } }
+      },
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: '#1f2937',
+        borderColor: '#374151',
+        textStyle: { color: '#fff', fontSize: 12 },
+        formatter: (params: any) => {
+          if (!Array.isArray(params)) return '';
+          let result = `${params[0].axisValue}<br/>`;
+          params.forEach((param: any) => {
+            const value = param.value;
+            if (param.seriesName.includes('Average')) {
+              result += `${param.marker} ${movingAverageWindow}-Day Average: `;
+              result += chartMetric === 'volume' 
+                ? `${value.toFixed(8)} BTC<br/>`
+                : `${value.toFixed(1)} transactions<br/>`;
+            } else {
+              result += `${param.marker} ${chartMetric === 'volume' ? 'Volume' : 'Transactions'}: `;
+              result += chartMetric === 'volume'
+                ? `${value.toFixed(8)} BTC<br/>`
+                : `${Math.round(value)} transactions<br/>`;
+            }
+          });
+          return result;
+        }
+      },
+      dataZoom: [
+        {
+          type: 'slider',
+          start: zoomState.start,
+          end: zoomState.end,
+          height: 30,
+          bottom: 10,
+          borderColor: '#3b82f6',
+          fillerColor: 'rgba(59, 130, 246, 0.2)',
+          handleStyle: { 
+            color: '#3b82f6',
+            borderColor: '#2563eb',
+            borderWidth: 2,
+            shadowBlur: 3,
+            shadowColor: 'rgba(0, 0, 0, 0.3)',
+            shadowOffsetX: 0,
+            shadowOffsetY: 2
+          },
+          moveHandleStyle: {
+            color: '#3b82f6',
+            opacity: 0.7
+          },
+          textStyle: { color: '#9ca3af' },
+          brushSelect: true,
+          throttle: 100,
+          zoomLock: false,
+          moveHandleSize: 10,
+          realtime: true,
+          showDetail: true
+        }
+      ],
+      series: [
+        {
+          name: chartMetric === 'volume' ? 'Volume' : 'Transactions',
+          type: 'line',
+          data: values,
+          smooth: true,
+          symbol: 'none',
+          lineStyle: { color: '#3b82f6', width: 2 },
+          areaStyle: {
+            color: {
+              type: 'linear',
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: 'rgba(59, 130, 246, 0.8)' },
+                { offset: 1, color: 'rgba(59, 130, 246, 0.1)' }
+              ]
+            }
+          }
+        },
+        ...(movingAverageWindow > 0 ? [{
+          name: 'Moving Average',
+          type: 'line' as const,
+          data: avgValues,
+          smooth: true,
+          symbol: 'none',
+          lineStyle: { 
+            color: '#059669', 
+            width: 3,
+            type: 'dashed' as const
+          }
+        }] : [])
+      ]
+    };
+  }, [processedChartData, chartMetric, useLogScale, movingAverageWindow, zoomState]);
 
   const fetchGuardianHealth = async (federationId: string) => {
     try {
@@ -595,113 +729,28 @@ export function FederationDetail() {
                       Daily {chartMetric === 'volume' ? 'Volume' : 'Transactions'}{useLogScale && chartMetric === 'count' ? ' (Log Scale)' : ''}
                     </h4>
                     <div className="w-full px-4 sm:px-0">
-                      <ResponsiveContainer width="100%" height={300} className="sm:!h-[400px]">
-                        <AreaChart data={(() => {
-                          // Step 1: Apply outlier filter if needed
-                          let data = chartMetric === 'volume' && filterOutliers ? removeOutliers(histogram) : histogram;
-                          // Step 2: Apply moving average if selected
-                          if (movingAverageWindow > 0) {
-                            data = calculateMovingAverage(data, movingAverageWindow);
+                      <ReactECharts
+                        option={chartOption}
+                        notMerge={false}
+                        lazyUpdate={true}
+                        style={{ height: '400px', width: '100%' }}
+                        opts={{ renderer: 'svg' }}
+                        onEvents={{
+                          dataZoom: (params: any) => {
+                            if (params.batch && params.batch[0]) {
+                              setZoomState({
+                                start: params.batch[0].start || 0,
+                                end: params.batch[0].end || 100
+                              });
+                            } else if (params.start !== undefined && params.end !== undefined) {
+                              setZoomState({
+                                start: params.start,
+                                end: params.end
+                              });
+                            }
                           }
-                          // Step 3: Apply log scale if enabled (only for transaction count)
-                          if (useLogScale && chartMetric === 'count') {
-                            data = applyLogScale(data);
-                          }
-                          return data;
-                        })()} margin={{ left: -25, right: 5, top: 5, bottom: 5 }}>
-                          <defs>
-                            <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
-                            </linearGradient>
-                          </defs>
-                          {movingAverageWindow > 0 && (
-                            <defs>
-                              <linearGradient id="colorAverage" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.6}/>
-                                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05}/>
-                              </linearGradient>
-                            </defs>
-                          )}
-                          <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                          <XAxis
-                            dataKey="date"
-                            stroke="#9ca3af"
-                            style={{ fontSize: '9px' }}
-                            className="sm:!text-[11px]"
-                            angle={-45}
-                            textAnchor="end"
-                            height={60}
-                            interval="preserveStartEnd"
-                          />
-                          <YAxis
-                            stroke="#9ca3af"
-                            style={{ fontSize: '10px' }}
-                            className="sm:!text-xs"
-                            tickFormatter={(value) => {
-                              // If log scale is enabled for count metric, convert back to original values
-                              const originalValue = (useLogScale && chartMetric === 'count') ? Math.pow(10, value) : value;
-                              if (chartMetric === 'volume') {
-                                return originalValue < 0.001 ? originalValue.toExponential(1) : originalValue.toFixed(3);
-                              }
-                              return originalValue < 1 ? originalValue.toFixed(1) : Math.round(originalValue).toString();
-                            }}
-                          />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: '#1f2937',
-                              border: '1px solid #374151',
-                              borderRadius: '0.5rem',
-                              color: '#fff',
-                              fontSize: '12px'
-                            }}
-                            formatter={(value: number, name: string) => {
-                              // Convert back to original value if log scale is enabled for count metric
-                              const originalValue = (useLogScale && chartMetric === 'count') ? Math.pow(10, value) : value;
-                              
-                              if (name === 'avgVolume' || name === 'avgCount') {
-                                return [
-                                  chartMetric === 'volume'
-                                    ? `${originalValue.toFixed(8)} BTC`
-                                    : `${originalValue.toFixed(1)} transactions`,
-                                  `${movingAverageWindow}-Day Average`
-                                ];
-                              }
-                              return [
-                                chartMetric === 'volume'
-                                  ? `${originalValue.toFixed(8)} BTC`
-                                  : `${Math.round(originalValue)} transactions`,
-                                chartMetric === 'volume' ? 'Volume' : 'Transactions'
-                              ];
-                            }}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey={chartMetric}
-                            stroke="#3b82f6"
-                            fillOpacity={1}
-                            fill="url(#colorMetric)"
-                          />
-                          {movingAverageWindow > 0 && (
-                            <Line
-                              type="monotone"
-                              dataKey={chartMetric === 'volume' ? 'avgVolume' : 'avgCount'}
-                              stroke="#059669"
-                              strokeWidth={3}
-                              dot={false}
-                              strokeDasharray="5 5"
-                            />
-                          )}
-                          <Brush
-                            dataKey="date"
-                            height={30}
-                            stroke="#3b82f6"
-                            fill="#e0f2fe"
-                            className="dark:fill-gray-700"
-                            travellerWidth={10}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
+                        }}
+                      />
                     </div>
                   </div>
                 ) : (

@@ -10,10 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "echarts": "^5.6.0",
+    "echarts-for-react": "^3.0.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.3",
-    "recharts": "^3.2.1"
+    "react-router-dom": "^7.9.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",

@@ -8,7 +8,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
-use crate::config::meta::MetaOverrideCache;
+use crate::config::meta::{ConsensusMetaCache, MetaOverrideCache};
 use crate::config::{get_config_routes, FederationConfigCache};
 use crate::federation::get_federations_routes;
 use crate::federation::nostr::{get_nostr_federations, publish_federation_event};
@@ -47,6 +47,7 @@ struct Args {
 struct AppState {
     federation_config_cache: FederationConfigCache,
     meta_override_cache: MetaOverrideCache,
+    consensus_meta_cache: ConsensusMetaCache,
     federation_observer: FederationObserver,
 }
 
@@ -77,6 +78,7 @@ async fn main() -> anyhow::Result<()> {
         .with_state(AppState {
             federation_config_cache: Default::default(),
             meta_override_cache: Default::default(),
+            consensus_meta_cache: Default::default(),
             federation_observer: FederationObserver::new(
                 &args.database,
                 &args.admin_auth,

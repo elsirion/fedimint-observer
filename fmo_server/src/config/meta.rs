@@ -2,11 +2,16 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail, Context};
 use axum::extract::{Path, State};
 use axum::Json;
-use fedimint_core::config::FederationId;
+use fedimint_api_client::api::DynGlobalApi;
+use fedimint_core::config::{FederationId, JsonClientConfig};
 use fedimint_core::invite_code::InviteCode;
+use fedimint_meta_client::api::MetaFederationApi;
+use fedimint_meta_client::common::MetaKey;
+use tokio::sync::RwLock;
+use tracing::log::warn;
 
 use crate::meta::federation_meta;
 use crate::AppState;
@@ -73,6 +78,93 @@ impl MetaOverrideCache {
             .await?
             .json::<serde_json::Value>()
             .await?)
+    }
+}
+
+type ConsensusMetaCacheInner = Arc<RwLock<HashMap<FederationId, (Option<MetaFields>, SystemTime)>>>;
+
+#[derive(Default, Debug, Clone)]
+pub struct ConsensusMetaCache {
+    metas: ConsensusMetaCacheInner,
+}
+
+impl ConsensusMetaCache {
+    pub async fn fetch_meta_cached(&self, config: &JsonClientConfig) -> Option<MetaFields> {
+        let federation_id = config.global.calculate_federation_id();
+        let current_meta_cache_entry = {
+            let metas = self.metas.read().await;
+            metas.get(&federation_id).cloned()
+        };
+
+        match current_meta_cache_entry {
+            Some((meta, last_update_started)) => {
+                if SystemTime::now()
+                    .duration_since(last_update_started)
+                    .unwrap_or_default()
+                    <= REFRESH_INTERVAL
+                {
+                    let self_inner = self.metas.clone();
+                    let config_inner = config.clone();
+                    tokio::task::spawn(async move {
+                        Self::update_meta_cache(&self_inner, &config_inner).await;
+                    });
+                }
+                meta
+            }
+            None => Self::update_meta_cache(&self.metas, config).await,
+        }
+    }
+
+    pub async fn update_meta_cache(
+        inner: &ConsensusMetaCacheInner,
+        config: &JsonClientConfig,
+    ) -> Option<MetaFields> {
+        let federation_id = config.global.calculate_federation_id();
+        let meta = Self::try_fetch_meta_inner(config)
+            .await
+            .map_err(|e| {
+                warn!("Failed to fetch consensus meta for federation {federation_id}: {e}");
+            })
+            .ok()
+            .flatten();
+        let mut metas = inner.write().await;
+        metas.insert(federation_id, (meta.clone(), SystemTime::now()));
+        meta
+    }
+
+    async fn try_fetch_meta_inner(config: &JsonClientConfig) -> anyhow::Result<Option<MetaFields>> {
+        let Some((meta_instance_id, _)) = config
+            .modules
+            .iter()
+            .find(|(_, module)| module.kind().as_str() == "meta")
+        else {
+            bail!("No meta module found in federation");
+        };
+
+        let api_client = DynGlobalApi::from_endpoints(
+            config
+                .global
+                .api_endpoints
+                .iter()
+                .map(|(peer_id, peer)| (*peer_id, peer.url.clone())),
+            &None,
+        )
+        .await?;
+
+        let module_api = api_client.with_module(*meta_instance_id);
+
+        let Some(raw_consensus_meta) =
+            MetaFederationApi::get_consensus(&*module_api, MetaKey(0)).await?
+        else {
+            return Ok(None);
+        };
+
+        let consensus_meta_object = raw_consensus_meta.value.to_json_lossy()?;
+        let consensus_meta_map = consensus_meta_object
+            .as_object()
+            .context("Failed to parse consensus meta as JSON object")?;
+
+        Ok(Some(parse_meta_lenient(consensus_meta_map.clone())))
     }
 }
 

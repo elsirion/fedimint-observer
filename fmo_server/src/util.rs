@@ -13,6 +13,8 @@ use serde_json::json;
 #[cfg(feature = "stability_pool_v1")]
 use stability_pool_common::StabilityPoolCommonGen;
 
+use crate::config::meta::MetaFields;
+
 pub fn config_to_json(cfg: ClientConfig) -> anyhow::Result<JsonClientConfig> {
     let decoders = get_decoders(
         cfg.modules
@@ -136,4 +138,25 @@ where
         .iter()
         .map(T::try_from_row)
         .collect::<Result<_, _>>()?)
+}
+
+/// Merges meta fields from different sources
+///
+/// * `metas` - Meta fields from different sources highest to lowest priority
+pub fn merge_metas(metas: &[MetaFields]) -> MetaFields {
+    let key_set = metas
+        .iter()
+        .flat_map(|meta| meta.keys().cloned())
+        .collect::<std::collections::BTreeSet<_>>();
+
+    key_set
+        .into_iter()
+        .map(|key| {
+            let value = metas
+                .iter()
+                .find_map(|meta_fields| meta_fields.get(&key).cloned())
+                .expect("Key must exist in one meta source");
+            (key, value)
+        })
+        .collect::<MetaFields>()
 }

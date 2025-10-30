@@ -1,11 +1,12 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import type { FederationSummary } from '../types/api';
 import { Badge } from '../components/Badge';
 import { Alert } from '../components/Alert';
-import ReactECharts from 'echarts-for-react';
-import type { EChartsOption } from 'echarts';
+
+// Lazy load the chart component for code splitting
+const TransactionChart = lazy(() => import('../components/TransactionChart').then(module => ({ default: module.TransactionChart })));
 
 interface Guardian {
   id: number;
@@ -156,138 +157,6 @@ export function FederationDetail() {
     // Don't apply log scale manually - let ECharts handle it with yAxis type: 'log'
     return data;
   }, [histogram, chartMetric, filterOutliers, movingAverageWindow]);
-
-  // Memoize the ECharts option to prevent unnecessary re-renders
-  const chartOption = useMemo((): EChartsOption => {
-    const dates = processedChartData.map(d => d.date);
-    const values = processedChartData.map(d => chartMetric === 'volume' ? d.volume : d.count);
-    const avgValues = movingAverageWindow > 0 
-      ? processedChartData.map(d => chartMetric === 'volume' ? d.avgVolume : d.avgCount)
-      : [];
-
-    return {
-      grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '15%',
-        top: '10%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: dates,
-        axisLabel: {
-          rotate: 45,
-          fontSize: 10,
-          color: '#9ca3af'
-        },
-        axisLine: { lineStyle: { color: '#374151' } }
-      },
-      yAxis: {
-        type: useLogScale && chartMetric === 'count' ? 'log' : 'value',
-        axisLabel: {
-          fontSize: 10,
-          color: '#9ca3af',
-          formatter: (value: number) => {
-            if (chartMetric === 'volume') {
-              return value < 0.001 ? value.toExponential(1) : value.toFixed(3);
-            }
-            return value < 1 ? value.toFixed(1) : Math.round(value).toString();
-          }
-        },
-        axisLine: { lineStyle: { color: '#374151' } },
-        splitLine: { lineStyle: { color: '#374151', type: 'dashed' } }
-      },
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: '#1f2937',
-        borderColor: '#374151',
-        textStyle: { color: '#fff', fontSize: 12 },
-        formatter: (params: any) => {
-          if (!Array.isArray(params)) return '';
-          let result = `${params[0].axisValue}<br/>`;
-          params.forEach((param: any) => {
-            const value = param.value;
-            if (param.seriesName.includes('Average')) {
-              result += `${param.marker} ${movingAverageWindow}-Day Average: `;
-              result += chartMetric === 'volume' 
-                ? `${value.toFixed(8)} BTC<br/>`
-                : `${value.toFixed(1)} transactions<br/>`;
-            } else {
-              result += `${param.marker} ${chartMetric === 'volume' ? 'Volume' : 'Transactions'}: `;
-              result += chartMetric === 'volume'
-                ? `${value.toFixed(8)} BTC<br/>`
-                : `${Math.round(value)} transactions<br/>`;
-            }
-          });
-          return result;
-        }
-      },
-      dataZoom: [
-        {
-          type: 'slider',
-          start: zoomState.start,
-          end: zoomState.end,
-          height: 30,
-          bottom: 10,
-          borderColor: '#3b82f6',
-          fillerColor: 'rgba(59, 130, 246, 0.2)',
-          handleStyle: { 
-            color: '#3b82f6',
-            borderColor: '#2563eb',
-            borderWidth: 2,
-            shadowBlur: 3,
-            shadowColor: 'rgba(0, 0, 0, 0.3)',
-            shadowOffsetX: 0,
-            shadowOffsetY: 2
-          },
-          moveHandleStyle: {
-            color: '#3b82f6',
-            opacity: 0.7
-          },
-          textStyle: { color: '#9ca3af' },
-          brushSelect: true,
-          throttle: 100,
-          zoomLock: false,
-          moveHandleSize: 10,
-          realtime: true,
-          showDetail: true
-        }
-      ],
-      series: [
-        {
-          name: chartMetric === 'volume' ? 'Volume' : 'Transactions',
-          type: 'line',
-          data: values,
-          smooth: true,
-          symbol: 'none',
-          lineStyle: { color: '#3b82f6', width: 2 },
-          areaStyle: {
-            color: {
-              type: 'linear',
-              x: 0, y: 0, x2: 0, y2: 1,
-              colorStops: [
-                { offset: 0, color: 'rgba(59, 130, 246, 0.8)' },
-                { offset: 1, color: 'rgba(59, 130, 246, 0.1)' }
-              ]
-            }
-          }
-        },
-        ...(movingAverageWindow > 0 ? [{
-          name: 'Moving Average',
-          type: 'line' as const,
-          data: avgValues,
-          smooth: true,
-          symbol: 'none',
-          lineStyle: { 
-            color: '#059669', 
-            width: 3,
-            type: 'dashed' as const
-          }
-        }] : [])
-      ]
-    };
-  }, [processedChartData, chartMetric, useLogScale, movingAverageWindow, zoomState]);
 
   const fetchGuardianHealth = async (federationId: string) => {
     try {
@@ -713,28 +582,21 @@ export function FederationDetail() {
                       Daily {chartMetric === 'volume' ? 'Volume' : 'Transactions'}{useLogScale && chartMetric === 'count' ? ' (Log Scale)' : ''}
                     </h4>
                     <div className="w-full px-4 sm:px-0">
-                      <ReactECharts
-                        option={chartOption}
-                        notMerge={false}
-                        lazyUpdate={true}
-                        style={{ height: '400px', width: '100%' }}
-                        opts={{ renderer: 'svg' }}
-                        onEvents={{
-                          dataZoom: (params: any) => {
-                            if (params.batch && params.batch[0]) {
-                              setZoomState({
-                                start: params.batch[0].start || 0,
-                                end: params.batch[0].end || 100
-                              });
-                            } else if (params.start !== undefined && params.end !== undefined) {
-                              setZoomState({
-                                start: params.start,
-                                end: params.end
-                              });
-                            }
-                          }
-                        }}
-                      />
+                      <Suspense fallback={
+                        <div className="flex items-center justify-center h-[400px] text-gray-500 dark:text-gray-400">
+                          Loading chart...
+                        </div>
+                      }>
+                        <TransactionChart
+                          data={processedChartData}
+                          chartMetric={chartMetric}
+                          movingAverageWindow={movingAverageWindow}
+                          useLogScale={useLogScale}
+                          zoomStart={zoomState.start}
+                          zoomEnd={zoomState.end}
+                          onZoomChange={(start, end) => setZoomState({ start, end })}
+                        />
+                      </Suspense>
                     </div>
                   </div>
                 ) : (

@@ -146,22 +146,6 @@ export function FederationDetail() {
     return result;
   };
 
-  // Transform data to log scale (base 10), handling zeros with epsilon
-  const applyLogScale = (data: HistogramEntry[]) => {
-    const EPSILON = 1e-9; // Small value to replace zeros
-    return data.map(entry => ({
-      ...entry,
-      volume: entry.volume > 0 ? Math.log10(entry.volume) : Math.log10(EPSILON),
-      count: entry.count > 0 ? Math.log10(entry.count) : Math.log10(EPSILON),
-      // Also transform moving averages if present
-      avgVolume: entry.avgVolume !== undefined 
-        ? (entry.avgVolume > 0 ? Math.log10(entry.avgVolume) : Math.log10(EPSILON))
-        : undefined,
-      avgCount: entry.avgCount !== undefined
-        ? (entry.avgCount > 0 ? Math.log10(entry.avgCount) : Math.log10(EPSILON))
-        : undefined,
-    }));
-  };
 
   // Memoize the processed chart data to avoid recalculating on every render
   const processedChartData = useMemo(() => {

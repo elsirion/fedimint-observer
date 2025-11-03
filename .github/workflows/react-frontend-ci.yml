@@ -101,6 +101,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     needs: lint-and-build
+    permissions:
+      pull-requests: write
+      contents: read
 
     steps:
     - name: Checkout code
@@ -125,6 +128,12 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
+          // Only run on pull requests
+          if (!context.issue.number) {
+            console.log('Not a pull request, skipping comment');
+            return;
+          }
+
           const fs = require('fs');
           const path = require('path');
 
@@ -146,7 +155,7 @@ jobs:
           - Merge when ready
           `;
 
-          github.rest.issues.createComment({
+          await github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,

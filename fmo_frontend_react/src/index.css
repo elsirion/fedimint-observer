@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Smaller base font size for mobile, default for larger screens */
+  html {
+    font-size: 14px;
+  }
+  
+  @media (min-width: 640px) {
+    html {
+      font-size: 16px;
+    }
+  }
+  
+  /* Ensure body has proper background colors for light/dark mode */
+  body {
+    @apply bg-blue-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+  }
+}

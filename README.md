@@ -17,7 +17,7 @@ These APIs live under the `/federations` path, you can find all the endpoints in
 One example is the [`/federations`](https://observer.fedimint.org/api/federations) endpoint itself that returns a list
 of all federations that are being observed.
 
-This API is also the data source for the fontend that powers https://observer.fedimint.org and is also hosted in this
+This API is also the data source for the frontend that powers https://observer.fedimint.org and is also hosted in this
 repository in the `fmo_frontend` directory. The frontend is a Leptos PWA, so is fully written in Rust and compiled to
 WASM. It uses [Tailwind](https://tailwindcss.com/) and [Flowbite](https://flowbite.com/) for styling.
 

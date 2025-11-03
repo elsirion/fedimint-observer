@@ -35,7 +35,7 @@ interface FederationConfig {
   modules: string[];
   network: string;
   confirmations_required: number;
-  rawConfig: any; // Store raw config for display
+  rawConfig: Record<string, unknown>; // Store raw config for display
 }
 
 interface UTXO {
@@ -177,9 +177,9 @@ export function FederationDetail() {
       const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
       const response = await fetch(`${BASE_URL}/federations/${federationId}/transactions/histogram`);
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as Record<string, { num_transactions: number; amount_transferred: number }>;
         // Data comes as: { "2024-05-31": { "num_transactions": 1, "amount_transferred": 2000000000 }, ... }
-        const chartData = Object.entries(data).map(([dateStr, stats]: [string, any]) => {
+        const chartData = Object.entries(data).map(([dateStr, stats]) => {
           const date = new Date(dateStr);
           return {
             date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
@@ -189,8 +189,8 @@ export function FederationDetail() {
         });
         setHistogram(chartData);
       }
-    } catch (err) {
-      console.error('Failed to fetch histogram:', err);
+    } catch (error) {
+      console.error('Failed to fetch histogram:', error);
     } finally {
       setHistogramLoading(false);
     }
@@ -219,11 +219,11 @@ export function FederationDetail() {
 
     try {
       // Check for Nostr extension
-      if (!(window as any).nostr) {
+      if (!window.nostr) {
         throw new Error('Nostr extension not found. Please install a Nostr browser extension like nos2x or Alby.');
       }
 
-      const nostr = (window as any).nostr;
+      const nostr = window.nostr;
       const pubkey = await nostr.getPublicKey();
 
       if (!id) throw new Error('Federation ID missing');
@@ -682,7 +682,7 @@ async function fetchFederationConfig(federationId: string, inviteCode: string): 
       const config = await configResponse.json();
       return parseConfig(config);
     }
-  } catch (err) {
+  } catch {
     console.log('Failed to fetch from /federations/{id}/config, trying invite code fallback');
   }
 
@@ -691,14 +691,14 @@ async function fetchFederationConfig(federationId: string, inviteCode: string): 
   if (!configResponse.ok) {
     throw new Error(`Failed to fetch federation config: ${configResponse.status}`);
   }
-  const config = await configResponse.json();
+  const config = await configResponse.json() as Record<string, unknown>;
   return parseConfig(config);
 }
 
-function parseConfig(config: any): FederationConfig {
+function parseConfig(config: Record<string, unknown>): FederationConfig {
   // Parse guardians
-  const guardians: Guardian[] = config.global?.api_endpoints
-    ? Object.entries(config.global.api_endpoints).map(([id, endpoint]: [string, any]) => ({
+  const guardians: Guardian[] = (config.global as { api_endpoints?: Record<string, { url?: string }> })?.api_endpoints
+    ? Object.entries((config.global as { api_endpoints: Record<string, { url?: string }> }).api_endpoints).map(([id, endpoint]) => ({
         id: parseInt(id),
         name: `Guardian ${id}`,
         url: endpoint.url || 'Unknown',
@@ -712,18 +712,18 @@ function parseConfig(config: any): FederationConfig {
 
   // Parse modules
   const modules: string[] = config.modules
-    ? Object.values(config.modules).map((mod: any) => mod.kind || 'unknown')
+    ? Object.values(config.modules as Record<string, { kind?: string }>).map((mod) => mod.kind || 'unknown')
     : [];
 
   // Get network from wallet module
   const walletModule = config.modules
-    ? Object.values(config.modules).find((mod: any) => mod.kind === 'wallet')
+    ? Object.values(config.modules as Record<string, { kind?: string; network?: string; finality_delay?: number }>).find((mod) => mod.kind === 'wallet')
     : null;
-  const network = walletModule ? (walletModule as any).network : 'unknown';
+  const network = walletModule ? (walletModule.network || 'unknown') : 'unknown';
 
   // Get confirmations required from wallet module (finality_delay + 1)
   const confirmations_required = walletModule
-    ? ((walletModule as any).finality_delay || 0) + 1
+    ? ((walletModule.finality_delay || 0) + 1)
     : 0;
 
   return {

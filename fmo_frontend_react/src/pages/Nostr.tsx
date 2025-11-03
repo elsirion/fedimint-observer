@@ -13,7 +13,20 @@ interface FederationInfo {
   guardians?: number;
   modules?: string[];
   network?: string;
-  config?: any; // Store the full config for announce
+  config?: Record<string, unknown>; // Store the full config for announce
+}
+
+interface NostrEvent {
+  kind: number;
+  created_at: number;
+  tags: string[][];
+  content: string;
+  pubkey: string;
+}
+
+interface SignedNostrEvent extends NostrEvent {
+  id: string;
+  sig: string;
 }
 
 // Extend window type for Nostr extension
@@ -21,7 +34,7 @@ declare global {
   interface Window {
     nostr?: {
       getPublicKey(): Promise<string>;
-      signEvent(event: any): Promise<any>;
+      signEvent(event: NostrEvent): Promise<SignedNostrEvent>;
     };
   }
 }
@@ -184,7 +197,7 @@ export function Nostr() {
       const config = federationInfo.config;
 
       // Calculate federation ID from config
-      const federationId = await calculateFederationId(config);
+      const federationId = await calculateFederationId();
 
       // Use the stored invite code (the one user entered)
       if (!inviteCode.trim()) {
@@ -199,7 +212,7 @@ export function Nostr() {
       const pubkey = await window.nostr.getPublicKey();
 
       // Create unsigned event
-      const unsignedEvent = {
+      const unsignedEvent: NostrEvent = {
         kind: 38173,
         created_at: Math.floor(Date.now() / 1000),
         tags: [
@@ -208,7 +221,7 @@ export function Nostr() {
           ['n', network],
           ['modules', modules],
         ],
-        content: JSON.stringify(config.global.meta || {}),
+        content: JSON.stringify((config as { global?: { meta?: Record<string, unknown> } }).global?.meta || {}),
         pubkey,
       };
 
@@ -244,7 +257,7 @@ export function Nostr() {
 
   // Helper function to calculate federation ID from config
   // This matches the Rust implementation's calculate_federation_id() function
-  const calculateFederationId = async (_config: any): Promise<string> => {
+  const calculateFederationId = async (): Promise<string> => {
     try {
       // Use the API endpoint to calculate the federation ID from the invite code
       // since calculating it client-side would require crypto libraries

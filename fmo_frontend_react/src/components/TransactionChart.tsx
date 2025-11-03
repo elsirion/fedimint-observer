@@ -97,10 +97,10 @@ export function TransactionChart({
         backgroundColor: '#1f2937',
         borderColor: '#374151',
         textStyle: { color: '#fff', fontSize: 12 },
-        formatter: (params: any) => {
+        formatter: (params: { axisValue: string; marker: string; seriesName: string; value: number }[]) => {
           const date = params[0].axisValue;
           let result = `${date}<br/>`;
-          params.forEach((param: any) => {
+          params.forEach((param) => {
             const value = param.value;
             if (param.seriesName.includes('Average')) {
               result += `${param.marker} ${param.seriesName}: ${
@@ -191,7 +191,7 @@ export function TransactionChart({
       style={{ height: '400px', width: '100%' }}
       opts={{ renderer: 'canvas' }}
       onEvents={{
-        dataZoom: (params: any) => {
+        dataZoom: (params: { batch?: { start: number; end: number }[]; start?: number; end?: number }) => {
           // Handle both batch and direct dataZoom events
           if (params.batch && params.batch[0]) {
             const start = params.batch[0].start;

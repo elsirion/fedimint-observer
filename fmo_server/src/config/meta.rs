@@ -98,11 +98,26 @@ impl ConsensusMetaCache {
 
         match current_meta_cache_entry {
             Some((meta, last_update_started)) => {
-                if SystemTime::now()
-                    .duration_since(last_update_started)
-                    .unwrap_or_default()
-                    <= REFRESH_INTERVAL
-                {
+                let now = SystemTime::now();
+                if now.duration_since(last_update_started).unwrap_or_default() > REFRESH_INTERVAL {
+                    {
+                        let mut metas = self.metas.write().await;
+
+                        // Check if another process has already started a background refresh
+                        if now.duration_since(last_update_started).unwrap_or_default()
+                            <= REFRESH_INTERVAL
+                        {
+                            return meta;
+                        }
+
+                        // Since this process is about to start a background refresh, we update the
+                        // timestamp. No crash tolerance needed since it's an in-memory cache that
+                        // gets reset on crash anyway.
+                        metas
+                            .entry(federation_id)
+                            .and_modify(|(_val, timestamp)| *timestamp = SystemTime::now());
+                    }
+
                     let self_inner = self.metas.clone();
                     let config_inner = config.clone();
                     tokio::task::spawn(async move {
@@ -111,7 +126,10 @@ impl ConsensusMetaCache {
                 }
                 meta
             }
-            None => Self::update_meta_cache(&self.metas, config).await,
+            None => {
+                // TODO: deduplicate efforts by making the content of the map subscribable
+                Self::update_meta_cache(&self.metas, config).await
+            }
         }
     }
 

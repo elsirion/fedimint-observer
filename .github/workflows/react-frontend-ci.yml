@@ -168,6 +168,8 @@ jobs:
 
     - name: Build production bundle
       working-directory: ./fmo_frontend_react
+      env:
+        VITE_FMO_API_BASE_URL: 'https://observer.fedimint.org/api'
       run: npm run build
 
     - name: Deploy to gh-pages

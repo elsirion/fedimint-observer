@@ -10,8 +10,9 @@ use fedimint_core::config::{FederationId, JsonClientConfig};
 use fedimint_core::invite_code::InviteCode;
 use fedimint_meta_client::api::MetaFederationApi;
 use fedimint_meta_client::common::MetaKey;
+use serde::de::DeserializeOwned;
 use tokio::sync::RwLock;
-use tracing::log::warn;
+use tracing::warn;
 
 use crate::meta::federation_meta;
 use crate::AppState;
@@ -196,4 +197,16 @@ pub fn parse_meta_lenient(
             Some((key, value))
         })
         .collect()
+}
+
+pub trait MetaFieldsExt {
+    fn get_as<T: DeserializeOwned>(&self, key: &str) -> Option<T>;
+}
+
+impl MetaFieldsExt for MetaFields {
+    fn get_as<T: DeserializeOwned>(&self, key: &str) -> Option<T> {
+        serde_json::from_value(self.get(key).cloned()?)
+            .inspect_err(|error| warn!(?error, "Could not decode meta field {key}"))
+            .ok()
+    }
 }

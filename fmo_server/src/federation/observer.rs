@@ -37,6 +37,7 @@ use tokio_postgres::NoTls;
 use tracing::log::info;
 use tracing::{debug, error, info_span, warn, Instrument};
 
+use crate::config::meta::{ConsensusMetaCache, MetaFieldsExt};
 use crate::db::DbMigration;
 use crate::federation::db::Federation;
 use crate::federation::{db, decoders_from_config, instance_to_kind};
@@ -49,6 +50,7 @@ pub struct FederationObserver {
     admin_auth: String,
     mempool_url: String,
     task_group: TaskGroup,
+    consensus_meta_cache: ConsensusMetaCache,
 }
 
 impl FederationObserver {
@@ -70,6 +72,7 @@ impl FederationObserver {
             admin_auth: admin_auth.to_owned(),
             mempool_url: mempool_url.to_owned(),
             task_group: Default::default(),
+            consensus_meta_cache: Default::default(),
         };
 
         slf.setup_schema().await?;
@@ -306,12 +309,20 @@ impl FederationObserver {
             let federation_health_ref = &federation_health;
             async move {
                 let deposits = self.get_federation_assets(federation.federation_id).await?;
-                let name = federation
-                    .config
-                    .global
-                    .meta
-                    .get("federation_name")
-                    .cloned();
+
+                let name = self
+                    .consensus_meta_cache
+                    .fetch_meta_cached(&federation.config.to_json())
+                    .await
+                    .and_then(|meta| meta.get_as::<String>("federation_name"))
+                    .or_else(|| {
+                        federation
+                            .config
+                            .global
+                            .meta
+                            .get("federation_name")
+                            .cloned()
+                    });
 
                 let health = federation_health_ref
                     .get(&federation.federation_id)

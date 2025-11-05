@@ -166,14 +166,9 @@ jobs:
       working-directory: ./fmo_frontend_react
       run: npm run build
 
-    - name: Add CNAME for custom domain
-      run: |
-        PUBLISH_DIR=./fmo_frontend_react/dist
-        echo "ng.observer.fedimint.org" > "${PUBLISH_DIR}/CNAME"
-
     - name: Deploy to gh-pages
       uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./fmo_frontend_react/dist
-        publish_branch: gh-pages
+        cname: ng.observer.fedimint.org

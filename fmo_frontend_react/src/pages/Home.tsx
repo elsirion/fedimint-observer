@@ -55,14 +55,14 @@ export function Home() {
       <div className="my-8 sm:my-16">
         <Totals />
       </div>
-      <div className="relative shadow-md sm:rounded-lg">
-        <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
+  <div className="relative shadow-md rounded-lg overflow-hidden">
+    <div className="p-4 rounded-t-lg sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
           Observed Federations
           <p className="mt-1 text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-400">
             List of all active federations this instance is collecting statistics on
           </p>
         </div>
-        <div className="hidden lg:grid bg-gray-100 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
+        <div className="hidden md:grid bg-gray-100 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
           <div>Name</div>
           <div>
             <a
@@ -74,9 +74,9 @@ export function Home() {
           </div>
           <div>Invite Code</div>
           <div>Total Assets</div>
-          <div>Average Activity (7d)</div>
+          <div>Activity Charts (7d)</div>
         </div>
-        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+  <div className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg">
           {loading ? (
             <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
               Loading...
@@ -97,15 +97,16 @@ export function Home() {
                 avgTxs={fed.avgTxs}
                 avgVolume={fed.avgVolume}
                 health={fed.health}
+                activityData={fed.last_7d_activity}
               />
             ))
           )}
         </div>
       </div>
 
-      <div className="relative shadow-md sm:rounded-lg mt-6">
+  <div className="relative shadow-md rounded-lg overflow-hidden mt-6">
         <div
-          className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800 cursor-pointer"
+          className="p-4 sm:p-5 rounded-t-lg text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800 cursor-pointer"
           onClick={() => setCollapseOffline(!collapseOffline)}
         >
           <svg
@@ -129,7 +130,7 @@ export function Home() {
         </div>
         {!collapseOffline && (
           <>
-            <div className="hidden lg:grid bg-gray-100 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
+            <div className="hidden md:grid bg-gray-100 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
               <div>Name</div>
               <div>
                 <a
@@ -141,9 +142,9 @@ export function Home() {
               </div>
               <div>Invite Code</div>
               <div>Total Assets</div>
-              <div>Average Activity (7d)</div>
+              <div>Activity Charts (7d)</div>
             </div>
-            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg">
               {loading ? (
                 <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
                   Loading...
@@ -164,6 +165,7 @@ export function Home() {
                     avgTxs={fed.avgTxs}
                     avgVolume={fed.avgVolume}
                     health={fed.health}
+                    activityData={fed.last_7d_activity}
                   />
                 ))
               )}

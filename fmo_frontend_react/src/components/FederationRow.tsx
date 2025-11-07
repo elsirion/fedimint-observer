@@ -1,9 +1,17 @@
+
+import React, { Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import type { FederationHealth, FederationRating } from '../types/api';
 import { Badge } from './Badge';
 import { Copyable } from './Copyable';
 import { Rating } from './Rating';
+const CombinedMiniChart = React.lazy(() => import('./MiniChart').then((m) => ({ default: m.CombinedMiniChart })));
 import { asBitcoin } from '../utils/format';
+
+interface ActivityData {
+  num_transactions: number;
+  amount_transferred: number;
+}
 
 interface FederationRowProps {
   id: string;
@@ -14,6 +22,7 @@ interface FederationRowProps {
   avgTxs: number;
   avgVolume: number;
   health: FederationHealth;
+  activityData: ActivityData[];
 }
 
 export function FederationRow({
@@ -25,12 +34,25 @@ export function FederationRow({
   avgTxs,
   avgVolume,
   health,
+  activityData,
 }: FederationRowProps) {
+  // Extract data for mini charts
+  const transactionData = activityData.map(d => d.num_transactions);
+  const volumeData = activityData.map(d => d.amount_transferred / 100000000000); // millisats to BTC
+  
+  // Generate date labels (most recent data last, so we count backwards)
+  const dates = activityData.map((_, index) => {
+    const daysAgo = activityData.length - 1 - index;
+    if (daysAgo === 0) return 'Today';
+    if (daysAgo === 1) return 'Yesterday';
+    return `${daysAgo} days ago`;
+  });
+
   return (
-    <div className="bg-blue-100 dark:bg-gray-800 px-3 sm:px-6 py-4 grid grid-cols-1 lg:grid-cols-5 gap-3 lg:gap-4 text-xs sm:text-sm">
+    <div className="bg-blue-100 dark:bg-gray-800 px-3 sm:px-6 py-4 grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-3 text-xs sm:text-sm">
       {/* Name */}
       <div className="font-medium text-gray-900 dark:text-white">
-        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Name</span>
+        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Name</span>
         <Link
           to={`/federations/${id}`}
           className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
@@ -41,7 +63,7 @@ export function FederationRow({
 
       {/* Recommendations */}
       <div>
-        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">
+        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">
           <a
             href="https://github.com/nostr-protocol/nips/pull/1110"
             className="underline hover:no-underline"
@@ -54,7 +76,7 @@ export function FederationRow({
 
       {/* Invite Code / Status */}
       <div>
-        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Invite Code</span>
+        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Invite Code</span>
         {health === 'online' ? (
           <Copyable text={invite} />
         ) : health === 'degraded' ? (
@@ -66,17 +88,24 @@ export function FederationRow({
 
       {/* Total Assets */}
       <div>
-        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Total Assets</span>
+        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Total Assets</span>
         <span className="text-gray-900 dark:text-white">{asBitcoin(totalAssets, 6)}</span>
       </div>
 
-      {/* Average Activity */}
+      {/* Activity Charts (7d) */}
       <div>
-        <span className="text-[10px] lg:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Average Activity (7d)</span>
-        <div className="text-gray-900 dark:text-white">
-          <div>#tx: {avgTxs.toFixed(1)}</div>
-          <div>volume: {asBitcoin(avgVolume, 6)}</div>
-        </div>
+        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Activity Charts (7d)</span>
+        <Suspense fallback={<div className="w-full h-12 bg-transparent" /> }>
+          <CombinedMiniChart
+            transactionData={transactionData}
+            volumeData={volumeData}
+            transactionValue={`${avgTxs.toFixed(1)}/day`}
+            volumeValue={asBitcoin(avgVolume, 6)}
+            dates={dates}
+            formatTransaction={(val) => Math.round(val).toString()}
+            formatVolume={(val) => `${val.toFixed(8)} BTC`}
+          />
+        </Suspense>
       </div>
     </div>
   );

@@ -160,7 +160,7 @@ export function FederationDetail() {
 
   const fetchGuardianHealth = async (federationId: string) => {
     try {
-      const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
+  const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api';
       const response = await fetch(`${BASE_URL}/federations/${federationId}/health`);
       if (response.ok) {
         const data = await response.json();
@@ -174,7 +174,7 @@ export function FederationDetail() {
   const fetchHistogram = async (federationId: string) => {
     setHistogramLoading(true);
     try {
-      const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
+  const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api';
       const response = await fetch(`${BASE_URL}/federations/${federationId}/transactions/histogram`);
       if (response.ok) {
         const data = await response.json() as Record<string, { num_transactions: number; amount_transferred: number }>;
@@ -199,7 +199,7 @@ export function FederationDetail() {
   const fetchUTXOs = async (federationId: string) => {
     setUtxosLoading(true);
     try {
-      const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
+  const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api';
       const response = await fetch(`${BASE_URL}/federations/${federationId}/utxos`);
       if (response.ok) {
         const data = await response.json();
@@ -245,7 +245,7 @@ export function FederationDetail() {
       const signedEvent = await nostr.signEvent(unsignedEvent);
 
       // Publish to backend
-      const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
+  const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api';
       const response = await fetch(`${BASE_URL}/federations/nostr/rating`, {
         method: 'PUT',
         headers: {
@@ -673,7 +673,7 @@ export function FederationDetail() {
 }
 
 async function fetchFederationConfig(federationId: string, inviteCode: string): Promise<FederationConfig> {
-  const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
+  const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api';
 
   // Try fetching config using federation ID first (works for actively observed federations)
   try {

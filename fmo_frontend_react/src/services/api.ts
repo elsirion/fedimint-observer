@@ -1,6 +1,6 @@
 import type { FedimintTotals, FederationSummary } from '../types/api';
 
-const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
+const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api';
 
 export const api = {
   async getTotals(): Promise<FedimintTotals> {

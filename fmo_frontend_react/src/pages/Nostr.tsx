@@ -76,7 +76,7 @@ export function Nostr() {
         const federationsWithoutNames = nostrFeds.filter(fed => !fed.name);
 
         if (federationsWithoutNames.length > 0) {
-          const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000';
+          const BASE_URL = import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api';
 
           // Fetch names for federations without them (in background, non-blocking)
           federationsWithoutNames.forEach(async (fed) => {
@@ -130,7 +130,7 @@ export function Nostr() {
     try {
       // Fetch federation config
       const configResponse = await fetch(
-        `${import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000'}/config/${inviteCode}`
+        `${import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api'}/config/${inviteCode}`
       );
 
       if (!configResponse.ok) {
@@ -141,7 +141,7 @@ export function Nostr() {
 
       // Fetch federation metadata
       const metaResponse = await fetch(
-        `${import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000'}/config/${inviteCode}/meta`
+        `${import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api'}/config/${inviteCode}/meta`
       );
 
       let name = 'Unknown';
@@ -230,7 +230,7 @@ export function Nostr() {
 
       // Publish to backend
       const response = await fetch(
-        `${import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000'}/nostr/federations`,
+        `${import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api'}/nostr/federations`,
         {
           method: 'PUT',
           headers: {
@@ -262,7 +262,7 @@ export function Nostr() {
       // Use the API endpoint to calculate the federation ID from the invite code
       // since calculating it client-side would require crypto libraries
       const response = await fetch(
-        `${import.meta.env.VITE_FMO_API_BASE_URL || 'http://127.0.0.1:3000'}/config/${inviteCode}/id`
+        `${import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api'}/config/${inviteCode}/id`
       );
 
       if (!response.ok) {
@@ -279,15 +279,15 @@ export function Nostr() {
 
   return (
     <div className="pb-4">
-      <div className="relative shadow-md sm:rounded-lg mt-8">
-        <h1 className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
+  <div className="relative shadow-md rounded-lg overflow-hidden mt-8">
+  <h1 className="p-4 sm:p-5 rounded-t-lg text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
           Inspect Federation
           <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
             Fetch federation info by invite code
           </p>
         </h1>
 
-        <div className="p-4 sm:p-5 pt-0 bg-blue-100 dark:text-white dark:bg-gray-800">
+        <div className="p-4 sm:p-5 rounded-b-lg pt-0 bg-blue-100 dark:text-white dark:bg-gray-800">
           <form className="flex flex-col sm:flex-row gap-2 sm:items-center" onSubmit={handleCheckFederation}>
             <div className="relative flex-1 w-full">
               <input
@@ -405,8 +405,8 @@ export function Nostr() {
         </div>
       </div>
 
-      <div className="relative shadow-md sm:rounded-lg mt-8">
-        <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
+  <div className="relative shadow-md rounded-lg overflow-hidden mt-8">
+  <div className="p-4 sm:p-5 rounded-t-lg text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
           Nostr Federations
           <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
             Other federations announced via Nostr
@@ -416,7 +416,7 @@ export function Nostr() {
           <div>Name</div>
           <div>Invite Code</div>
         </div>
-        <div className="divide-y divide-gray-200 dark:divide-gray-700">
+  <div className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg">
           {loading ? (
             <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
               Loading...
@@ -435,7 +435,7 @@ export function Nostr() {
                   <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Name</span>
                   {fed.name || fed.id}
                 </div>
-                <div className='bg-blue-100'>
+                <div className='bg-transparent'>
                   <span className="text-[10px]  sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>
                   <Copyable text={fed.invite} />
                 </div>

@@ -7,11 +7,16 @@ use fedimint_core::util::backoff_util::background_backoff;
 use fedimint_core::util::retry;
 use leptos::prelude::*;
 
+use crate::components::badge::{Badge, BadgeLevel};
 use crate::components::Copyable;
 use crate::BASE_URL;
 
 #[component]
-pub fn NostrFederationRow(federation_id: FederationId, invite_code: InviteCode) -> impl IntoView {
+pub fn NostrFederationRow(
+    federation_id: FederationId,
+    invite_code: InviteCode,
+    is_observed: bool,
+) -> impl IntoView {
     let invite_code_inner = invite_code.clone();
     let federation_name_res =
         LocalResource::new(move || fetch_federation_name(invite_code_inner.clone()));
@@ -22,12 +27,28 @@ pub fn NostrFederationRow(federation_id: FederationId, invite_code: InviteCode) 
                 scope="row"
                 class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white"
             >
-                { move || {
-                    match federation_name_res.get() {
-                        Some(name) => name,
-                        None => federation_id.to_string(),
-                    }
-                }}
+                <div class="flex items-center gap-2">
+                    <span>
+                        { move || {
+                            match federation_name_res.get() {
+                                Some(name) => name,
+                                None => federation_id.to_string(),
+                            }
+                        }}
+                    </span>
+                    { move || {
+                        // Show "New" badge if we have a name and federation is not observed
+                        if !is_observed && federation_name_res.get().is_some() {
+                            Some(view! {
+                                <Badge level=BadgeLevel::Success>
+                                    "New"
+                                </Badge>
+                            })
+                        } else {
+                            None
+                        }
+                    }}
+                </div>
             </th>
             <td>
                 <Copyable text=invite_code.to_string()/>

@@ -39,6 +39,8 @@ interface CombinedMiniChartProps {
   dates?: string[];
   formatTransaction?: (value: number) => string;
   formatVolume?: (value: number) => string;
+  maxTransaction?: number;  // global max for consistent scale across all charts
+  maxVolume?: number;        // global max for consistent scale across all charts
 }
 
 export function MiniChart({ data, color, label, value, dates, formatValue }: MiniChartProps) {
@@ -127,7 +129,9 @@ export function CombinedMiniChart({
   volumeValue, 
   dates,
   formatTransaction,
-  formatVolume 
+  formatVolume,
+  maxTransaction,
+  maxVolume
 }: CombinedMiniChartProps) {
   const chartOption = useMemo(() => ({
     grid: {
@@ -146,12 +150,14 @@ export function CombinedMiniChart({
         type: 'value',
         show: false,
         min: 0,
+        max: maxTransaction,  
         minInterval: 1,
       },
       {
         type: 'value',
         show: false,
         min: 0,
+        max: maxVolume,       
       }
     ],
     tooltip: {
@@ -254,7 +260,7 @@ export function CombinedMiniChart({
         barWidth: '30%',
       },
     ],
-  }), [transactionData, volumeData, dates, formatTransaction, formatVolume]);
+  }), [transactionData, volumeData, dates, formatTransaction, formatVolume, maxTransaction, maxVolume]);
 
   return (
     <div className="flex flex-col gap-2 md:gap-3">

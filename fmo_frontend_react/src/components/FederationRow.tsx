@@ -23,6 +23,8 @@ interface FederationRowProps {
   avgVolume: number;
   health: FederationHealth;
   activityData: ActivityData[];
+  maxTransaction?: number;  // global max for consistent chart scale
+  maxVolume?: number;        // global max for consistent chart scale
 }
 
 export function FederationRow({
@@ -35,6 +37,8 @@ export function FederationRow({
   avgVolume,
   health,
   activityData,
+  maxTransaction,
+  maxVolume,
 }: FederationRowProps) {
   // Extract data for mini charts
   const transactionData = activityData.map(d => d.num_transactions);
@@ -49,7 +53,7 @@ export function FederationRow({
   });
 
   return (
-    <div className="bg-blue-100 dark:bg-gray-800 px-3 sm:px-6 py-4 grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-3 text-xs sm:text-sm">
+    <div className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-4 grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-3 text-xs sm:text-sm">
       {/* Name */}
       <div className="font-medium text-gray-900 dark:text-white">
         <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Name</span>
@@ -104,6 +108,8 @@ export function FederationRow({
             dates={dates}
             formatTransaction={(val) => Math.round(val).toString()}
             formatVolume={(val) => `${val.toFixed(8)} BTC`}
+            maxTransaction={maxTransaction}
+            maxVolume={maxVolume}
           />
         </Suspense>
       </div>

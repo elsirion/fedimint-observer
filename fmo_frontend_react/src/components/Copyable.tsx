@@ -20,14 +20,14 @@ export function Copyable({ text }: CopyableProps) {
   return (
     <div className="flex items-center gap-2">
       <input
-        className="bg-blue-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-900 dark:text-white flex-1 min-w-0 truncate"
+        className="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-gray-900 dark:text-white flex-1 min-w-0 truncate"
         value={text}
         readOnly
         title={text}
       />
       <button
         onClick={handleCopy}
-        className="shrink-0 text-gray-900 bg-blue-100 hover:bg-gray-200 border border-gray-200 focus:ring-4 focus:outline-none focus:ring-gray-100 rounded-lg text-sm p-1.5 sm:p-2 text-center inline-flex items-center dark:focus:ring-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
+        className="shrink-0 text-gray-900 bg-white hover:bg-gray-100 border border-gray-300 focus:ring-4 focus:outline-none focus:ring-gray-100 rounded-lg text-sm p-1.5 sm:p-2 text-center inline-flex items-center dark:focus:ring-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:hover:bg-gray-700"
         title={copied ? 'Copied!' : 'Copy to clipboard'}
       >
         {copied ? (

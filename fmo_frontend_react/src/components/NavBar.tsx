@@ -12,7 +12,7 @@ export function NavBar({ theme, onToggleTheme }: NavBarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <nav className="bg-blue-50 border-gray-200 dark:bg-gray-900">
+    <nav className="bg-white border-gray-200 dark:bg-gray-900">
       <div className="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
         <Link to="/" className="flex items-center space-x-2 sm:space-x-3 rtl:space-x-reverse">
           <img src="/fedimint.png" className="h-6 sm:h-8" alt="Fedimint Logo" />
@@ -93,7 +93,7 @@ export function NavBar({ theme, onToggleTheme }: NavBarProps) {
           } items-center justify-between w-full md:flex md:w-auto md:order-1`}
           id="navbar-default"
         >
-          <ul className="flex flex-col p-4 md:p-0 mt-4 font-medium border border-gray-300 rounded-lg bg-gray-100 md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0 md:bg-blue-50 dark:bg-gray-800 md:dark:bg-gray-900 dark:border-gray-700">
+          <ul className="flex flex-col p-4 md:p-0 mt-4 font-medium border border-gray-300 rounded-lg bg-gray-100 md:space-x-8 rtl:space-x-reverse md:flex-row md:mt-0 md:border-0 md:bg-white dark:bg-gray-800 md:dark:bg-gray-900 dark:border-gray-700">
             <li>
               <Link
                 to="/"

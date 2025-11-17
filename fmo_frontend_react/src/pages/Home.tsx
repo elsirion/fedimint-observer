@@ -50,19 +50,30 @@ export function Home() {
   const activeFederations = federations.filter((fed) => fed.health !== 'offline');
   const offlineFederations = federations.filter((fed) => fed.health === 'offline');
 
+  // Compute global maxes across all federations for consistent chart scale
+  const globalMaxTransaction = federations.reduce((max, fed) => {
+    const fedMax = Math.max(...fed.last_7d_activity.map(d => d.num_transactions));
+    return Math.max(max, fedMax);
+  }, 0);
+
+  const globalMaxVolume = federations.reduce((max, fed) => {
+    const fedMax = Math.max(...fed.last_7d_activity.map(d => d.amount_transferred / 100000000000)); // convert to BTC
+    return Math.max(max, fedMax);
+  }, 0);
+
   return (
     <div className="pb-4">
       <div className="my-8 sm:my-16">
         <Totals />
       </div>
-  <div className="relative shadow-md rounded-lg overflow-hidden">
-    <div className="p-4 rounded-t-lg sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800">
+  <div className="relative overflow-x-auto bg-white shadow-md rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+    <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
           Observed Federations
-          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-400">
+          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
             List of all active federations this instance is collecting statistics on
           </p>
         </div>
-        <div className="hidden md:grid bg-gray-100 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
+        <div className="hidden md:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4 border-y border-gray-200 dark:border-gray-600">
           <div>Name</div>
           <div>
             <a
@@ -76,13 +87,13 @@ export function Home() {
           <div>Total Assets</div>
           <div>Activity Charts (7d)</div>
         </div>
-  <div className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg">
+  <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {loading ? (
-            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
               Loading...
             </div>
           ) : activeFederations.length === 0 ? (
-            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
+            <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
               No active federations found
             </div>
           ) : (
@@ -98,15 +109,17 @@ export function Home() {
                 avgVolume={fed.avgVolume}
                 health={fed.health}
                 activityData={fed.last_7d_activity}
+                maxTransaction={globalMaxTransaction}
+                maxVolume={globalMaxVolume}
               />
             ))
           )}
         </div>
       </div>
 
-  <div className="relative shadow-md rounded-lg overflow-hidden mt-6">
+  <div className="relative overflow-x-auto bg-white shadow-md rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700 mt-6">
         <div
-          className="p-4 sm:p-5 rounded-t-lg text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-blue-100 dark:text-white dark:bg-gray-800 cursor-pointer"
+          className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800 cursor-pointer"
           onClick={() => setCollapseOffline(!collapseOffline)}
         >
           <svg
@@ -124,13 +137,13 @@ export function Home() {
             />
           </svg>
           <span>Shut Down Federations</span>
-          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-600 dark:text-gray-400">
+          <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
             List of federations that have ceased operations but were observed in the past
           </p>
         </div>
         {!collapseOffline && (
           <>
-            <div className="hidden md:grid bg-gray-100 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4">
+            <div className="hidden md:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4 border-y border-gray-200 dark:border-gray-600">
               <div>Name</div>
               <div>
                 <a
@@ -144,13 +157,13 @@ export function Home() {
               <div>Total Assets</div>
               <div>Activity Charts (7d)</div>
             </div>
-            <div className="divide-y divide-gray-200 dark:divide-gray-700 rounded-lg">
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {loading ? (
-                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                   Loading...
                 </div>
               ) : offlineFederations.length === 0 ? (
-                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-100 dark:bg-gray-800">
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                   No offline federations
                 </div>
               ) : (
@@ -166,6 +179,8 @@ export function Home() {
                     avgVolume={fed.avgVolume}
                     health={fed.health}
                     activityData={fed.last_7d_activity}
+                    maxTransaction={globalMaxTransaction}
+                    maxVolume={globalMaxVolume}
                   />
                 ))
               )}

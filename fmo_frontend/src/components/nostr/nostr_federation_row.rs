@@ -23,11 +23,11 @@ pub fn NostrFederationRow(
                         {federation_name.clone().unwrap_or_else(|| federation_id.to_string())}
                     </span>
                     {
-                        // Show "New" badge if we have a name and federation is not observed
+                        // Show "Unobserved" badge if we have a name and federation is not observed
                         if !is_observed && federation_name.is_some() {
                             Some(view! {
-                                <Badge level=BadgeLevel::Success>
-                                    "New"
+                                <Badge level=BadgeLevel::Info tooltip=Some("Not currently observed by this instance".to_string())>
+                                    "Unobserved"
                                 </Badge>
                             })
                         } else {

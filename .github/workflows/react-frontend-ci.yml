@@ -172,6 +172,10 @@ jobs:
         VITE_FMO_API_BASE_URL: 'https://observer.fedimint.org/api'
       run: npm run build
 
+    - name: Copy index.html to 404.html for client-side routing
+      working-directory: ./fmo_frontend_react
+      run: cp dist/index.html dist/404.html
+
     - name: Deploy to gh-pages
       uses: peaceiris/actions-gh-pages@v4
       with:

@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import ReactEChartsCore from 'echarts-for-react/lib/core';
 import * as echarts from 'echarts/core';
 import { BarChart } from 'echarts/charts';
-import { GridComponent, TooltipComponent } from 'echarts/components';
+import { GridComponent, TooltipComponent, LegendComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
+import { useTheme } from '../hooks/useTheme';
 
 // Register only the components we need
 echarts.use([
@@ -11,6 +12,7 @@ echarts.use([
   GridComponent,
   TooltipComponent,
   CanvasRenderer,
+  LegendComponent,
 ]);
 
 // Small, local types for ECharts callback params to avoid using `any`
@@ -34,20 +36,32 @@ interface MiniChartProps {
 interface CombinedMiniChartProps {
   transactionData: number[];
   volumeData: number[];
-  transactionValue: string;
-  volumeValue: string;
   dates?: string[];
   formatTransaction?: (value: number) => string;
   formatVolume?: (value: number) => string;
+  maxTransaction?: number;  // global max for consistent scale across all charts
+  maxVolume?: number;        // global max for consistent scale across all charts
 }
 
 export function MiniChart({ data, color, label, value, dates, formatValue }: MiniChartProps) {
+  const { theme } = useTheme();
+  
+  const sevenDayAvg = useMemo(() => {
+    if (data.length === 0) return 0;
+    const last7Days = data.slice(-7);
+    const sum = last7Days.reduce((acc, val) => acc + val, 0);
+    return sum / last7Days.length;
+  }, [data]);
+
   const chartOption = useMemo(() => ({
     grid: {
       left: 0,
       right: 0,
       top: 0,
       bottom: 0,
+    },
+    legend: {
+      show: false,
     },
     xAxis: {
       type: 'category',
@@ -60,10 +74,10 @@ export function MiniChart({ data, color, label, value, dates, formatValue }: Min
     },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#1f2937',
-      borderColor: '#374151',
+      backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
+      borderColor: theme === 'dark' ? '#374151' : '#e5e7eb',
       textStyle: { 
-        color: '#fff', 
+        color: theme === 'dark' ? '#fff' : '#111827', 
         fontSize: 11 
       },
       formatter: (params: unknown) => {
@@ -73,9 +87,12 @@ export function MiniChart({ data, color, label, value, dates, formatValue }: Min
         const dateStr = param.axisValue || '';
         const val = param.value;
         const formattedValue = formatValue ? formatValue(val as number) : (val !== undefined ? val.toString() : '');
+        const formattedAvg = formatValue ? formatValue(sevenDayAvg) : sevenDayAvg.toFixed(2);
+        const subtextColor = theme === 'dark' ? '#9ca3af' : '#6b7280';
         return `<div style="font-size: 11px;">
-          <div style="color: #9ca3af; margin-bottom: 2px;">${dateStr}</div>
+          <div style="color: ${subtextColor}; margin-bottom: 2px;">${dateStr}</div>
           <div style="font-weight: 600;">${label}: ${formattedValue}</div>
+          <div style="color: ${subtextColor}; margin-top: 4px; font-size: 10px;">7-day avg: ${formattedAvg}</div>
         </div>`;
       },
       axisPointer: {
@@ -98,7 +115,7 @@ export function MiniChart({ data, color, label, value, dates, formatValue }: Min
         barWidth: '60%',
       },
     ],
-  }), [data, color, dates, formatValue, label]);
+  }), [data, color, dates, formatValue, label, sevenDayAvg, theme]);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -123,18 +140,37 @@ export function MiniChart({ data, color, label, value, dates, formatValue }: Min
 export function CombinedMiniChart({ 
   transactionData, 
   volumeData, 
-  transactionValue, 
-  volumeValue, 
   dates,
   formatTransaction,
-  formatVolume 
+  formatVolume,
+  maxTransaction,
+  maxVolume
 }: CombinedMiniChartProps) {
+  const { theme } = useTheme();
+  
+  const transactionAvg = useMemo(() => {
+    if (transactionData.length === 0) return 0;
+    const last7Days = transactionData.slice(-7);
+    const sum = last7Days.reduce((acc, val) => acc + val, 0);
+    return sum / last7Days.length;
+  }, [transactionData]);
+
+  const volumeAvg = useMemo(() => {
+    if (volumeData.length === 0) return 0;
+    const last7Days = volumeData.slice(-7);
+    const sum = last7Days.reduce((acc, val) => acc + val, 0);
+    return sum / last7Days.length;
+  }, [volumeData]);
+
   const chartOption = useMemo(() => ({
     grid: {
       left: 0,
       right: 0,
       top: 0,
       bottom: 0,
+    },
+    legend: {
+      show: false,
     },
     xAxis: {
       type: 'category',
@@ -146,28 +182,32 @@ export function CombinedMiniChart({
         type: 'value',
         show: false,
         min: 0,
+        max: maxTransaction,  
         minInterval: 1,
       },
       {
         type: 'value',
         show: false,
         min: 0,
+        max: maxVolume,       
       }
     ],
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#1f2937',
-      borderColor: '#374151',
+      backgroundColor: theme === 'dark' ? '#1f2937' : '#ffffff',
+      borderColor: theme === 'dark' ? '#374151' : '#e5e7eb',
       textStyle: { 
-        color: '#fff', 
+        color: theme === 'dark' ? '#fff' : '#111827', 
         fontSize: 11 
       },
       formatter: (params: unknown) => {
         const p = params as TooltipParamItem[];
         if (!p || p.length === 0) return '';
         const dateStr = p[0].axisValue || '';
+        const subtextColor = theme === 'dark' ? '#9ca3af' : '#6b7280';
+        const borderColor = theme === 'dark' ? '#374151' : '#e5e7eb';
         let result = `<div style="font-size: 11px;">
-          <div style="color: #9ca3af; margin-bottom: 4px;">${dateStr}</div>`;
+          <div style="color: ${subtextColor}; margin-bottom: 4px;">${dateStr}</div>`;
         
         p.forEach((param: TooltipParamItem) => {
           // Get the actual original value (not the adjusted one for display)
@@ -189,6 +229,16 @@ export function CombinedMiniChart({
             ${param.seriesName}: ${formattedValue}
           </div>`;
         });
+        
+        // Add 7-day averages
+        const formattedTransactionAvg = formatTransaction ? formatTransaction(transactionAvg) : transactionAvg.toFixed(2);
+        const formattedVolumeAvg = formatVolume ? formatVolume(volumeAvg) : volumeAvg.toFixed(8);
+        
+        result += `<div style="color: ${subtextColor}; margin-top: 6px; padding-top: 4px; border-top: 1px solid ${borderColor}; font-size: 10px;">
+          <div style="margin-bottom: 2px;">7-day avg</div>
+          <div style="color: #3b82f6;">Transactions: ${formattedTransactionAvg}</div>
+          <div style="color: #10b981;">Volume: ${formattedVolumeAvg}</div>
+        </div>`;
         
         result += '</div>';
         return result;
@@ -254,36 +304,18 @@ export function CombinedMiniChart({
         barWidth: '30%',
       },
     ],
-  }), [transactionData, volumeData, dates, formatTransaction, formatVolume]);
+  }), [transactionData, volumeData, dates, formatTransaction, formatVolume, maxTransaction, maxVolume, transactionAvg, volumeAvg, theme]);
 
   return (
-    <div className="flex flex-col gap-2 md:gap-3">
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <div className="flex items-center gap-1 md:gap-1.5 mb-0.5 md:mb-1">
-            <div className="w-2 h-2 md:w-2.5 xl:w-3 md:h-2.5 xl:h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: '#3b82f6' }}></div>
-            <div className="text-[9px] md:text-[7px] xl:text-xs text-gray-600 dark:text-gray-400 truncate">Transactions</div>
-          </div>
-          <div className="text-[11px] md:text-xxs xl:text-sm font-medium text-gray-900 dark:text-white truncate">{transactionValue}</div>
-        </div>
-        <div>
-          <div className="flex items-center gap-1 md:gap-1.5 mb-0.5 md:mb-1">
-            <div className="w-2 h-2 md:w-2.5 xl:w-3 md:h-2.5 xl:h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: '#10b981' }}></div>
-            <div className="text-[9px] md:text-[10px] xl:text-xs text-gray-600 dark:text-gray-400 truncate">Volume</div>
-          </div>
-          <div className="text-[11px] md:text-xxs xl:text-sm font-medium text-gray-900 dark:text-white truncate">{volumeValue}</div>
-        </div>
-      </div>
-      <div className="w-full h-10 md:h-14 xl:h-16">
-        <ReactEChartsCore
-          echarts={echarts}
-          option={chartOption}
-          notMerge={true}
-          lazyUpdate={true}
-          style={{ height: '100%', width: '100%' }}
-          opts={{ renderer: 'canvas' }}
-        />
-      </div>
+    <div className="w-full h-10 md:h-14 xl:h-16">
+      <ReactEChartsCore
+        echarts={echarts}
+        option={chartOption}
+        notMerge={true}
+        lazyUpdate={true}
+        style={{ height: '100%', width: '100%' }}
+        opts={{ renderer: 'canvas' }}
+      />
     </div>
   );
 }

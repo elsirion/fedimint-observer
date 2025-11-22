@@ -13,13 +13,9 @@
       font-size: 16px;
     }
   }
-  @media (min-width: 900px) {
-    html {
-      font-size: 18px;
-    }
-  }
+  
   /* Ensure body has proper background colors for light/dark mode */
   body {
-    @apply bg-blue-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+    @apply dark:bg-gray-900 text-gray-900 dark:text-gray-100;
   }
 }

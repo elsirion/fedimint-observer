@@ -298,7 +298,7 @@ export function FederationDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Guardians Panel */}
-        <div className="lg:col-span-2 bg-blue-100 dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
             Guardians
             {config && (
@@ -367,7 +367,7 @@ export function FederationDetail() {
         {/* Right Column */}
         <div className="space-y-4 sm:space-y-6">
           {/* Federation Info Panel */}
-          <div className="bg-blue-100 dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
               Federation
             </h2>
@@ -400,7 +400,7 @@ export function FederationDetail() {
           </div>
 
           {/* Recommend Section */}
-          <div className="bg-blue-100 dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
             <h2 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4">
               Recommend
             </h2>
@@ -441,7 +441,7 @@ export function FederationDetail() {
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                   placeholder="Comment"
-                  className="block w-full p-3 sm:p-4 text-sm sm:text-base text-gray-900 border border-gray-300 rounded-lg bg-blue-50 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full p-3 sm:p-4 text-sm sm:text-base text-gray-900 border border-gray-300 rounded-lg bg-white dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
@@ -502,7 +502,7 @@ export function FederationDetail() {
                 </span>
               </div>
 
-              <div className="bg-blue-50 dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4 sm:mb-6">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white break-words">
@@ -621,16 +621,16 @@ export function FederationDetail() {
                 </div>
                 <div className="divide-y divide-gray-200 dark:divide-gray-700">
                   {utxosLoading ? (
-                    <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-gray-800">
+                    <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                       Loading UTXOs...
                     </div>
                   ) : utxos.length === 0 ? (
-                    <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-blue-50 dark:bg-gray-800">
+                    <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                       No UTXOs found
                     </div>
                   ) : (
                     utxos.map((utxo, index) => (
-                      <div key={index} className="bg-blue-50 dark:bg-gray-800 px-3 sm:px-6 py-3 sm:py-4">
+                      <div key={index} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-3 sm:py-4">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                           <div className="flex-1 min-w-0">
                             <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">UTXO</span>
@@ -660,7 +660,7 @@ export function FederationDetail() {
           )}
 
           {activeTab === 'config' && (
-            <div className="bg-blue-50 dark:bg-gray-800 rounded-lg shadow-md p-3 sm:p-6 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-3 sm:p-6 overflow-hidden">
               <pre className="text-[10px] sm:text-xs lg:text-sm text-gray-900 dark:text-white overflow-x-auto whitespace-pre break-words">
                 {config?.rawConfig ? JSON.stringify(config.rawConfig, null, 2) : 'Loading config...'}
               </pre>

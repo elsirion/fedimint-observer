@@ -19,8 +19,6 @@ interface FederationRowProps {
   rating: FederationRating;
   invite: string;
   totalAssets: number;
-  avgTxs: number;
-  avgVolume: number;
   health: FederationHealth;
   activityData: ActivityData[];
   maxTransaction?: number;  // global max for consistent chart scale
@@ -33,8 +31,6 @@ export function FederationRow({
   rating,
   invite,
   totalAssets,
-  avgTxs,
-  avgVolume,
   health,
   activityData,
   maxTransaction,
@@ -103,8 +99,6 @@ export function FederationRow({
           <CombinedMiniChart
             transactionData={transactionData}
             volumeData={volumeData}
-            transactionValue={`${avgTxs.toFixed(1)}/day`}
-            volumeValue={asBitcoin(avgVolume, 6)}
             dates={dates}
             formatTransaction={(val) => Math.round(val).toString()}
             formatVolume={(val) => `${val.toFixed(8)} BTC`}

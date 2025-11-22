@@ -5,13 +5,8 @@ import { Totals } from '../components/Totals';
 import { FederationRow } from '../components/FederationRow';
 import { ratingIndex } from '../utils/format';
 
-interface FederationWithStats extends FederationSummary {
-  avgTxs: number;
-  avgVolume: number;
-}
-
 export function Home() {
-  const [federations, setFederations] = useState<FederationWithStats[]>([]);
+  const [federations, setFederations] = useState<FederationSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [collapseOffline, setCollapseOffline] = useState(true);
 
@@ -20,19 +15,6 @@ export function Home() {
       .getFederations()
       .then((data) => {
         const federationsWithStats = data
-          .map((fed) => {
-            const avgTxs =
-              fed.last_7d_activity.reduce((sum, act) => sum + act.num_transactions, 0) /
-              (fed.last_7d_activity.length || 1);
-            const avgVolume =
-              fed.last_7d_activity.reduce((sum, act) => sum + act.amount_transferred, 0) /
-              (fed.last_7d_activity.length || 1);
-            return {
-              ...fed,
-              avgTxs,
-              avgVolume,
-            };
-          })
           .sort((a, b) => {
             const aIndex = ratingIndex(a.nostr_votes.count, a.nostr_votes.avg);
             const bIndex = ratingIndex(b.nostr_votes.count, b.nostr_votes.avg);
@@ -105,8 +87,6 @@ export function Home() {
                 rating={fed.nostr_votes}
                 invite={fed.invite}
                 totalAssets={fed.deposits}
-                avgTxs={fed.avgTxs}
-                avgVolume={fed.avgVolume}
                 health={fed.health}
                 activityData={fed.last_7d_activity}
                 maxTransaction={globalMaxTransaction}
@@ -175,8 +155,6 @@ export function Home() {
                     rating={fed.nostr_votes}
                     invite={fed.invite}
                     totalAssets={fed.deposits}
-                    avgTxs={fed.avgTxs}
-                    avgVolume={fed.avgVolume}
                     health={fed.health}
                     activityData={fed.last_7d_activity}
                     maxTransaction={globalMaxTransaction}

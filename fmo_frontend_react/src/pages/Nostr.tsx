@@ -48,6 +48,8 @@ export function Nostr() {
   const [error, setError] = useState<string | null>(null);
   const [announcing, setAnnouncing] = useState(false);
   const [announceSuccess, setAnnounceSuccess] = useState(false);
+  const [showOffline, setShowOffline] = useState(false);
+  const [observedFederationIds, setObservedFederationIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const fetchFederationsWithNames = async () => {
@@ -61,6 +63,10 @@ export function Nostr() {
         const nameMap = new Map(
           mainFederations.map(fed => [fed.id, fed.name])
         );
+
+        // Store IDs of federations that are being observed
+        const observedIds = new Set(mainFederations.map(fed => fed.id));
+        setObservedFederationIds(observedIds);
 
         // Convert the nostr object to an array
         const nostrFeds = Object.entries(nostrData).map(([id, invite]) => ({
@@ -405,44 +411,118 @@ export function Nostr() {
         </div>
       </div>
 
-  <div className="relative overflow-x-auto bg-white shadow-md rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700 mt-8">
-  <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
-          Nostr Federations
+      {/* Online Nostr Federations */}
+      <div className="relative overflow-x-auto bg-white shadow-md rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700 mt-8">
+        <div className="p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800">
+          Online Nostr Federations
           <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
-            Other federations announced via Nostr
+            Federations announced via Nostr that are currently online
           </p>
         </div>
         <div className="hidden sm:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-2 gap-2 border-y border-gray-200 dark:border-gray-600">
           <div>Name</div>
           <div>Invite Code</div>
         </div>
-  <div className="divide-y divide-gray-200 dark:divide-gray-700">
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {loading ? (
             <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
               Loading...
             </div>
-          ) : federations.length === 0 ? (
+          ) : federations.filter(fed => fed.name).length === 0 ? (
             <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
-              No Nostr federations found
+              No online Nostr federations found
             </div>
           ) : (
-            federations.map((fed) => (
-              <div
-                key={fed.id}
-                className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-2 text-xs sm:text-sm"
-              >
-                <div className="font-medium text-gray-900 dark:text-white break-all">
-                  <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Name</span>
-                  {fed.name || fed.id}
+            federations
+              .filter(fed => fed.name)
+              .map((fed) => (
+                <div
+                  key={fed.id}
+                  className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-2 text-xs sm:text-sm"
+                >
+                  <div className="font-medium text-gray-900 dark:text-white break-all">
+                    <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Name</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {fed.name}
+                      {!observedFederationIds.has(fed.id) && (
+                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                          Unobserved
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className='bg-transparent'>
+                    <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>
+                    <Copyable text={fed.invite} />
+                  </div>
                 </div>
-                <div className='bg-transparent'>
-                  <span className="text-[10px]  sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>
-                  <Copyable text={fed.invite} />
-                </div>
-              </div>
-            ))
+              ))
           )}
         </div>
+      </div>
+
+      {/* Offline Nostr Federations */}
+      <div className="relative overflow-x-auto bg-white shadow-md rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700 mt-8">
+        <button
+          onClick={() => setShowOffline(!showOffline)}
+          className="w-full p-4 sm:p-5 text-base sm:text-lg font-semibold text-left rtl:text-right text-gray-900 bg-white dark:text-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between"
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <svg
+                className={`w-4 h-4 transition-transform ${showOffline ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+              Offline Nostr Federations
+            </div>
+            <p className="mt-1 text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400">
+              Federations announced via Nostr that are currently offline or unreachable
+            </p>
+          </div>
+        </button>
+        
+        {showOffline && (
+          <>
+            <div className="hidden sm:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-2 gap-2 border-y border-gray-200 dark:border-gray-600">
+              <div>Federation ID</div>
+              <div>Invite Code</div>
+            </div>
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {loading ? (
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                  Loading...
+                </div>
+              ) : federations.filter(fed => !fed.name).length === 0 ? (
+                <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+                  No offline Nostr federations
+                </div>
+              ) : (
+                federations
+                  .filter(fed => !fed.name)
+                  .map((fed) => (
+                    <div
+                      key={fed.id}
+                      className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-2 text-xs sm:text-sm"
+                    >
+                      <div className="font-medium text-gray-900 dark:text-white break-all">
+                        <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Federation ID</span>
+                        {fed.id}
+                      </div>
+                      <div className='bg-transparent'>
+                        <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>
+                        <Copyable text={fed.invite} />
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

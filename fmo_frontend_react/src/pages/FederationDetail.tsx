@@ -50,6 +50,8 @@ interface HistogramEntry {
   count: number;
   avgVolume?: number;
   avgCount?: number;
+  isoDate?: string;
+  timestamp?: number;
 }
 
 export function FederationDetail() {
@@ -72,7 +74,29 @@ export function FederationDetail() {
   const [movingAverageWindow, setMovingAverageWindow] = useState<number>(0); // 0 = off, 7 = 7-day, 30 = 30-day
   const [useLogScale, setUseLogScale] = useState(false);
   const [guardianHealth, setGuardianHealth] = useState<Record<string, GuardianHealth>>({});
-  const [zoomState, setZoomState] = useState<{ start: number; end: number }>({ start: 0, end: 100 });
+  
+  // Calculate initial zoom to show last 3 months of data by default
+  const initialZoom = useMemo(() => {
+    if (histogram.length === 0) return { start: 0, end: 100 };
+    
+    // Use timestamps to compute last 90 days (3 months ~ 90 days)
+    const THREE_MONTHS_MS = 90 * 24 * 60 * 60 * 1000;
+    const lastTs = histogram[histogram.length - 1].timestamp || 0;
+    const cutoffTs = lastTs - THREE_MONTHS_MS;
+    
+    // Find first index with timestamp >= cutoff
+    let startIndex = histogram.findIndex((h) => (h.timestamp ?? 0) >= cutoffTs);
+    if (startIndex === -1) {
+      // If no entry is within the last 90 days, show all
+      startIndex = 0;
+    }
+    
+    // Calculate percentage
+    const startPercent = (startIndex / histogram.length) * 100;
+    return { start: startPercent, end: 100 };
+  }, [histogram]);
+  
+  const [zoomState, setZoomState] = useState<{ start: number; end: number }>(initialZoom);
 
   useEffect(() => {
     if (!id) return;
@@ -102,6 +126,13 @@ export function FederationDetail() {
         setLoading(false);
       });
   }, [id]);
+
+  // Update zoom state when histogram data loads
+  useEffect(() => {
+    if (histogram.length > 0) {
+      setZoomState(initialZoom);
+    }
+  }, [histogram.length, initialZoom]);
 
   // Remove outliers (values > 10 * 95th percentile)
   const removeOutliers = (data: HistogramEntry[]): HistogramEntry[] => {
@@ -183,6 +214,8 @@ export function FederationDetail() {
           const date = new Date(dateStr);
           return {
             date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            isoDate: dateStr,
+            timestamp: date.getTime(),
             volume: stats.amount_transferred / 100000000000, // millisats to BTC
             count: stats.num_transactions,
           };

@@ -6,6 +6,7 @@ interface NostrFederation {
   id: string;
   name: string | null;
   invite: string;
+  health?: 'online' | 'degraded' | 'offline';
 }
 
 interface FederationInfo {
@@ -64,6 +65,11 @@ export function Nostr() {
           mainFederations.map(fed => [fed.id, fed.name])
         );
 
+        // Create a map of federation IDs to health status
+        const healthMap = new Map(
+          mainFederations.map(fed => [fed.id, fed.health])
+        );
+
         // Store IDs of federations that are being observed
         const observedIds = new Set(mainFederations.map(fed => fed.id));
         setObservedFederationIds(observedIds);
@@ -73,6 +79,7 @@ export function Nostr() {
           id,
           name: nameMap.get(id) || null,
           invite,
+          health: healthMap.get(id),
         }));
 
         setFederations(nostrFeds);
@@ -428,13 +435,13 @@ export function Nostr() {
             <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
               Loading...
             </div>
-          ) : federations.filter(fed => fed.name).length === 0 ? (
+          ) : federations.filter(fed => fed.name && fed.health !== 'offline').length === 0 ? (
             <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
               No online Nostr federations found
             </div>
           ) : (
             federations
-              .filter(fed => fed.name)
+              .filter(fed => fed.name && fed.health !== 'offline')
               .map((fed) => (
                 <div
                   key={fed.id}
@@ -497,13 +504,13 @@ export function Nostr() {
                 <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                   Loading...
                 </div>
-              ) : federations.filter(fed => !fed.name).length === 0 ? (
+              ) : federations.filter(fed => !fed.name || fed.health === 'offline').length === 0 ? (
                 <div className="px-3 sm:px-6 py-4 text-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
                   No offline Nostr federations
                 </div>
               ) : (
                 federations
-                  .filter(fed => !fed.name)
+                  .filter(fed => !fed.name || fed.health === 'offline')
                   .map((fed) => (
                     <div
                       key={fed.id}
@@ -511,7 +518,7 @@ export function Nostr() {
                     >
                       <div className="font-medium text-gray-900 dark:text-white break-all">
                         <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Federation ID</span>
-                        {fed.id}
+                        {fed.name || fed.id}
                       </div>
                       <div className='bg-transparent'>
                         <span className="text-[10px] sm:hidden uppercase text-gray-500 dark:text-gray-400 block mb-1">Invite Code</span>

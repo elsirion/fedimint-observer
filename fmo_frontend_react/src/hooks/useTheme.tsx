@@ -78,10 +78,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => {
       // Re-apply theme to pick up system preference changes when in auto mode
-      setTheme(currentTheme => {
-        // Trigger re-render to update the dark class
-        return currentTheme;
-      });
+      if (theme === 'auto') {
+        applyThemeClass('auto');
+      }
     };
     media.addEventListener('change', handler);
     return () => media.removeEventListener('change', handler);

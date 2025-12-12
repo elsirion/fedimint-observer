@@ -45,13 +45,12 @@ const applyThemeClass = (theme: Theme) => {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
+  // Apply theme class whenever theme changes
   useEffect(() => {
     applyThemeClass(theme);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('theme', theme);
-    }
   }, [theme]);
 
+  // Listen for storage changes from other tabs/windows
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -65,12 +64,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
+  // Listen for system preference changes and apply them only if user hasn't set a preference
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) {
       return;
     }
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (event: MediaQueryListEvent) => {
+      // Only follow system preference if user hasn't explicitly set a theme
       if (!getStoredTheme()) {
         setTheme(event.matches ? 'dark' : 'light');
       }
@@ -80,7 +81,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
+    setTheme(prev => {
+      const newTheme = prev === 'light' ? 'dark' : 'light';
+      // Only save to localStorage when user explicitly toggles
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('theme', newTheme);
+      }
+      return newTheme;
+    });
   }, []);
 
   const value = useMemo(() => ({ theme, toggleTheme }), [theme, toggleTheme]);

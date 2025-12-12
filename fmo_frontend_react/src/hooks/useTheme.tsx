@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'auto';
 
 type ThemeContextValue = {
   theme: Theme;
@@ -16,7 +16,7 @@ const getStoredTheme = (): Theme | null => {
     return null;
   }
   const stored = window.localStorage.getItem('theme');
-  if (stored === 'light' || stored === 'dark') {
+  if (stored === 'light' || stored === 'dark' || stored === 'auto') {
     return stored;
   }
   return null;
@@ -27,7 +27,8 @@ const getInitialTheme = (): Theme => {
   if (stored) {
     return stored;
   }
-  return prefersDarkMode() ? 'dark' : 'light';
+  // Default to 'auto' if no preference is stored
+  return 'auto';
 };
 
 const applyThemeClass = (theme: Theme) => {
@@ -35,7 +36,9 @@ const applyThemeClass = (theme: Theme) => {
     return;
   }
   const root = document.documentElement;
-  if (theme === 'dark') {
+  // For 'auto', follow the system preference
+  const effectiveTheme = theme === 'auto' ? (prefersDarkMode() ? 'dark' : 'light') : theme;
+  if (effectiveTheme === 'dark') {
     root.classList.add('dark');
   } else {
     root.classList.remove('dark');
@@ -56,36 +59,53 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return;
     }
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === 'theme' && (event.newValue === 'light' || event.newValue === 'dark')) {
+      if (event.key === 'theme' && (event.newValue === 'light' || event.newValue === 'dark' || event.newValue === 'auto')) {
         setTheme(event.newValue);
+      } else if (event.key === 'theme' && event.newValue === null) {
+        // Theme was cleared, default to auto
+        setTheme('auto');
       }
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  // Listen for system preference changes and apply them only if user hasn't set a preference
+  // Listen for system preference changes and apply them when in 'auto' mode
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) {
       return;
     }
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (event: MediaQueryListEvent) => {
-      // Only follow system preference if user hasn't explicitly set a theme
-      if (!getStoredTheme()) {
-        setTheme(event.matches ? 'dark' : 'light');
-      }
+    const handler = () => {
+      // Re-apply theme to pick up system preference changes when in auto mode
+      setTheme(currentTheme => {
+        // Trigger re-render to update the dark class
+        return currentTheme;
+      });
     };
     media.addEventListener('change', handler);
     return () => media.removeEventListener('change', handler);
-  }, []);
+  }, [theme]);
 
   const toggleTheme = useCallback(() => {
     setTheme(prev => {
-      const newTheme = prev === 'light' ? 'dark' : 'light';
-      // Only save to localStorage when user explicitly toggles
+      // Cycle through: light -> dark -> auto -> light
+      let newTheme: Theme;
+      if (prev === 'light') {
+        newTheme = 'dark';
+      } else if (prev === 'dark') {
+        newTheme = 'auto';
+      } else {
+        newTheme = 'light';
+      }
+      
+      // Save to localStorage, or clear it for auto mode
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem('theme', newTheme);
+        if (newTheme === 'auto') {
+          window.localStorage.removeItem('theme');
+        } else {
+          window.localStorage.setItem('theme', newTheme);
+        }
       }
       return newTheme;
     });

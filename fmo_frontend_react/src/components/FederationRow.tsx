@@ -49,63 +49,110 @@ export function FederationRow({
   });
 
   return (
-    <div className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-4 grid grid-cols-1 md:grid-cols-5 gap-3 md:gap-3 text-xs sm:text-sm">
-      {/* Name */}
-      <div className="font-medium text-gray-900 dark:text-white">
-        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Name</span>
-        <Link
-          to={`/federations/${id}`}
-          className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
-        >
-          {name}
-        </Link>
+    <div className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-4 text-xs sm:text-sm">
+      {/* Mobile Layout (3 rows) */}
+      <div className="md:hidden space-y-3">
+        {/* Row 1: Name, Recommendations, Total Assets */}
+        <div className="grid grid-cols-3 gap-3 items-start">
+          {/* Name */}
+          <div className="font-medium text-gray-900 dark:text-white min-w-0">
+            <span className="text-[10px] uppercase text-gray-600 dark:text-gray-400 block mb-1">Name</span>
+            <Link
+              to={`/federations/${id}`}
+              className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
+            >
+              {name}
+            </Link>
+          </div>
+
+          {/* Recommendations */}
+          <div className="flex-shrink-0 flex items-end justify-center mt-1">
+            <Rating count={rating.count} rating={rating.avg} />
+          </div>
+
+          {/* Total Assets */}
+          <div className="text-right flex-shrink-0">
+            <span className="text-[10px] uppercase text-gray-600 dark:text-gray-400 block mb-1">Total Assets</span>
+            <span className="text-gray-900 dark:text-white whitespace-nowrap">{asBitcoin(totalAssets, 6)}</span>
+          </div>
+        </div>
+
+        {/* Row 2: Activity Chart */}
+        <div>
+          <span className="text-[10px] uppercase text-gray-600 dark:text-gray-400 block mb-1">Activity (7d)</span>
+          <Suspense fallback={<div className="w-full h-12 bg-transparent" /> }>
+            <CombinedMiniChart
+              transactionData={transactionData}
+              volumeData={volumeData}
+              dates={dates}
+              formatTransaction={(val) => Math.round(val).toString()}
+              formatVolume={(val) => `${val.toFixed(8)} BTC`}
+              maxTransaction={maxTransaction}
+              maxVolume={maxVolume}
+            />
+          </Suspense>
+        </div>
+
+        {/* Row 3: Invite Code / Status */}
+        <div>
+          <span className="text-[10px] uppercase text-gray-600 dark:text-gray-400 block mb-1">Invite Code</span>
+          {health === 'online' ? (
+            <Copyable text={invite} />
+          ) : health === 'degraded' ? (
+            <Badge level="warning">Degraded</Badge>
+          ) : (
+            <Badge level="error">Offline</Badge>
+          )}
+        </div>
       </div>
 
-      {/* Recommendations */}
-      <div>
-        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">
-          <a
-            href="https://github.com/nostr-protocol/nips/pull/1110"
-            className="underline hover:no-underline"
+      {/* Desktop Layout (5 columns) - unchanged */}
+      <div className="hidden md:grid md:grid-cols-5 md:gap-3">
+        {/* Name */}
+        <div className="font-medium text-gray-900 dark:text-white">
+          <Link
+            to={`/federations/${id}`}
+            className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
           >
-            Recommendations
-          </a>
-        </span>
-        <Rating count={rating.count} rating={rating.avg} />
-      </div>
+            {name}
+          </Link>
+        </div>
 
-      {/* Invite Code / Status */}
-      <div>
-        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Invite Code</span>
-        {health === 'online' ? (
-          <Copyable text={invite} />
-        ) : health === 'degraded' ? (
-          <Badge level="warning">Degraded</Badge>
-        ) : (
-          <Badge level="error">Offline</Badge>
-        )}
-      </div>
+        {/* Recommendations */}
+        <div>
+          <Rating count={rating.count} rating={rating.avg} />
+        </div>
 
-      {/* Total Assets */}
-      <div>
-        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Total Assets</span>
-        <span className="text-gray-900 dark:text-white">{asBitcoin(totalAssets, 6)}</span>
-      </div>
+        {/* Invite Code / Status */}
+        <div>
+          {health === 'online' ? (
+            <Copyable text={invite} />
+          ) : health === 'degraded' ? (
+            <Badge level="warning">Degraded</Badge>
+          ) : (
+            <Badge level="error">Offline</Badge>
+          )}
+        </div>
 
-      {/* Activity Charts (7d) */}
-      <div>
-        <span className="text-[10px] md:hidden uppercase text-gray-600 dark:text-gray-400 block mb-1">Activity Charts (7d)</span>
-        <Suspense fallback={<div className="w-full h-12 bg-transparent" /> }>
-          <CombinedMiniChart
-            transactionData={transactionData}
-            volumeData={volumeData}
-            dates={dates}
-            formatTransaction={(val) => Math.round(val).toString()}
-            formatVolume={(val) => `${val.toFixed(8)} BTC`}
-            maxTransaction={maxTransaction}
-            maxVolume={maxVolume}
-          />
-        </Suspense>
+        {/* Total Assets */}
+        <div>
+          <span className="text-gray-900 dark:text-white">{asBitcoin(totalAssets, 6)}</span>
+        </div>
+
+        {/* Activity Charts (7d) */}
+        <div>
+          <Suspense fallback={<div className="w-full h-12 bg-transparent" /> }>
+            <CombinedMiniChart
+              transactionData={transactionData}
+              volumeData={volumeData}
+              dates={dates}
+              formatTransaction={(val) => Math.round(val).toString()}
+              formatVolume={(val) => `${val.toFixed(8)} BTC`}
+              maxTransaction={maxTransaction}
+              maxVolume={maxVolume}
+            />
+          </Suspense>
+        </div>
       </div>
     </div>
   );

@@ -178,8 +178,8 @@ export function Nostr() {
         ? Object.values(config.modules).find((mod: any) => mod.kind === 'wallet')
         : null;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const network = walletModule ? ((walletModule as any).value?.network || (walletModule as any).config?.network) : undefined;
-
+      const network = walletModule ? ((walletModule as any).network || 'unknown') : 'unknown';
+      
       setFederationInfo({
         name,
         guardians,

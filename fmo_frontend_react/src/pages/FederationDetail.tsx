@@ -77,6 +77,13 @@ export function FederationDetail() {
   const [useLogScale, setUseLogScale] = useState(false);
   const [guardianHealth, setGuardianHealth] = useState<Record<string, GuardianHealth>>({});
   
+  // Check if at least one guardian is online
+  const hasOnlineGuardian = useMemo(() => {
+    return Object.values(guardianHealth).some(
+      (health) => health?.latest !== null && health?.latest !== undefined
+    );
+  }, [guardianHealth]);
+  
   // Calculate initial zoom to show last 3 months of data by default
   const initialZoom = useMemo(() => {
     if (histogram.length === 0) return { start: 0, end: 100 };
@@ -431,7 +438,7 @@ export function FederationDetail() {
                   {config?.confirmations_required || 'N/A'}
                 </div>
               </div>
-              {federation?.invite && (
+              {federation?.invite && hasOnlineGuardian && (
                 <div>
                   <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">Invite Link</div>
                   <div className="flex flex-col items-center bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-600">

@@ -48,6 +48,16 @@ export function FederationRow({
     return `${daysAgo} days ago`;
   });
 
+  // Health status messages
+  const HEALTH_MESSAGES = {
+    degraded: 'Some guardians are offline or out of sync',
+    offline: 'All guardians are offline',
+  } as const;
+
+  const showWarning = health === 'degraded' || health === 'offline';
+  const badgeLevel = health === 'degraded' ? 'warning' : 'error';
+  const healthMessage = showWarning ? HEALTH_MESSAGES[health] : '';
+
   return (
     <div className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-4 text-xs sm:text-sm">
       {/* Mobile Layout (3 rows) */}
@@ -57,12 +67,15 @@ export function FederationRow({
           {/* Name */}
           <div className="font-medium text-gray-900 dark:text-white min-w-0">
             <span className="text-[10px] uppercase text-gray-600 dark:text-gray-400 block mb-1">Name</span>
+            <div className="flex items-center gap-1.5">
             <Link
               to={`/federations/${id}`}
               className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
             >
               {name}
             </Link>
+            {showWarning && <Badge level={'warning'} tooltip={HEALTH_MESSAGES['degraded']} showIcon>{''}</Badge>}
+           </div>
           </div>
 
           {/* Recommendations */}
@@ -110,12 +123,15 @@ export function FederationRow({
       <div className="hidden md:grid md:grid-cols-5 md:gap-3">
         {/* Name */}
         <div className="font-medium text-gray-900 dark:text-white">
+          <div className="flex items-center gap-1.5">
           <Link
             to={`/federations/${id}`}
             className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
           >
             {name}
           </Link>
+          {showWarning && <Badge level={badgeLevel} tooltip={healthMessage} showIcon>{''}</Badge>}
+          </div>
         </div>
 
         {/* Recommendations */}

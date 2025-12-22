@@ -3,7 +3,6 @@ import React, { Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import type { FederationHealth, FederationRating } from '../types/api';
 import { Badge } from './Badge';
-import { Copyable } from './Copyable';
 import { Rating } from './Rating';
 const CombinedMiniChart = React.lazy(() => import('./MiniChart').then((m) => ({ default: m.CombinedMiniChart })));
 import { asBitcoin } from '../utils/format';
@@ -17,7 +16,6 @@ interface FederationRowProps {
   id: string;
   name: string;
   rating: FederationRating;
-  invite: string;
   totalAssets: number;
   health: FederationHealth;
   activityData: ActivityData[];
@@ -29,7 +27,6 @@ export function FederationRow({
   id,
   name,
   rating,
-  invite,
   totalAssets,
   health,
   activityData,
@@ -74,7 +71,7 @@ export function FederationRow({
             >
               {name}
             </Link>
-            {showWarning && <Badge level={'warning'} tooltip={HEALTH_MESSAGES['degraded']} showIcon>{''}</Badge>}
+          {showWarning && <Badge level={badgeLevel} tooltip={healthMessage} showIcon>{''}</Badge>}
            </div>
           </div>
 
@@ -105,22 +102,10 @@ export function FederationRow({
             />
           </Suspense>
         </div>
-
-        {/* Row 3: Invite Code / Status */}
-        <div>
-          <span className="text-[10px] uppercase text-gray-600 dark:text-gray-400 block mb-1">Invite Code</span>
-          {health === 'online' ? (
-            <Copyable text={invite} />
-          ) : health === 'degraded' ? (
-            <Badge level="warning">Degraded</Badge>
-          ) : (
-            <Badge level="error">Offline</Badge>
-          )}
-        </div>
       </div>
 
-      {/* Desktop Layout (5 columns) - unchanged */}
-      <div className="hidden md:grid md:grid-cols-5 md:gap-3">
+      {/* Desktop Layout (4 columns) */}
+      <div className="hidden md:grid md:grid-cols-4 md:gap-3">
         {/* Name */}
         <div className="font-medium text-gray-900 dark:text-white">
           <div className="flex items-center gap-1.5">
@@ -137,17 +122,6 @@ export function FederationRow({
         {/* Recommendations */}
         <div>
           <Rating count={rating.count} rating={rating.avg} />
-        </div>
-
-        {/* Invite Code / Status */}
-        <div>
-          {health === 'online' ? (
-            <Copyable text={invite} />
-          ) : health === 'degraded' ? (
-            <Badge level="warning">Degraded</Badge>
-          ) : (
-            <Badge level="error">Offline</Badge>
-          )}
         </div>
 
         {/* Total Assets */}

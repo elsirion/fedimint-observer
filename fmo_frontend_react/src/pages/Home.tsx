@@ -55,7 +55,7 @@ export function Home() {
             List of all active federations this instance is collecting statistics on
           </p>
         </div>
-        <div className="hidden md:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4 border-y border-gray-200 dark:border-gray-600">
+        <div className="hidden md:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-4 gap-4 border-y border-gray-200 dark:border-gray-600">
           <div>Name</div>
           <div>
             <a
@@ -65,7 +65,6 @@ export function Home() {
               Recommendations
             </a>
           </div>
-          <div>Invite Code</div>
           <div>Total Assets</div>
           <div>Activity Charts (7d)</div>
         </div>
@@ -85,7 +84,6 @@ export function Home() {
                 id={fed.id}
                 name={fed.name || 'Unnamed'}
                 rating={fed.nostr_votes}
-                invite={fed.invite}
                 totalAssets={fed.deposits}
                 health={fed.health}
                 activityData={fed.last_7d_activity}
@@ -123,7 +121,7 @@ export function Home() {
         </div>
         {!collapseOffline && (
           <>
-            <div className="hidden md:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-5 gap-4 border-y border-gray-200 dark:border-gray-600">
+            <div className="hidden md:grid bg-gray-50 dark:bg-gray-700 px-3 sm:px-6 py-3 text-xs text-gray-700 dark:text-gray-400 uppercase font-semibold grid-cols-4 gap-4 border-y border-gray-200 dark:border-gray-600">
               <div>Name</div>
               <div>
                 <a
@@ -133,7 +131,6 @@ export function Home() {
                   Recommendations
                 </a>
               </div>
-              <div>Invite Code</div>
               <div>Total Assets</div>
               <div>Activity Charts (7d)</div>
             </div>
@@ -153,7 +150,6 @@ export function Home() {
                     id={fed.id}
                     name={fed.name || 'Unnamed'}
                     rating={fed.nostr_votes}
-                    invite={fed.invite}
                     totalAssets={fed.deposits}
                     health={fed.health}
                     activityData={fed.last_7d_activity}

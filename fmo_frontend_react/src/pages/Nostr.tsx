@@ -52,6 +52,86 @@ export function Nostr() {
   const [showOffline, setShowOffline] = useState(false);
   const [observedFederationIds, setObservedFederationIds] = useState<Set<string>>(new Set());
 
+  // Federation checking logic (extracted for reuse)
+  const checkFederation = async (inviteCodeToCheck: string) => {
+    // Clear previous data and errors
+    setFederationInfo(null);
+    setError(null);
+    setAnnounceSuccess(false);
+
+    // Validate invite code is not empty
+    if (!inviteCodeToCheck.trim()) {
+      setError('Invite code not present. Please enter a valid invite code.');
+      return;
+    }
+
+    setChecking(true);
+
+    try {
+      // Fetch federation config
+      const configResponse = await fetch(
+        `${import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api'}/config/${inviteCodeToCheck}`
+      );
+
+      if (!configResponse.ok) {
+        throw new Error('Failed to fetch federation config');
+      }
+
+      const config = await configResponse.json();
+
+      // Fetch federation metadata
+      const metaResponse = await fetch(
+        `${import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api'}/config/${inviteCodeToCheck}/meta`
+      );
+
+      let name = 'Unknown';
+      if (metaResponse.ok) {
+        const meta = await metaResponse.json();
+        name = meta.federation_name || 'Unknown';
+      }
+
+      // Extract info from config
+      const guardians = config.global?.api_endpoints
+        ? Object.keys(config.global.api_endpoints).length
+        : 0;
+
+      const modules = config.modules
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? Object.values(config.modules).map((mod: any) => mod.kind || 'unknown')
+        : [];
+
+      const walletModule = config.modules
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? Object.values(config.modules).find((mod: any) => mod.kind === 'wallet')
+        : null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const network = walletModule ? ((walletModule as any).network || 'unknown') : 'unknown';
+      
+      setFederationInfo({
+        name,
+        guardians,
+        modules,
+        network,
+        config, // Store config for announce
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch federation info');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  // Handle deep-linking: auto-fill input and trigger check if 'check' parameter is present
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const checkParam = urlParams.get('check');
+    
+    if (checkParam) {
+      setInviteCode(checkParam);
+      checkFederation(checkParam);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchFederationsWithNames = async () => {
       try {
@@ -126,72 +206,7 @@ export function Nostr() {
 
   const handleCheckFederation = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Clear previous data and errors
-    setFederationInfo(null);
-    setError(null);
-    setAnnounceSuccess(false);
-
-    // Validate invite code is not empty
-    if (!inviteCode.trim()) {
-      setError('Invite code not present. Please enter a valid invite code.');
-      return;
-    }
-
-    setChecking(true);
-
-    try {
-      // Fetch federation config
-      const configResponse = await fetch(
-        `${import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api'}/config/${inviteCode}`
-      );
-
-      if (!configResponse.ok) {
-        throw new Error('Failed to fetch federation config');
-      }
-
-      const config = await configResponse.json();
-
-      // Fetch federation metadata
-      const metaResponse = await fetch(
-        `${import.meta.env.VITE_FMO_API_BASE_URL || 'https://observer.fedimint.org/api'}/config/${inviteCode}/meta`
-      );
-
-      let name = 'Unknown';
-      if (metaResponse.ok) {
-        const meta = await metaResponse.json();
-        name = meta.federation_name || 'Unknown';
-      }
-
-      // Extract info from config
-      const guardians = config.global?.api_endpoints
-        ? Object.keys(config.global.api_endpoints).length
-        : 0;
-
-      const modules = config.modules
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? Object.values(config.modules).map((mod: any) => mod.kind || 'unknown')
-        : [];
-
-      const walletModule = config.modules
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? Object.values(config.modules).find((mod: any) => mod.kind === 'wallet')
-        : null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const network = walletModule ? ((walletModule as any).network || 'unknown') : 'unknown';
-      
-      setFederationInfo({
-        name,
-        guardians,
-        modules,
-        network,
-        config, // Store config for announce
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch federation info');
-    } finally {
-      setChecking(false);
-    }
+    checkFederation(inviteCode);
   };
 
   const handleAnnounceFederation = async () => {

@@ -56,7 +56,10 @@ export function FederationRow({
   const healthMessage = showWarning ? HEALTH_MESSAGES[health] : '';
 
   return (
-    <div className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-4 text-xs sm:text-sm">
+    <Link 
+      to={`/federations/${id}`}
+      className="block bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-4 text-xs sm:text-sm"
+    >
       {/* Mobile Layout (3 rows) */}
       <div className="md:hidden space-y-3">
         {/* Row 1: Name, Recommendations, Total Assets */}
@@ -65,14 +68,11 @@ export function FederationRow({
           <div className="font-medium text-gray-900 dark:text-white min-w-0">
             <span className="text-[10px] uppercase text-gray-600 dark:text-gray-400 block mb-1">Name</span>
             <div className="flex items-center gap-1.5">
-            <Link
-              to={`/federations/${id}`}
-              className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
-            >
-              {name}
-            </Link>
-          {showWarning && <Badge level={badgeLevel} tooltip={healthMessage} showIcon>{''}</Badge>}
-           </div>
+              <span className="font-medium text-gray-900 dark:text-white break-words">
+                {name}
+              </span>
+              {showWarning && <Badge level={badgeLevel} tooltip={healthMessage} showIcon>{''}</Badge>}
+            </div>
           </div>
 
           {/* Recommendations */}
@@ -109,13 +109,10 @@ export function FederationRow({
         {/* Name */}
         <div className="font-medium text-gray-900 dark:text-white">
           <div className="flex items-center gap-1.5">
-          <Link
-            to={`/federations/${id}`}
-            className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
-          >
-            {name}
-          </Link>
-          {showWarning && <Badge level={badgeLevel} tooltip={healthMessage} showIcon>{''}</Badge>}
+            <span className="font-medium text-gray-900 dark:text-white break-words">
+              {name}
+            </span>
+            {showWarning && <Badge level={badgeLevel} tooltip={healthMessage} showIcon>{''}</Badge>}
           </div>
         </div>
 
@@ -144,6 +141,6 @@ export function FederationRow({
           </Suspense>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

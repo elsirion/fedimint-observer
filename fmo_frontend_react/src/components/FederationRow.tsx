@@ -3,7 +3,6 @@ import React, { Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import type { FederationHealth, FederationRating } from '../types/api';
 import { Badge } from './Badge';
-import { Copyable } from './Copyable';
 import { Rating } from './Rating';
 const CombinedMiniChart = React.lazy(() => import('./MiniChart').then((m) => ({ default: m.CombinedMiniChart })));
 import { asBitcoin } from '../utils/format';
@@ -17,7 +16,6 @@ interface FederationRowProps {
   id: string;
   name: string;
   rating: FederationRating;
-  invite: string;
   totalAssets: number;
   health: FederationHealth;
   activityData: ActivityData[];
@@ -29,7 +27,6 @@ export function FederationRow({
   id,
   name,
   rating,
-  invite,
   totalAssets,
   health,
   activityData,
@@ -59,7 +56,10 @@ export function FederationRow({
   const healthMessage = showWarning ? HEALTH_MESSAGES[health] : '';
 
   return (
-    <div className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-4 text-xs sm:text-sm">
+    <Link 
+      to={`/federations/${id}`}
+      className="block bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 sm:px-6 py-4 text-xs sm:text-sm"
+    >
       {/* Mobile Layout (3 rows) */}
       <div className="md:hidden space-y-3">
         {/* Row 1: Name, Recommendations, Total Assets */}
@@ -68,14 +68,11 @@ export function FederationRow({
           <div className="font-medium text-gray-900 dark:text-white min-w-0">
             <span className="text-[10px] uppercase text-gray-600 dark:text-gray-400 block mb-1">Name</span>
             <div className="flex items-center gap-1.5">
-            <Link
-              to={`/federations/${id}`}
-              className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
-            >
-              {name}
-            </Link>
-            {showWarning && <Badge level={'warning'} tooltip={HEALTH_MESSAGES['degraded']} showIcon>{''}</Badge>}
-           </div>
+              <span className="font-medium text-gray-900 dark:text-white break-words">
+                {name}
+              </span>
+              {showWarning && <Badge level={badgeLevel} tooltip={healthMessage} showIcon>{''}</Badge>}
+            </div>
           </div>
 
           {/* Recommendations */}
@@ -105,49 +102,23 @@ export function FederationRow({
             />
           </Suspense>
         </div>
-
-        {/* Row 3: Invite Code / Status */}
-        <div>
-          <span className="text-[10px] uppercase text-gray-600 dark:text-gray-400 block mb-1">Invite Code</span>
-          {health === 'online' ? (
-            <Copyable text={invite} />
-          ) : health === 'degraded' ? (
-            <Badge level="warning">Degraded</Badge>
-          ) : (
-            <Badge level="error">Offline</Badge>
-          )}
-        </div>
       </div>
 
-      {/* Desktop Layout (5 columns) - unchanged */}
-      <div className="hidden md:grid md:grid-cols-5 md:gap-3">
+      {/* Desktop Layout (4 columns) */}
+      <div className="hidden md:grid md:grid-cols-4 md:gap-3">
         {/* Name */}
         <div className="font-medium text-gray-900 dark:text-white">
           <div className="flex items-center gap-1.5">
-          <Link
-            to={`/federations/${id}`}
-            className="font-medium text-blue-600 dark:text-blue-500 hover:underline break-words"
-          >
-            {name}
-          </Link>
-          {showWarning && <Badge level={badgeLevel} tooltip={healthMessage} showIcon>{''}</Badge>}
+            <span className="font-medium text-gray-900 dark:text-white break-words">
+              {name}
+            </span>
+            {showWarning && <Badge level={badgeLevel} tooltip={healthMessage} showIcon>{''}</Badge>}
           </div>
         </div>
 
         {/* Recommendations */}
         <div>
           <Rating count={rating.count} rating={rating.avg} />
-        </div>
-
-        {/* Invite Code / Status */}
-        <div>
-          {health === 'online' ? (
-            <Copyable text={invite} />
-          ) : health === 'degraded' ? (
-            <Badge level="warning">Degraded</Badge>
-          ) : (
-            <Badge level="error">Offline</Badge>
-          )}
         </div>
 
         {/* Total Assets */}
@@ -170,6 +141,6 @@ export function FederationRow({
           </Suspense>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

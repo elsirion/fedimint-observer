@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { api } from '../services/api';
 import type { FederationSummary } from '../types/api';
 import { Badge } from '../components/Badge';
 import { Alert } from '../components/Alert';
+import { Copyable } from '../components/Copyable';
 
 // Lazy load the chart component for code splitting
 const TransactionChart = lazy(() => import('../components/TransactionChart').then(module => ({ default: module.TransactionChart })));
@@ -74,6 +76,13 @@ export function FederationDetail() {
   const [movingAverageWindow, setMovingAverageWindow] = useState<number>(0); // 0 = off, 7 = 7-day, 30 = 30-day
   const [useLogScale, setUseLogScale] = useState(false);
   const [guardianHealth, setGuardianHealth] = useState<Record<string, GuardianHealth>>({});
+  
+  // Check if at least one guardian is online
+  const hasOnlineGuardian = useMemo(() => {
+    return Object.values(guardianHealth).some(
+      (health) => health?.latest !== null && health?.latest !== undefined
+    );
+  }, [guardianHealth]);
   
   // Calculate initial zoom to show last 3 months of data by default
   const initialZoom = useMemo(() => {
@@ -429,6 +438,23 @@ export function FederationDetail() {
                   {config?.confirmations_required || 'N/A'}
                 </div>
               </div>
+              {federation?.invite && hasOnlineGuardian && (
+                <div>
+                  <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2">Invite Link</div>
+                  <div className="flex flex-col items-center bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <QRCodeSVG
+                      value={federation.invite}
+                      size={160}
+                      level="M"
+                      marginSize={4}
+                      className="w-full h-auto max-w-[160px]"
+                    />
+                    <div className="mt-3 w-full">
+                      <Copyable text={federation.invite} />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

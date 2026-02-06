@@ -190,6 +190,10 @@ impl FederationObserver {
                 "/schema/v8.sql",
                 FederationObserver::backfill_reprocess_all_sessions
             ),
+            migration_backfill!(
+                "/schema/v9.sql",
+                FederationObserver::backfill_gateway_registrations
+            ),
         ];
 
         for (index, migration) in migrations.iter().enumerate() {
@@ -1133,6 +1137,21 @@ impl FederationObserver {
             .await?;
         }
 
+        // Process Lightning-specific consensus items
+        if kind == "ln" {
+            if let Some(ln_ci) = ci.as_any().downcast_ref::<LightningConsensusItem>() {
+                Self::process_ln_consensus_item(
+                    dbtx,
+                    federation_id,
+                    session_index,
+                    item_index,
+                    peer_id,
+                    ln_ci,
+                )
+                .await?;
+            }
+        }
+
         if kind != "wallet" {
             return Ok(());
         }
@@ -1320,6 +1339,7 @@ impl FederationObserver {
                 "
                 REFRESH MATERIALIZED VIEW CONCURRENTLY session_times;
                 REFRESH MATERIALIZED VIEW CONCURRENTLY utxos;
+                REFRESH MATERIALIZED VIEW CONCURRENTLY ln_current_gateways;
                 ",
             )
             .await?;
@@ -1518,6 +1538,248 @@ impl FederationObserver {
 
         Ok(())
     }
+
+    async fn process_ln_consensus_item(
+        dbtx: &Transaction<'_>,
+        federation_id: FederationId,
+        session_index: u64,
+        item_index: u64,
+        peer_id: PeerId,
+        ln_ci: &LightningConsensusItem,
+    ) -> Result<(), tokio_postgres::Error> {
+        // Check if this is a gateway registration
+        let json_value = serde_json::to_value(ln_ci)
+            .expect("LightningConsensusItem should serialize to JSON");
+        
+        if let Some(registration) = Self::extract_gateway_registration(&json_value) {
+            // Get session timestamp
+            let registered_at: Option<chrono::NaiveDateTime> = dbtx
+                .query_opt(
+                    "SELECT estimated_session_timestamp FROM session_times 
+                     WHERE federation_id = $1 AND session_index = $2",
+                    &[
+                        &federation_id.consensus_encode_to_vec(),
+                        &(session_index as i32),
+                    ],
+                )
+                .await?
+                .and_then(|row| row.get(0));
+
+            let registered_at =
+                registered_at.unwrap_or_else(|| chrono::Utc::now().naive_utc());
+            let expires_at = registered_at
+                + chrono::Duration::seconds(registration.ttl_seconds as i64);
+
+            dbtx.execute(
+                "INSERT INTO ln_gateway_registrations VALUES 
+                 ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                 ON CONFLICT DO NOTHING",
+                &[
+                    &federation_id.consensus_encode_to_vec(),
+                    &registration.gateway_id,
+                    &(session_index as i32),
+                    &(item_index as i32),
+                    &(peer_id.to_usize() as i32),
+                    &registered_at,
+                    &registration.node_pub_key,
+                    &registration.api_endpoint,
+                    &(registration.base_fee_msat as i64),
+                    &(registration.proportional_fee_millionths as i32),
+                    &registration.supports_private_payments,
+                    &(registration.ttl_seconds as i32),
+                    &expires_at,
+                    &registration.route_hints,
+                ],
+            )
+            .await?;
+
+            debug!(
+                "Stored gateway registration for gateway_id: {}",
+                hex::encode(&registration.gateway_id)
+            );
+        }
+
+        Ok(())
+    }
+
+    fn extract_gateway_registration(data: &serde_json::Value) -> Option<GatewayRegistration> {
+        // Try to extract gateway registration from different possible structures
+        
+        // Pattern 1: { "v0": { "GatewayAnnouncement": { ... } } }
+        if let Some(v0) = data.get("v0").or_else(|| data.get("V0")) {
+            if let Some(announcement) = v0
+                .get("GatewayAnnouncement")
+                .or_else(|| v0.get("gateway_announcement"))
+            {
+                return Self::parse_gateway_announcement(announcement);
+            }
+        }
+
+        // Pattern 2: Direct "GatewayAnnouncement" field
+        if let Some(announcement) = data
+            .get("GatewayAnnouncement")
+            .or_else(|| data.get("gateway_announcement"))
+        {
+            return Self::parse_gateway_announcement(announcement);
+        }
+
+        None
+    }
+
+    fn parse_gateway_announcement(announcement: &serde_json::Value) -> Option<GatewayRegistration> {
+        let gateway_id = announcement
+            .get("gateway_id")
+            .and_then(|v| v.as_str())
+            .and_then(|s| hex::decode(s.trim_start_matches("0x")).ok())?;
+
+        let node_pub_key = announcement
+            .get("node_pub_key")
+            .and_then(|v| v.as_str())
+            .and_then(|s| hex::decode(s).ok())?;
+
+        let api_endpoint = announcement
+            .get("api")
+            .or_else(|| announcement.get("api_endpoint"))
+            .and_then(|v| v.as_str())?
+            .to_string();
+
+        let fees = announcement.get("fees")?;
+        let base_fee_msat = fees
+            .get("base_msat")
+            .or_else(|| fees.get("base"))
+            .and_then(|v| v.as_u64())?;
+
+        let proportional_fee_millionths = fees
+            .get("proportional_millionths")
+            .or_else(|| fees.get("proportional"))
+            .and_then(|v| v.as_u64())? as u32;
+
+        let supports_private_payments = announcement
+            .get("supports_private_payments")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        let ttl_seconds = announcement
+            .get("ttl")
+            .or_else(|| announcement.get("ttl_seconds"))
+            .and_then(|v| v.as_u64())? as u32;
+
+        let route_hints = announcement.get("route_hints").cloned();
+
+        Some(GatewayRegistration {
+            gateway_id,
+            node_pub_key,
+            api_endpoint,
+            base_fee_msat,
+            proportional_fee_millionths,
+            supports_private_payments,
+            ttl_seconds,
+            route_hints,
+        })
+    }
+
+    async fn backfill_gateway_registrations(
+        &self,
+        dbtx: &Transaction<'_>,
+    ) -> anyhow::Result<()> {
+        info!("Starting gateway registrations backfill...");
+
+        // Query all Lightning consensus items
+        let rows = dbtx
+            .query(
+                "SELECT federation_id, session_index, item_index, proposer, data 
+                 FROM consensus_items 
+                 WHERE kind = 'ln'
+                 ORDER BY federation_id, session_index, item_index",
+                &[],
+            )
+            .await?;
+
+        let total_rows = rows.len();
+        info!("Found {} Lightning consensus items to process", total_rows);
+
+        for (idx, row) in rows.iter().enumerate() {
+            if idx % 100 == 0 {
+                let percentage = (idx as f64 / total_rows as f64) * 100.0;
+                info!(
+                    "Processing Lightning CI {}/{} ({:.1}%)",
+                    idx, total_rows, percentage
+                );
+            }
+
+            let federation_id: Vec<u8> = row.get("federation_id");
+            let session_index: i32 = row.get("session_index");
+            let item_index: i32 = row.get("item_index");
+            let proposer: i32 = row.get("proposer");
+            let data: serde_json::Value = row.get("data");
+
+            // Attempt to extract gateway registration
+            if let Some(reg) = Self::extract_gateway_registration(&data) {
+                // Get session timestamp
+                let registered_at: Option<chrono::NaiveDateTime> = dbtx
+                    .query_opt(
+                        "SELECT estimated_session_timestamp FROM session_times 
+                         WHERE federation_id = $1 AND session_index = $2",
+                        &[&federation_id, &session_index],
+                    )
+                    .await?
+                    .and_then(|row| row.get(0));
+
+                let registered_at =
+                    registered_at.unwrap_or_else(|| chrono::Utc::now().naive_utc());
+                let expires_at =
+                    registered_at + chrono::Duration::seconds(reg.ttl_seconds as i64);
+
+                // Insert into normalized table
+                dbtx.execute(
+                    "INSERT INTO ln_gateway_registrations VALUES 
+                     ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                     ON CONFLICT DO NOTHING",
+                    &[
+                        &federation_id,
+                        &reg.gateway_id,
+                        &session_index,
+                        &item_index,
+                        &proposer,
+                        &registered_at,
+                        &reg.node_pub_key,
+                        &reg.api_endpoint,
+                        &(reg.base_fee_msat as i64),
+                        &(reg.proportional_fee_millionths as i32),
+                        &reg.supports_private_payments,
+                        &(reg.ttl_seconds as i32),
+                        &expires_at,
+                        &reg.route_hints,
+                    ],
+                )
+                .await?;
+            }
+        }
+
+        // Refresh materialized view
+        info!("Refreshing ln_current_gateways materialized view...");
+        dbtx.execute(
+            "REFRESH MATERIALIZED VIEW ln_current_gateways",
+            &[],
+        )
+        .await?;
+
+        info!("Gateway registrations backfill complete!");
+
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct GatewayRegistration {
+    gateway_id: Vec<u8>,
+    node_pub_key: Vec<u8>,
+    api_endpoint: String,
+    base_fee_msat: u64,
+    proportional_fee_millionths: u32,
+    supports_private_payments: bool,
+    ttl_seconds: u32,
+    route_hints: Option<serde_json::Value>,
 }
 
 fn last_n_day_iter(now: NaiveDate, days: u32) -> impl Iterator<Item = NaiveDate> {

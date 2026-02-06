@@ -1,4 +1,5 @@
 pub mod db;
+mod gateways;
 mod guardians;
 mod meta;
 pub(crate) mod nostr;
@@ -20,6 +21,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::federation::guardians::get_federation_health;
+use crate::federation::gateways::{get_all_gateways, get_federation_gateways};
 use crate::federation::meta::get_federation_meta;
 use crate::federation::session::{count_sessions, list_sessions};
 use crate::federation::transaction::{
@@ -56,9 +58,11 @@ pub fn get_federations_routes() -> Router<AppState> {
             get(transaction_histogram),
         )
         .route("/:federation_id/utxos", get(get_federation_utxos))
+        .route("/:federation_id/gateways", get(get_federation_gateways))
         .route("/:federation_id/sessions", get(list_sessions))
         .route("/:federation_id/sessions/count", get(count_sessions))
         .route("/:federation_id/backfill", post(backfill_federation))
+        .route("/gateways", get(get_all_gateways))
 }
 
 pub async fn list_observed_federations(

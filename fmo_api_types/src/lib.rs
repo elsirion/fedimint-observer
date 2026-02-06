@@ -62,3 +62,28 @@ pub enum FederationHealth {
     Degraded,
     Offline,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GatewayInfo {
+    pub gateway_id: String,
+    pub node_pub_key: String,
+    pub api_endpoint: String,
+    pub fees: GatewayFees,
+    pub supports_private_payments: bool,
+    pub registered_at: String,
+    pub expires_at: String,
+    pub seconds_until_expiry: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GatewayFees {
+    pub base_msat: u64,
+    pub proportional_millionths: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FederationGateways {
+    pub federation_id: FederationId,
+    pub gateways: Vec<GatewayInfo>,
+    pub total_count: usize,
+}

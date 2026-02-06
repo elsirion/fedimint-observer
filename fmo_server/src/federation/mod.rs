@@ -20,8 +20,8 @@ use fmo_api_types::{FederationSummary, FedimintTotals};
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::federation::guardians::get_federation_health;
 use crate::federation::gateways::{get_all_gateways, get_federation_gateways};
+use crate::federation::guardians::get_federation_health;
 use crate::federation::meta::get_federation_meta;
 use crate::federation::session::{count_sessions, list_sessions};
 use crate::federation::transaction::{

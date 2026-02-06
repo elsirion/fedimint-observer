@@ -1548,9 +1548,9 @@ impl FederationObserver {
         ln_ci: &LightningConsensusItem,
     ) -> Result<(), tokio_postgres::Error> {
         // Check if this is a gateway registration
-        let json_value = serde_json::to_value(ln_ci)
-            .expect("LightningConsensusItem should serialize to JSON");
-        
+        let json_value =
+            serde_json::to_value(ln_ci).expect("LightningConsensusItem should serialize to JSON");
+
         if let Some(registration) = Self::extract_gateway_registration(&json_value) {
             // Get session timestamp
             let registered_at: Option<chrono::NaiveDateTime> = dbtx
@@ -1565,10 +1565,9 @@ impl FederationObserver {
                 .await?
                 .and_then(|row| row.get(0));
 
-            let registered_at =
-                registered_at.unwrap_or_else(|| chrono::Utc::now().naive_utc());
-            let expires_at = registered_at
-                + chrono::Duration::seconds(registration.ttl_seconds as i64);
+            let registered_at = registered_at.unwrap_or_else(|| chrono::Utc::now().naive_utc());
+            let expires_at =
+                registered_at + chrono::Duration::seconds(registration.ttl_seconds as i64);
 
             dbtx.execute(
                 "INSERT INTO ln_gateway_registrations VALUES 
@@ -1604,7 +1603,7 @@ impl FederationObserver {
 
     fn extract_gateway_registration(data: &serde_json::Value) -> Option<GatewayRegistration> {
         // Try to extract gateway registration from different possible structures
-        
+
         // Pattern 1: { "v0": { "GatewayAnnouncement": { ... } } }
         if let Some(v0) = data.get("v0").or_else(|| data.get("V0")) {
             if let Some(announcement) = v0
@@ -1678,10 +1677,7 @@ impl FederationObserver {
         })
     }
 
-    async fn backfill_gateway_registrations(
-        &self,
-        dbtx: &Transaction<'_>,
-    ) -> anyhow::Result<()> {
+    async fn backfill_gateway_registrations(&self, dbtx: &Transaction<'_>) -> anyhow::Result<()> {
         info!("Starting gateway registrations backfill...");
 
         // Query all Lightning consensus items
@@ -1725,10 +1721,8 @@ impl FederationObserver {
                     .await?
                     .and_then(|row| row.get(0));
 
-                let registered_at =
-                    registered_at.unwrap_or_else(|| chrono::Utc::now().naive_utc());
-                let expires_at =
-                    registered_at + chrono::Duration::seconds(reg.ttl_seconds as i64);
+                let registered_at = registered_at.unwrap_or_else(|| chrono::Utc::now().naive_utc());
+                let expires_at = registered_at + chrono::Duration::seconds(reg.ttl_seconds as i64);
 
                 // Insert into normalized table
                 dbtx.execute(
@@ -1758,11 +1752,8 @@ impl FederationObserver {
 
         // Refresh materialized view
         info!("Refreshing ln_current_gateways materialized view...");
-        dbtx.execute(
-            "REFRESH MATERIALIZED VIEW ln_current_gateways",
-            &[],
-        )
-        .await?;
+        dbtx.execute("REFRESH MATERIALIZED VIEW ln_current_gateways", &[])
+            .await?;
 
         info!("Gateway registrations backfill complete!");
 

@@ -15,7 +15,7 @@ use fedimint_core::config::{ClientConfig, FederationId, JsonClientConfig};
 use fedimint_core::core::ModuleInstanceId;
 use fedimint_core::invite_code::InviteCode;
 use fedimint_core::module::registry::ModuleDecoderRegistry;
-use fmo_api_types::{FederationSummary, FedimintTotals};
+use fmo_api_types::{FederationSummary, FedimintTotals, NonceSpendInfo, NoncesRequest};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -59,6 +59,7 @@ pub fn get_federations_routes() -> Router<AppState> {
         .route("/:federation_id/sessions", get(list_sessions))
         .route("/:federation_id/sessions/count", get(count_sessions))
         .route("/:federation_id/backfill", post(backfill_federation))
+        .route("/:federation_id/nonces/spend", post(get_nonces_spend_info))
 }
 
 pub async fn list_observed_federations(
@@ -188,4 +189,16 @@ fn instance_to_kind(config: &ClientConfig, module_instance_id: ModuleInstanceId)
         .get(&module_instance_id)
         .map(|module_config| module_config.kind.to_string())
         .unwrap_or_else(|| "not-in-config".to_owned())
+}
+
+async fn get_nonces_spend_info(
+    Path(federation_id): Path<FederationId>,
+    State(state): State<AppState>,
+    Json(request): Json<NoncesRequest>,
+) -> crate::error::Result<Json<std::collections::HashMap<String, NonceSpendInfo>>> {
+    Ok(state
+        .federation_observer
+        .get_nonces_spend_info(federation_id, &request.nonces)
+        .await?
+        .into())
 }

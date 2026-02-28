@@ -5,7 +5,7 @@ use nostr_sdk::{EventBuilder, Kind, SingleLetterTag, Tag, TagKind};
 use reqwest::StatusCode;
 
 use crate::components::alert::{Alert, AlertLevel};
-use crate::components::federation::stars_seletor::StarsSelector;
+use crate::components::federation::stars_selector::StarsSelector;
 use crate::BASE_URL;
 
 #[component]

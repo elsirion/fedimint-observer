@@ -14,7 +14,7 @@
         pkgs = import nixpkgs {
           inherit system;
         };
-        flakeboxLib = flakebox.lib.${system} { };
+        flakeboxLib = flakebox.lib.mkLib pkgs { };
         lib = pkgs.lib;
         stdenv = pkgs.stdenv;
 

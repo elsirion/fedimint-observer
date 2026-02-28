@@ -26,6 +26,7 @@ use fedimint_mint_common::{MintConsensusItem, MintInput, MintOutput};
 use fedimint_wallet_common::{WalletConsensusItem, WalletInput, WalletOutput, WalletOutputV0};
 use fmo_api_types::{
     FederationActivity, FederationHealth, FederationSummary, FederationUtxo, FedimintTotals,
+    NonceSpendInfo,
 };
 use futures::future::join_all;
 use futures::StreamExt;
@@ -1428,6 +1429,67 @@ impl FederationObserver {
             &[],
         )
         .await? as u32)
+    }
+
+    pub async fn get_nonces_spend_info(
+        &self,
+        federation_id: FederationId,
+        nonces: &[String],
+    ) -> anyhow::Result<std::collections::HashMap<String, NonceSpendInfo>> {
+        use chrono::{DateTime, Utc};
+
+        if nonces.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let _ = self
+            .get_federation(federation_id)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Federation doesn't exist"))?;
+
+        #[derive(Debug, FromRow)]
+        struct NonceSpendRow {
+            nonce: String,
+            session_index: i32,
+            estimated_session_timestamp: Option<chrono::NaiveDateTime>,
+        }
+
+        // Extract nonce from JSONB: {"V0": {"note": {"nonce": "..."}}}
+        // language=postgresql
+        let sql = "
+            SELECT
+                tid.details->'V0'->'note'->>'nonce' AS nonce,
+                t.session_index,
+                st.estimated_session_timestamp
+            FROM transaction_input_details tid
+            JOIN transactions t ON tid.federation_id = t.federation_id AND tid.txid = t.txid
+            LEFT JOIN session_times st ON t.federation_id = st.federation_id AND t.session_index = st.session_index
+            WHERE tid.federation_id = $1
+              AND tid.kind = 'mint'
+              AND tid.details->'V0'->'note'->>'nonce' = ANY($2)
+        ";
+
+        let rows = query::<NonceSpendRow>(
+            &self.connection().await?,
+            sql,
+            &[&federation_id.consensus_encode_to_vec(), &nonces],
+        )
+        .await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                (
+                    row.nonce,
+                    NonceSpendInfo {
+                        session_index: row.session_index as u64,
+                        estimated_timestamp: row
+                            .estimated_session_timestamp
+                            .map(|ts| DateTime::<Utc>::from_naive_utc_and_offset(ts, Utc)),
+                    },
+                )
+            })
+            .collect())
     }
 
     pub async fn backfill_federation(

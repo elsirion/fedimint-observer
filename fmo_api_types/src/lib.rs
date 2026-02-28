@@ -62,3 +62,14 @@ pub enum FederationHealth {
     Degraded,
     Offline,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NoncesRequest {
+    pub nonces: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NonceSpendInfo {
+    pub session_index: u64,
+    pub estimated_timestamp: Option<chrono::DateTime<chrono::Utc>>,
+}

@@ -1,6 +1,0 @@
-{
-  "COMMENT": "Package.json is needed to install dependencies of Tailwind only",
-  "devDependencies": {
-    "tailwindcss": "^3.3.3"
-  }
-}

@@ -86,8 +86,10 @@ impl FederationConfigCache {
 }
 
 async fn fetch_config_inner(invite: &InviteCode) -> anyhow::Result<JsonClientConfig> {
-    let raw_config = fedimint_api_client::api::net::Connector::default()
-        .download_from_invite_code(invite)
+    let connectors = fedimint_connectors::ConnectorRegistry::build_from_client_env()?
+        .bind()
         .await?;
+    let (raw_config, _api) =
+        fedimint_api_client::download_from_invite_code(&connectors, invite).await?;
     config_to_json(raw_config)
 }

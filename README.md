@@ -17,9 +17,8 @@ These APIs live under the `/federations` path, you can find all the endpoints in
 One example is the [`/federations`](https://observer.fedimint.org/api/federations) endpoint itself that returns a list
 of all federations that are being observed.
 
-This API is also the data source for the frontend that powers https://observer.fedimint.org and is also hosted in this
-repository in the `fmo_frontend` directory. The frontend is a Leptos PWA, so is fully written in Rust and compiled to
-WASM. It uses [Tailwind](https://tailwindcss.com/) and [Flowbite](https://flowbite.com/) for styling.
+This API is also the data source for the frontend that powers https://observer.fedimint.org. The frontend is hosted in
+the `fmo_frontend_react` directory and is built with React and TypeScript.
 
 When it comes to stability guarantees the Postgres database should always be migratable backwards-compatibly, so we
 don't lose historic data. The API under `/federations` isn't stable at this point and I'd recommend to subscribing to
@@ -40,7 +39,6 @@ In there you can run a variety of `just` commands (to be called as `just <COMMAN
 * `check`: run `cargo check` on the entire workspace
 * `pg_start` and `pg_stop`: start/stop a postgresql instance for local testing in the background
 * `pg_backup` and `pg_restore`: in case you are building a DB migration it's useful to be able to reset the DB
-* `serve_frontend`: automatically rebuild the frontend on changes and serve it with `trunk`
 
 ## Deployment
 
@@ -89,7 +87,7 @@ I currently run the public instance at https://observer.fedimint.org using the f
     virtualHosts."observer.fedimint.org" = {
       enableACME = true;
       forceSSL = true;
-      root = fmo.fmo_frontend;
+      root = fmo.fmo_frontend_react_default;
       locations."/" = {
         extraConfig = ''
           try_files $uri $uri/ /index.html;

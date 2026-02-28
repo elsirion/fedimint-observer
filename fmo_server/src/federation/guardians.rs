@@ -27,15 +27,13 @@ impl FederationObserver {
         const REQUEST_INTERVAL: Duration = Duration::from_secs(60);
 
         let mut interval = tokio::time::interval(REQUEST_INTERVAL);
-        let api = DynGlobalApi::from_endpoints(
-            config
-                .global
-                .api_endpoints
-                .iter()
-                .map(|(&peer_id, peer_url)| (peer_id, peer_url.url.clone())),
-            &None,
-        )
-        .await?;
+        let peers = config
+            .global
+            .api_endpoints
+            .iter()
+            .map(|(&peer_id, peer_url)| (peer_id, peer_url.url.clone()))
+            .collect();
+        let api = DynGlobalApi::new(self.connectors().clone(), peers, None)?;
 
         let wallet_module = config
             .modules

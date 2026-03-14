@@ -3,7 +3,7 @@ mod chart;
 mod general;
 mod guardians;
 pub mod nostr_vote;
-pub mod stars_seletor;
+pub mod stars_selector;
 mod utxos;
 
 use std::collections::BTreeMap;

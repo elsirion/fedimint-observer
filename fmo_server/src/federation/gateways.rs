@@ -51,14 +51,9 @@ impl FederationObserver {
         let mut interval = tokio::time::interval(POLL_INTERVAL);
         loop {
             interval.tick().await;
-            if let Err(e) = Self::fetch_and_store_gateways(
-                self,
-                federation_id,
-                &api,
-                ln_instance_id,
-                &peer_ids,
-            )
-            .await
+            if let Err(e) =
+                Self::fetch_and_store_gateways(self, federation_id, &api, ln_instance_id, &peer_ids)
+                    .await
             {
                 warn!(
                     "Failed to fetch gateways for federation {}: {:?}",
@@ -94,9 +89,7 @@ impl FederationObserver {
             match result {
                 Ok(gateways) => {
                     for gw in gateways {
-                        merged
-                            .entry(gw.info.gateway_id.to_string())
-                            .or_insert(gw);
+                        merged.entry(gw.info.gateway_id.to_string()).or_insert(gw);
                     }
                 }
                 Err(e) => {

@@ -78,6 +78,8 @@ pub struct GatewayInfo {
     /// Full raw announcement, useful for forwards-compatible client usage
     #[serde(skip_serializing_if = "Option::is_none")]
     pub raw: Option<serde_json::Value>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NoncesRequest {
     pub nonces: Vec<String>,

@@ -2236,6 +2236,7 @@ dependencies = [
  "bitcoin 0.32.6",
  "fedimint-core 0.8.0-beta.2",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 pub mod db;
-mod gateways;
+pub(crate) mod gateways;
 mod guardians;
 mod meta;
 pub(crate) mod nostr;

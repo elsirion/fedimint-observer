@@ -41,4 +41,9 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |-
-          nix_tag=${{ env.fedimint_observer_container_tag }} && hub_tag="$REGISTRY/$REPOSITORY:$IMAGE_TAG" && docker tag "$nix_tag" "$hub_tag" && docker push "$hub_tag"
+          nix_tag="${{ env.fedimint_observer_container_tag }}"
+          for tag in "$IMAGE_TAG" "latest" "master"; do
+            hub_tag="$REGISTRY/$REPOSITORY:$tag"
+            docker tag "$nix_tag" "$hub_tag"
+            docker push "$hub_tag"
+          done

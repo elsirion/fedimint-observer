@@ -19,9 +19,6 @@ just pg_start
 # Run backend server with auto-reload
 just watch
 
-# Run frontend with hot-reload (in separate terminal)
-just serve_frontend
-
 # Check code compilation and common issues (preferred during development)
 just clippy
 
@@ -39,7 +36,6 @@ just final-check
 ```bash
 just build              # Build everything
 just build_package fmo_server
-just build_package fmo_frontend --target wasm32-unknown-unknown
 ```
 
 ### Code Quality Commands
@@ -63,7 +59,6 @@ just pg_restore BACKUP_FILE
 ### Testing Specific Components
 ```bash
 just test_package fmo_server
-just test_package fmo_frontend --target wasm32-unknown-unknown
 ```
 
 ## Architecture Overview
@@ -74,17 +69,13 @@ just test_package fmo_frontend --target wasm32-unknown-unknown
   - `/config/*` endpoints - Federation configuration API (stable)
   - `/federations/*` endpoints - Federation monitoring API (unstable)
   - Background tasks for monitoring federations and syncing data
-- `fmo_frontend/` - Frontend PWA (Leptos + WASM + Tailwind CSS)
-  - Component-based architecture with reactive state management
-  - Client-side routing with Leptos Router
+- `fmo_frontend_react/` - Frontend (React + TypeScript)
 
 ### Key Patterns
 1. **Shared Types**: All API types are defined in `fmo_api_types` and used by both frontend and backend
 2. **Database Migrations**: Version-controlled SQL migrations in `fmo_server/schema/` (v0-v8)
 3. **Background Monitoring**: `FederationObserver` spawns tasks to monitor multiple federations concurrently
-4. **State Management**:
-   - Backend: Shared app state with Arc/RwLock for thread safety
-   - Frontend: Leptos signals and resources for reactive updates
+4. **State Management**: Backend uses shared app state with Arc/RwLock for thread safety
 5. **Error Handling**: Custom `AppError` type wrapping `anyhow::Error` for consistent error propagation
 
 ### Environment Configuration
@@ -99,14 +90,6 @@ Required environment variables (see `sample.env`):
 - **Config API** (`/config/*`): Stable API for federation configuration inspection
 - **Federations API** (`/federations/*`): Unstable API for federation monitoring data
 - **Admin endpoints**: Require bearer token authentication via `FO_ADMIN_AUTH`
-
-### Frontend Development
-The frontend uses Leptos with WASM compilation. Components are organized by feature:
-- `src/components/federations/` - Federation list views
-- `src/components/federation/` - Single federation details
-- `src/components/nostr/` - Nostr integration views
-
-Use `just serve_frontend` for hot-reload development with Trunk.
 
 ### Database Schema
 PostgreSQL with materialized views and complex indexes. Key tables:

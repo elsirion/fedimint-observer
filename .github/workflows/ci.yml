@@ -13,7 +13,6 @@ jobs:
       matrix:
         target:
           - fmo_server
-          - fmo_frontend_default
           - fmo_frontend_react_default
 
     steps:

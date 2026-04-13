@@ -23,7 +23,6 @@ build_package PACKAGE *ARGS:
 
 build *ARGS:
   just build_package fmo_server {{ARGS}}
-  just build_package fmo_frontend --target wasm32-unknown-unknown {{ARGS}}
 
 # run `cargo check` on everything
 check_package PACKAGE *ARGS:
@@ -36,7 +35,6 @@ check_package PACKAGE *ARGS:
 
 check *ARGS:
   just check_package fmo_server {{ARGS}}
-  just check_package fmo_frontend --target wasm32-unknown-unknown {{ARGS}}
 
 # run all checks recommended before opening a PR
 final-check: lint clippy
@@ -78,7 +76,6 @@ test_package PACKAGE:
 
 test:
   just test_package fmo_server
-  just test_package fmo_frontend --target wasm32-unknown-unknown
 
 # run and restart on changes
 watch *ARGS="-x run":
@@ -96,7 +93,6 @@ clippy_package PACKAGE *ARGS="--locked":
 
 clippy *ARGS="--locked":
   just clippy_package fmo_server {{ARGS}}
-  RUSTFLAGS="$RUSTFLAGS --cfg getrandom_backend=\"wasm_js\"" just clippy_package fmo_frontend --target wasm32-unknown-unknown {{ARGS}}
 
 # run `cargo clippy --fix` on everything
 clippy_fix-package PACKAGE *ARGS="--locked --offline":
@@ -104,7 +100,6 @@ clippy_fix-package PACKAGE *ARGS="--locked --offline":
 
 clippy-fix *ARGS="--locked --offline":
   just clippy_fix-package fmo_server {{ARGS}}
-  just clippy_fix-package fmo_frontend --target wasm32-unknown-unknown {{ARGS}}
 
 # run `semgrep`
 semgrep:

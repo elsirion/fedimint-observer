@@ -56,8 +56,6 @@
             ".cargo"
             "fmo_api_types"
             "fmo_server"
-            "fmo_frontend"
-            "tailwind.config.js"
           ];
         };
 
@@ -89,68 +87,6 @@
               };
 
             });
-
-        wasmPackages =
-          let
-            craneLib = (flakeboxLib.mkStdToolchains { }).wasm32-unknown.craneLib;
-
-            wasmArgs = {
-              src = rustSrc;
-
-              cargoExtraArgs = "--package=fmo_frontend";
-              trunkIndexPath = "index.html";
-              strictDeps = true;
-
-              pname = "fmo_frontend";
-              version = "0.1.0";
-
-              # Specify the wasm32 target
-              CARGO_BUILD_TARGET = "wasm32-unknown-unknown";
-              RUSTFLAGS = "--cfg=web_sys_unstable_apis --cfg getrandom_backend=\"wasm_js\"";
-            };
-
-            cargoArtifactsWasm = craneLib.buildDepsOnly (wasmArgs // {
-              doCheck = false;
-            });
-          in
-          rec {
-            fmo_frontend = api: craneLib.buildTrunkPackage (wasmArgs // {
-              cargoArtifacts = cargoArtifactsWasm;
-
-              preBuild = ''
-                cd ./fmo_frontend
-              '';
-
-              postBuild = ''
-                mv ./dist ..
-                cd ..
-              '';
-
-              nativeBuildInputs = with pkgs; [
-                wasm-pack
-                nodejs
-                binaryen
-                nodePackages.tailwindcss
-              ];
-
-              FMO_API_SERVER = api;
-
-              wasm-bindgen-cli = pkgs.buildWasmBindgenCli rec {
-                src = pkgs.fetchCrate {
-                  pname = "wasm-bindgen-cli";
-                  version = "0.2.100";
-                  hash = "sha256-3RJzK7mkYFrs7C/WkhW9Rr4LdP5ofb2FdYGz1P7Uxog=";
-                };
-
-                cargoDeps = pkgs.rustPlatform.fetchCargoVendor {
-                  inherit src;
-                  inherit (src) pname version;
-                  hash = "sha256-qsO12332HSjWCVKtf1cUePWWb9IdYUmT+8OPj/XP2WE=";
-                };
-              };
-            });
-            fmo_frontend_default = fmo_frontend "http://localhost:3000";
-          };
 
         reactPackages =
           let
@@ -216,6 +152,8 @@
             # sqlite is used only for creating the dump file for migrating existing instances
             pkgs.sqlite
             pkgs.nixpkgs-fmt
+            # cmake is required for building aws-lc-sys (fedimint dependency)
+            pkgs.cmake
           ] ++ lib.optionals stdenv.isDarwin [
             pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
           ];
@@ -228,7 +166,7 @@
           RUSTFLAGS = "--cfg=web_sys_unstable_apis --cfg=tokio_unstable";
         };
 
-        legacyPackages = nativePackages // wasmPackages // reactPackages;
+        legacyPackages = nativePackages // reactPackages;
         packages.default = nativePackages.fmo_server;
       }
     );

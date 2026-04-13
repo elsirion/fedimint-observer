@@ -160,15 +160,16 @@ impl ConsensusMetaCache {
             bail!("No meta module found in federation");
         };
 
-        let api_client = DynGlobalApi::from_endpoints(
-            config
-                .global
-                .api_endpoints
-                .iter()
-                .map(|(peer_id, peer)| (*peer_id, peer.url.clone())),
-            &None,
-        )
-        .await?;
+        let connectors = fedimint_connectors::ConnectorRegistry::build_from_client_env()?
+            .bind()
+            .await?;
+        let peers = config
+            .global
+            .api_endpoints
+            .iter()
+            .map(|(peer_id, peer)| (*peer_id, peer.url.clone()))
+            .collect();
+        let api_client = DynGlobalApi::new(connectors, peers, None)?;
 
         let module_api = api_client.with_module(*meta_instance_id);
 

@@ -230,7 +230,11 @@ impl FederationObserver {
 
                 // Special case single guardian federations to not show them as degraded
                 if federation.guardians == 1 {
-                    return Ok((federation_id, FederationHealth::Online));
+                    if federation.online_guardians >= 1 {
+                        return Ok((federation_id, FederationHealth::Online));
+                    } else {
+                        return Ok((federation_id, FederationHealth::Offline));
+                    }
                 }
 
                 let threshold = NumPeers::from(federation.guardians as usize).threshold();

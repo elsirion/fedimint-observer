@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../services/api';
 import type { FederationSummary, GatewayInfo, GatewayWindow } from '../types/api';
-import { Alert } from '../components/Alert';
+import { GatewayWarningPage, type GatewayWarningState } from '../components/GatewayWarningPage';
 
 type GatewayStatus = 'online' | 'degraded' | 'offline' | 'unknown';
 type UptimeStripStatus = 'online' | 'degraded' | 'offline' | 'unknown';
@@ -220,6 +220,106 @@ function mergeGatewayData(observedGateways: GatewayInfo[], liveGateways: Gateway
   return merged;
 }
 
+interface GatewaySelection {
+  gateways: GatewayInfo[];
+  warning: GatewayWarningState | null;
+}
+
+function selectGatewayData(
+  observedGateways: GatewayInfo[],
+  liveGateways: GatewayInfo[],
+  observedError: string | null,
+  liveError: string | null,
+  hasInvite: boolean,
+): GatewaySelection {
+  if (liveGateways.length > 0) {
+    if (observedGateways.length === 0) {
+      return {
+        gateways: liveGateways,
+        warning: {
+          level: 'info',
+          title: 'Live Gateway Data Only',
+          message: 'Showing gateways from invite-based live discovery.',
+          detail: 'Observed gateway history is unavailable on this backend.',
+        },
+      };
+    }
+
+    return {
+      gateways: mergeGatewayData(observedGateways, liveGateways),
+      warning: {
+        level: 'info',
+        title: 'Merged Gateway Sources',
+        message: 'Combined observed history with live invite-based gateway metadata.',
+        detail: 'Live data provides the latest registry details, while observed data keeps status and activity context.',
+      },
+    };
+  }
+
+  if (observedGateways.length > 0) {
+    if (liveError) {
+      return {
+        gateways: observedGateways,
+        warning: {
+          level: 'warning',
+          title: 'Live Lookup Failed',
+          message: 'Showing observed gateway data from the backend.',
+          detail: `Live invite lookup error: ${liveError}`,
+        },
+      };
+    }
+
+    if (hasInvite) {
+      return {
+        gateways: observedGateways,
+        warning: {
+          level: 'warning',
+          title: 'Live Lookup Returned No Gateways',
+          message: 'Showing observed gateway data from the backend.',
+          detail: 'Invite-based lookup returned an empty gateway list.',
+        },
+      };
+    }
+
+    return { gateways: observedGateways, warning: null };
+  }
+
+  const reason = observedError ?? 'No gateway data available on the configured API backend.';
+  if (liveError) {
+    return {
+      gateways: [],
+      warning: {
+        level: 'error',
+        title: 'Gateway Data Unavailable',
+        message: 'Could not load gateway data from backend or invite-based live lookup.',
+        detail: `Backend: ${reason}. Live: ${liveError}`,
+      },
+    };
+  }
+
+  if (hasInvite) {
+    return {
+      gateways: [],
+      warning: {
+        level: 'warning',
+        title: 'No Gateways Returned',
+        message: 'Both backend and invite-based lookup returned no gateway records.',
+        detail: 'This can happen for new federations or backends with incomplete gateway ingestion.',
+      },
+    };
+  }
+
+  return {
+    gateways: [],
+    warning: {
+      level: 'warning',
+      title: 'Gateway Data Unavailable',
+      message: 'The configured backend did not return any gateway data.',
+      detail: reason,
+    },
+  };
+}
+
 export function FederationGateways() {
   const { id } = useParams<{ id: string }>();
   const [federation, setFederation] = useState<FederationSummary | null>(null);
@@ -227,7 +327,7 @@ export function FederationGateways() {
   const [loading, setLoading] = useState(true);
   const [windowLoading, setWindowLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [gatewayWarning, setGatewayWarning] = useState<string | null>(null);
+  const [gatewayWarning, setGatewayWarning] = useState<GatewayWarningState | null>(null);
   const [timeWindow, setTimeWindow] = useState<GatewayWindow>('7d');
   const hasLoadedOnce = useRef(false);
   const requestSeq = useRef(0);
@@ -295,52 +395,26 @@ export function FederationGateways() {
         }
         if (cancelled || currentRequest !== requestSeq.current) return;
 
-        if (liveGateways.length > 0) {
-          if (observedGateways.length === 0) {
-            setGateways(liveGateways);
-            setGatewayWarning(
-              'Showing live gateway data via invite-based lookup (observed gateway data unavailable on this API backend).',
-            );
-          } else {
-            setGateways(mergeGatewayData(observedGateways, liveGateways));
-            setGatewayWarning(
-              'Merged observed gateway history (status/activity) with live invite-based registry (latest metadata).',
-            );
-          }
-          return;
-        }
-
-        if (observedGateways.length > 0) {
-          setGateways(observedGateways);
-          if (liveError) {
-            setGatewayWarning(
-              `Live invite lookup failed (${liveError}); showing observed gateway data from backend.`,
-            );
-          } else if (fed?.invite) {
-            setGatewayWarning(
-              'Live invite lookup returned no gateways; showing observed gateway data from backend.',
-            );
-          }
-          return;
-        }
-
-        const reason = observedError ?? 'No gateway data available on the configured API backend.';
-        setGateways([]);
-        if (liveError) {
-          setGatewayWarning(
-            `Gateway data is unavailable right now. ${reason}. Live fallback also failed: ${liveError}`,
-          );
-        } else if (fed?.invite) {
-          setGatewayWarning('No gateway data returned from either observed or invite-based live lookup.');
-        } else {
-          setGatewayWarning(`Gateway data is unavailable right now. ${reason}`);
-        }
+        const selection = selectGatewayData(
+          observedGateways,
+          liveGateways,
+          observedError,
+          liveError,
+          Boolean(fed?.invite),
+        );
+        setGateways(selection.gateways);
+        setGatewayWarning(selection.warning);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to load gateways';
         if (!hasLoadedOnce.current) {
           setError(message);
         } else {
-          setGatewayWarning(`Failed to refresh selected window: ${message}`);
+          setGatewayWarning({
+            level: 'warning',
+            title: 'Refresh Failed',
+            message: 'Failed to refresh the selected time window.',
+            detail: message,
+          });
         }
       } finally {
         if (!cancelled && currentRequest === requestSeq.current) {
@@ -541,7 +615,7 @@ export function FederationGateways() {
           {windowLoading && (
             <span className="text-xs text-gray-500 dark:text-gray-400">Updating...</span>
           )}
-          {(['1h', '24h', '7d', '30d', '90d'] as GatewayWindow[]).map((window) => (
+          {(['24h', '7d', '30d', '90d'] as GatewayWindow[]).map((window) => (
             <button
               key={window}
               disabled={windowLoading}
@@ -559,12 +633,7 @@ export function FederationGateways() {
       </div>
 
       {gatewayWarning && (
-        <Alert
-          level="warning"
-          title="Gateway API: "
-          message={gatewayWarning}
-          className="mb-6"
-        />
+        <GatewayWarningPage warning={gatewayWarning} className="mb-6" />
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 sm:gap-4 mb-6">
@@ -658,7 +727,9 @@ export function FederationGateways() {
             {mostActive.map((gateway) => (
               <div key={gateway.gateway_id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-2.5">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-mono text-gray-900 dark:text-white">{shortId(gateway.gateway_id)}</span>
+                  <span className="font-mono text-gray-900 dark:text-white">
+                    {gateway.lightning_alias || shortId(gateway.gateway_id)}
+                  </span>
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {(gateway.realActivityScore ?? 0).toLocaleString()}
                   </span>
